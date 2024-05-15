@@ -1,3 +1,13 @@
+# .gitignore file for project
+
+# basic .gitignores
 **/__pycache__/
+libs
+
+# super secret stuff
 papers
 prototypes
+
+# peract stuff
+peract/ckpts
+peract/peract.egg-info
