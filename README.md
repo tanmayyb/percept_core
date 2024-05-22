@@ -24,3 +24,11 @@ Requires-Dist: PyYAML (>=5.1.*)
 to
 Requires-Dist: PyYAML (>=5.1)
 ```
+
+### Installation of ROS2 Plugin for Coppelia Sim (simROS2)
+
+1. CoppeliaSim player [[link](https://www.coppeliarobotics.com/previousVersions)]
+2. Plugin install [[link](https://manual.coppeliarobotics.com/en/ros2Tutorial.htm)], [[link](https://github.com/CoppeliaRobotics/simROS2)]
+3. Include programming/include [[link](https://github.com/CoppeliaRobotics/include/tree/master)] [[link](https://manual.coppeliarobotics.com/)] 
+4. Stubs generator [[link](https://github.com/CoppeliaRobotics/include/blob/master/simStubsGen/README.md)] dependencies 
+5. Making sure all git repos had tag 4.5.1 and tweaking around the simROS2 CMakerLists.txt 
