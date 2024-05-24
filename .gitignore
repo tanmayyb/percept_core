@@ -3,6 +3,7 @@
 # basic .gitignores
 **/__pycache__/
 libs
+backup
 
 # super secret stuff
 papers
