@@ -4,6 +4,7 @@
 **/__pycache__/
 libs
 backup
+peract_env
 
 # super secret stuff
 papers
@@ -12,3 +13,4 @@ prototypes
 # peract stuff
 peract/ckpts
 peract/peract.egg-info
+peract/data
