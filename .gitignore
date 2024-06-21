@@ -11,10 +11,10 @@ papers
 prototypes
 
 # peract stuff
-peract/ckpts
-peract/peract.egg-info
-peract/data
-peract/outputs
+src/repos/peract/ckpts
+src/repos/peract/peract.egg-info
+src/repos/peract/data
+src/repos/peract/outputs
 
 
 tutorial/peract_env
