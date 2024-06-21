@@ -17,7 +17,7 @@ peract/data
 peract/outputs
 
 
-percept/notebooks/tutorial/peract_env
-percept/notebooks/tutorial/peract_colab
-percept/notebooks/tutorial/replay_train
-percept/notebooks/tutorial/replay_test
+tutorial/peract_env
+tutorial/peract_colab
+tutorial/replay_train
+tutorial/replay_test
