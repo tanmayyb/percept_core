@@ -28,7 +28,8 @@ git clone https://github.com/peract/peract.git
 sudo apt install python3-virtualenv
 virtualenv -p $(which python3.8) --system-site-packages peract_env  
 source peract_env/bin/activate
-pip install --upgrade pip
+python -m pip uninstall pip
+python -m pip install pip==21.0.1
 cd peract
 export PERACT_ROOT=$(pwd)   # export PERACT_ROOT="/home/dev/ws_percept/peract"
 
