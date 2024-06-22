@@ -16,8 +16,12 @@ src/repos/peract/peract.egg-info
 src/repos/peract/data
 src/repos/peract/outputs
 
-
+# tutorial data
 tutorial/peract_env
 tutorial/peract_colab
 tutorial/replay_train
 tutorial/replay_test
+
+
+# outputs
+src/outputs
