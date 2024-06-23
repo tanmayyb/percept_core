@@ -3,6 +3,12 @@
 ![alt text](imgs/banner.png)
 
 
+CUDA 10 does not work with NVRTX3070. Installed supported pytorch libs by forcing CUDA version:
+```
+pip install --force-reinstall torch==1.7.1 torchvision==0.8.2 --index-url https://download.pytorch.org/whl/cu110
+```
+
+Commended out torch libs in requirements.txt and then installed peract.
 
 
 ```
