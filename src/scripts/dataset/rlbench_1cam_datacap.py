@@ -14,7 +14,7 @@ IMAGE_SIZE  = 128
 # launch scene
 pr = PyRep()
 pr.launch(
-    './scenes/test_scene_reinforcement_learning_env.ttt', 
+    './scenes/rlbench_1cam.ttt', 
     headless=HEADLESS,
 ) 
 pr.start() 
@@ -76,7 +76,7 @@ while (time.time() - start_time) < SIMULATION_TIME:
     pr.step()
 
 
-obs.save_observations('./outputs/2cam_test_dataset.pkl')
+obs.save_observations('./outputs/rlbench_1cam.pkl')
 
 
 pr.stop()
