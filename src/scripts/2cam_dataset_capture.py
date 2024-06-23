@@ -76,7 +76,7 @@ while (time.time() - start_time) < SIMULATION_TIME:
     pr.step()
 
 
-obs.save_observations('./outputs/observations.pkl')
+obs.save_observations('./outputs/2cam_test_dataset.pkl')
 
 
 pr.stop()
