@@ -79,7 +79,7 @@ observer_handle = Observer(
 start_time = time.time()
 while (time.time() - start_time) < SIMULATION_TIME:
 
-    # capture cam
+    # capture obs
     observer_handle.store_new_observation()
 
     # step simulation

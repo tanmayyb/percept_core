@@ -7,5 +7,4 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$COPPELIASIM_ROOT
 export QT_QPA_PLATFORM_PLUGIN_PATH=$COPPELIASIM_ROOT
 
 cd $PERCEPT_SRC
-# python scripts/capture_dataset.py
 python scripts/dataset/dualarms_2cam_datacap.py
