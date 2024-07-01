@@ -8,6 +8,7 @@ SIMULATION_TIME = 5.0
 HEADLESS    = True
 IMAGE_SIZE  = 240
 CAMERAS = ['front', 'back']
+DATASET_SAVE_FILEPATH = './outputs/dualarms_2cam/dualarms_2cam.pkl'
 
 class Observer():
     def __init__(
@@ -86,7 +87,7 @@ while (time.time() - start_time) < SIMULATION_TIME:
     pr.step()
 
 # save dataset
-observer_handle.save_observations('./outputs/dualarms_2cam/dualarms_2cam.pkl')
+observer_handle.save_observations(DATASET_SAVE_FILEPATH)
 
 pr.stop()
 pr.shutdown()
