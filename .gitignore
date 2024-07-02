@@ -25,3 +25,8 @@ tutorial/replay_test
 
 # outputs
 src/outputs
+
+
+
+#misc
+*.ini
