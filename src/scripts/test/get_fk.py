@@ -9,7 +9,7 @@ SIMULATION_TIME = 5.0
 HEADLESS    = True
 IMAGE_SIZE  = 240
 CAMERAS = ['front', 'back']
-DATASET_SAVE_FILEPATH = './outputs/dualarms_2cam/dualarms_2cam_with_joints.pkl'
+DATASET_SAVE_FILEPATH = './outputs/dualarms_2cam/dualarms_2cam_with_fk.pkl'
 
 
 
@@ -29,6 +29,7 @@ class ArmWrapper(Arm):
         count: int = 0
     ):
         super().__init__(count, name, 7)  
+        self.name = f'{name}{count}'
 
 # setup agent
 agent1 = ArmWrapper('Panda')
@@ -59,17 +60,28 @@ class Observer():
         self.agents = AGENTS
 
     def store_new_observation(self) -> None:
-        obs = dict(cams=dict(), joints=dict())
+        obs = dict()
         
         # store cam obs
         for cam_name, cam in self.cameras.items():
-            obs['cams'][cam_name] = self.get_camera_observation(cam) 
+            obs[cam_name] = self.get_camera_observation(cam) 
 
         # store arm joints obs
         for agent in self.agents['arms']:
-            obs['joints'][agent._handle] = agent.get_joint_positions()
+            obs[agent.name] = self.get_agent_observation(agent)
 
+        # store observation
         self.observations.append(obs)
+
+    def get_agent_observation(self, agent) -> dict:
+        joint_positions = agent.get_joint_positions()
+        global_position = agent.get_position()
+        global_orientation = agent.get_orientation()
+        return dict( 
+            joint_positions = joint_positions,
+            global_position = global_position,
+            global_orientation = global_orientation,
+        )
 
     def get_camera_observation(self, cam:VisionSensor) -> dict:
         rgb = cam.capture_rgb()
