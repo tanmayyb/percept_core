@@ -31,9 +31,17 @@ class ArmWrapper(Arm):
         super().__init__(count, name, 7)  
         self.name = f'{name}{count}'
 
-# setup agent
-agent1 = ArmWrapper('Panda')
-agent2 = ArmWrapper('Panda', count=1)
+# setup agents
+# from Pyrep's robots/arms/arm.py
+# suffix = '' if count == 0 else '#%d' % (count - 1) 
+agent1 = ArmWrapper('Franka',)
+agent2 = ArmWrapper('Franka', count=1) 
+
+agent_dict = dict(arms=[
+    agent1, 
+    agent2
+])
+
 
 class Observer():
     def __init__(
@@ -74,13 +82,13 @@ class Observer():
         self.observations.append(obs)
 
     def get_agent_observation(self, agent) -> dict:
-        joint_positions = agent.get_joint_positions()
-        global_position = agent.get_position()
-        global_orientation = agent.get_orientation()
+        joint_pos = agent.get_joint_positions()
+        global_pos = agent.get_position()
+        global_ang = agent.get_orientation()
         return dict( 
-            joint_positions = joint_positions,
-            global_position = global_position,
-            global_orientation = global_orientation,
+            joint_pos = joint_pos,
+            global_pos = global_pos,
+            global_ang = global_ang,
         )
 
     def get_camera_observation(self, cam:VisionSensor) -> dict:
@@ -107,7 +115,6 @@ class Observer():
 
 
 # setup observer
-agent_dict = dict(arms=[agent1, agent2])
 observer_handle = Observer(
     CAMERAS,
     IMAGE_SIZE,
