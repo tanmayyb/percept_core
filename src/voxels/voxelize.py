@@ -164,6 +164,8 @@ class Pipeline():
         pcds:list
     )->cph.geometry.PointCloud:
         global SHOW_VISUALIZATION
+        
+        start = time.time()
 
         # load source and target pointcloud
         source_gpu = cph.geometry.PointCloud(
@@ -178,7 +180,7 @@ class Pipeline():
                                 [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
 
         # register pointclouds
-        start = time.time()
+
         reg_p2p = cph.registration.registration_icp(
             source_gpu,
             target_gpu,
@@ -197,7 +199,7 @@ class Pipeline():
 
         pcd = source_gpu+target_gpu
         elapsed_time = time.time() - start
-        print("ICP (GPU) [sec]:", elapsed_time) # adding outlier removal adds ~25ms
+        print("\nICP (GPU) [sec]:", elapsed_time, '\n') # adding outlier removal adds ~25ms
 
         if SHOW_VISUALIZATION:
             cph.visualization.draw_geometries([pcd])
@@ -242,6 +244,7 @@ class Pipeline():
             # find points within BBs and create masks
             start = time.time()
             for mesh in meshes:
+                mesh = mesh.compute_vertex_normals()
                 bb = self.get_bb_from_mesh(mesh)
 
                 if bb is not None:
@@ -295,7 +298,9 @@ class Pipeline():
 
     def forward(self):
         global _obs
-
+        
+        start = time.time()
+        
         # get pcd
         obs = _obs[-1]
         pcds = self.get_pcds_for_registration(obs)
@@ -308,6 +313,9 @@ class Pipeline():
 
         # Voxels
         voxels = self.convert_pointcloud_to_voxels(rbs_pcd)
+
+        elapsed_time = time.time() - start
+        print("Total Pipeline Time (GPU+CPU) [sec]:", elapsed_time)
 
        
 pipeline = Pipeline()
