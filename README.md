@@ -50,7 +50,7 @@ cd $COPPELIASIM_ROOT && ./coppeliaSim.sh
 
 ### Collaborators
 - Riddhiman Laha
-- Tinayu ...
+- Tinayu Ren
 
 ### Projects
 - CuPoch
