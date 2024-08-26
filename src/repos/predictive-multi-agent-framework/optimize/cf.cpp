@@ -243,14 +243,20 @@ Eigen::Vector3d calculateRotationVector(
 }
 
 
+// void circForce(
+//   const std::vector<Obstacle> &obstacles,
+//   const double k_circ
+// ){
+  
 void circForce(
   const std::vector<Obstacle> &obstacles,
-  const double k_circ
+  const double k_circ,
+  const double detect_shell_rad_
 ){
   Eigen::Vector3d force_{0.0,0.0,0.0};
   Eigen::Vector3d g_pos_ = getGoalPosition(); // goal_pos
   Eigen::Vector3d vel_ = getVelocity();
-  const double detect_shell_rad_ = 0.5;
+  // const double detect_shell_rad_ = 0.5;
   const double rad_ = 0.5;
   double min_obs_dist_ = detect_shell_rad_; 
   std::vector<bool> known_obstacles_(obstacles.size(), false);
@@ -309,9 +315,10 @@ void circForce(
 
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> duration = end - start;
-  std::cout << "Function execution time: " << duration.count() << " seconds" << std::endl;
+  // std::cout << "Function execution time: " << duration.count() << " seconds" << std::endl;
+  // std::cout<<"force: "<<force_<<"\tactive obstacles"<<active_obstacles<<std::endl;
+  std::cout<<"\t"<<"[ "<<detect_shell_rad_<<", "<<active_obstacles<<", "<<duration.count()<<" ],"<<std::endl;
 
-  std::cout<<"force: "<<force_<<"\tactive obstacles"<<active_obstacles<<std::endl;
 }
 
 
@@ -335,7 +342,16 @@ int main(){
   std::vector<Obstacle> obstacles;
 
   loadObstacles(&obstacles);
-  circForce(obstacles, 0.025);
+  // circForce(obstacles, 0.025);
+
+  std::cout<<std::endl<<"["<<std::endl;
+
+  for(int i=0; i<20;i++){
+    float rad = float(i)*float(i)/100.0;
+    circForce(obstacles, 0.025, rad);
+  }
+
+  std::cout<<"]"<<std::endl<<std::endl;
 
 
   std::cout<<"Program Done"<<std::endl;
