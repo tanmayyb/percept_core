@@ -47,7 +47,7 @@ cross
 */
 
 Eigen::Vector3d getLatestPosition() {
-  Eigen::Vector3d pos{0.5,0.5,1.0};
+  Eigen::Vector3d pos{1.0,1.0,1.0};
   return pos;
 }
 
@@ -58,7 +58,7 @@ Eigen::Vector3d getGoalPosition() {
 }
 
 Eigen::Vector3d getVelocity() {
-  Eigen::Vector3d pos{0.4, -1.0, 0.0};
+  Eigen::Vector3d pos{-0.1, -0.2, -0.2};
   return pos;
 }
 
@@ -268,8 +268,12 @@ void circForce(
   Eigen::Vector3d force_{0.0,0.0,0.0};
   Eigen::Vector3d g_pos_ = getGoalPosition(); // goal_pos
   Eigen::Vector3d vel_ = getVelocity();
+  const double detect_shell_rad_ = 0.1;
+  const double rad_ = 0.5;
+  double min_obs_dist_ = detect_shell_rad_; 
   std::vector<bool> known_obstacles_(obstacles.size(), false);
   std::vector<Eigen::Vector3d> field_rotation_vecs_(obstacles.size());
+
 
   auto start = std::chrono::high_resolution_clock::now();
   // optimize below this
@@ -284,21 +288,16 @@ void circForce(
       robot_obstacle_vec.dot(rel_vel) < -0.01) {
       continue;
     }
-    const double rad_ = 0.5;
     double dist_obs{robot_obstacle_vec.norm() -
                     (rad_ + obstacles.at(i).getRadius())};
 
-    // min_obs_dist_ = detect_shell_rad
-    // dist_obs = std::max(dist_obs, 1e-5);
-    // if (dist_obs < min_obs_dist_) {
-    //   min_obs_dist_ = dist_obs;
-    // }
-
-
+    dist_obs = std::max(dist_obs, 1e-5);
+    if (dist_obs < min_obs_dist_) {
+      min_obs_dist_ = dist_obs;
+    }
 
     Eigen::Vector3d curr_force{0.0, 0.0, 0.0};
     Eigen::Vector3d current;
-    float detect_shell_rad_ = 0.10;
 
 
     if (dist_obs < detect_shell_rad_) {
@@ -331,8 +330,6 @@ void circForce(
 
   std::cout<<force_<<std::endl;
 }
-
-
 
 
 int main(){
