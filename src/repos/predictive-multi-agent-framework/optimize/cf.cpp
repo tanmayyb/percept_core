@@ -271,7 +271,7 @@ void circForce(
   std::vector<bool> known_obstacles_(obstacles.size(), false);
   std::vector<Eigen::Vector3d> field_rotation_vecs_(obstacles.size());
 
-
+  auto start = std::chrono::high_resolution_clock::now();
   // optimize below this
   Eigen::Vector3d goal_vec{g_pos_ - getLatestPosition()};
   for (int i = 0; i < obstacles.size() - 1; i++) {
@@ -280,7 +280,6 @@ void circForce(
       getLatestPosition()};
     Eigen::Vector3d rel_vel{vel_ - obstacles.at(i).getVelocity()};
 
-    // wtf is this 1?
     if (robot_obstacle_vec.normalized().dot(goal_vec.normalized()) < -0.01 &&
       robot_obstacle_vec.dot(rel_vel) < -0.01) {
       continue;
@@ -288,7 +287,7 @@ void circForce(
     const double rad_ = 0.5;
     double dist_obs{robot_obstacle_vec.norm() -
                     (rad_ + obstacles.at(i).getRadius())};
-    // wtf is this 2?
+
     // min_obs_dist_ = detect_shell_rad
     // dist_obs = std::max(dist_obs, 1e-5);
     // if (dist_obs < min_obs_dist_) {
@@ -325,6 +324,10 @@ void circForce(
 
     force_ += curr_force;
   }
+
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> duration = end - start;
+  std::cout << "Function execution time: " << duration.count() << " seconds" << std::endl;
 
   std::cout<<force_<<std::endl;
 }
