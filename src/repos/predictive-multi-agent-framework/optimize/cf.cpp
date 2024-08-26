@@ -10,11 +10,13 @@
 #include <string>
 
 
-#include <typeinfo>
-#include <initializer_list>
+#include<chrono>
+
+
+// #include <typeinfo>
+// #include <initializer_list>
 
 /*
-getLatestPosition
 calculateRotationVector
 getGoalPosition
 currentVector
@@ -28,7 +30,37 @@ cross
 
 
 
+/*
 
+
+ /$$$$$$$                                       /$$$$$$  /$$                             
+| $$__  $$                                     /$$__  $$| $$                             
+| $$  \ $$  /$$$$$$   /$$$$$$$  /$$$$$$       | $$  \__/| $$  /$$$$$$   /$$$$$$$ /$$$$$$$
+| $$$$$$$  |____  $$ /$$_____/ /$$__  $$      | $$      | $$ |____  $$ /$$_____//$$_____/
+| $$__  $$  /$$$$$$$|  $$$$$$ | $$$$$$$$      | $$      | $$  /$$$$$$$|  $$$$$$|  $$$$$$ 
+| $$  \ $$ /$$__  $$ \____  $$| $$_____/      | $$    $$| $$ /$$__  $$ \____  $$\____  $$
+| $$$$$$$/|  $$$$$$$ /$$$$$$$/|  $$$$$$$      |  $$$$$$/| $$|  $$$$$$$ /$$$$$$$//$$$$$$$/
+|_______/  \_______/|_______/  \_______/       \______/ |__/ \_______/|_______/|_______/ 
+                                                                                         
+                                                                                         
+                                                                                         
+*/
+
+Eigen::Vector3d getLatestPosition() {
+  Eigen::Vector3d pos{0.5,0.5,1.0};
+  return pos;
+}
+
+
+Eigen::Vector3d getGoalPosition() {
+  Eigen::Vector3d pos{0.5, 0.0, 0.7};
+  return pos;
+}
+
+Eigen::Vector3d getVelocity() {
+  Eigen::Vector3d pos{0.4, -1.0, 0.0};
+  return pos;
+}
 
 class Obstacle {
    private:
@@ -38,22 +70,57 @@ class Obstacle {
     double rad_;
 
    public:
-    Obstacle(const std::string name, const Eigen::Vector3d pos, const Eigen::Vector3d vel, const double rad): name_{name}, pos_{pos}, vel_{vel}, rad_{rad} {};
-    Obstacle(const Eigen::Vector3d pos, const double rad): pos_{pos}, rad_{rad}, vel_{0, 0, 0}, name_{""} {};
-    Obstacle(const Eigen::Vector3d pos, const Eigen::Vector3d vel, const double rad): pos_{pos}, rad_{rad}, vel_{vel}, name_{""} {};
-    Obstacle() : pos_{0, 0, 0}, rad_{0}, vel_{0, 0, 0}, name_{""} {};
+    Obstacle(
+      const std::string name, 
+      const Eigen::Vector3d pos, 
+      const Eigen::Vector3d vel, 
+      const double rad
+    ): name_{name}, pos_{pos}, vel_{vel}, rad_{rad} {};
+    
+    Obstacle(
+      const Eigen::Vector3d pos, 
+      const double rad
+    ): pos_{pos}, rad_{rad}, vel_{0, 0, 0}, name_{""} {};
+    
+    Obstacle(
+      const Eigen::Vector3d pos, 
+      const Eigen::Vector3d vel, 
+      const double rad
+    ): pos_{pos}, rad_{rad}, vel_{vel}, name_{""} {};
+    
+    Obstacle(): pos_{0, 0, 0}, rad_{0}, vel_{0, 0, 0}, name_{""} {};
+
+    // getters    
     std::string getName() const { return name_; };
     Eigen::Vector3d getPosition() const { return pos_; };
     Eigen::Vector3d getVelocity() const { return vel_; };
     double getRadius() const { return rad_; };
+
+    // setters
     void setPosition(Eigen::Vector3d pos) { pos_ = pos; }
     void setVelocity(Eigen::Vector3d vel) { vel_ = vel; }
 
 };
 
 
+/*
+
+
+ /$$                                 /$$        /$$$$$$  /$$                   /$$                         /$$                    
+| $$                                | $$       /$$__  $$| $$                  | $$                        | $$                    
+| $$        /$$$$$$   /$$$$$$   /$$$$$$$      | $$  \ $$| $$$$$$$   /$$$$$$$ /$$$$$$    /$$$$$$   /$$$$$$$| $$  /$$$$$$   /$$$$$$$
+| $$       /$$__  $$ |____  $$ /$$__  $$      | $$  | $$| $$__  $$ /$$_____/|_  $$_/   |____  $$ /$$_____/| $$ /$$__  $$ /$$_____/
+| $$      | $$  \ $$  /$$$$$$$| $$  | $$      | $$  | $$| $$  \ $$|  $$$$$$   | $$      /$$$$$$$| $$      | $$| $$$$$$$$|  $$$$$$ 
+| $$      | $$  | $$ /$$__  $$| $$  | $$      | $$  | $$| $$  | $$ \____  $$  | $$ /$$ /$$__  $$| $$      | $$| $$_____/ \____  $$
+| $$$$$$$$|  $$$$$$/|  $$$$$$$|  $$$$$$$      |  $$$$$$/| $$$$$$$/ /$$$$$$$/  |  $$$$/|  $$$$$$$|  $$$$$$$| $$|  $$$$$$$ /$$$$$$$/
+|________/ \______/  \_______/ \_______/       \______/ |_______/ |_______/    \___/   \_______/ \_______/|__/ \_______/|_______/ 
+                                                                                                                                  
+                                                                                                                                  
+                                                                                                                                  
+*/
+
 Obstacle create_obstacle_object(
-  ryml::NodeRef obstacle,
+  ryml::NodeRef obstacle
 ){
   Eigen::Vector3d pos;
   Eigen::Vector3d vel;
@@ -110,138 +177,157 @@ int loadObstacles(std::vector<Obstacle>* obstacles){
 
 
 
-// Eigen::Vector3d getLatestPosition() const {
-//   return pos_.back();
-// }
+/*
 
-// // // GoalObstacleHeuristicCfAgent
-// Eigen::Vector3d currentVector(
-//     const Eigen::Vector3d agent_pos, 
-//     const Eigen::Vector3d agent_vel,
-//     const Eigen::Vector3d goal_pos, 
-//     const std::vector<Obstacle> &obstacles,
-//     const int obstacle_id,
-//     const std::vector<Eigen::Vector3d> field_rotation_vecs) const {
-//   Eigen::Vector3d cfagent_to_obs{obstacles[obstacle_id].getPosition() -
-//     agent_pos};
-//   cfagent_to_obs.normalize();
-//   Eigen::Vector3d current{
-//       cfagent_to_obs.cross(field_rotation_vecs.at(obstacle_id))};
-//   current.normalize();
-//   return current;
-// }
+
+  /$$$$$$  /$$                           /$$$$$$$$                                     
+ /$$__  $$|__/                          | $$_____/                                     
+| $$  \__/ /$$  /$$$$$$   /$$$$$$$      | $$     /$$$$$$   /$$$$$$   /$$$$$$$  /$$$$$$ 
+| $$      | $$ /$$__  $$ /$$_____/      | $$$$$ /$$__  $$ /$$__  $$ /$$_____/ /$$__  $$
+| $$      | $$| $$  \__/| $$            | $$__/| $$  \ $$| $$  \__/| $$      | $$$$$$$$
+| $$    $$| $$| $$      | $$            | $$   | $$  | $$| $$      | $$      | $$_____/
+|  $$$$$$/| $$| $$      |  $$$$$$$      | $$   |  $$$$$$/| $$      |  $$$$$$$|  $$$$$$$
+ \______/ |__/|__/       \_______/      |__/    \______/ |__/       \_______/ \_______/
+                                                                                       
+                                                                                       
+                                                                                       
+*/
+
+
 
 // // GoalObstacleHeuristicCfAgent
-// Eigen::Vector3d calculateRotationVector(
-//   const Eigen::Vector3d agent_pos, 
-//   const Eigen::Vector3d goal_pos,
-//   const std::vector<Obstacle> &obstacles, 
-//   const int obstacle_id
-// ) const {
-//   double min_dist_obs = 100.0;
-//   int closest_obstacle_it = 0;
-//   for (int i = 0; i < obstacles.size() - 1; i++) {
-//     if (i != obstacle_id) {
-//       double dist_obs{
-//           (obstacles[obstacle_id].getPosition() - obstacles[i].getPosition())
-//               .norm()};
-//       if (min_dist_obs > dist_obs) {
-//         min_dist_obs = dist_obs;
-//         closest_obstacle_it = i;
-//       }
-//     }
-//   }
+Eigen::Vector3d currentVector(
+    const Eigen::Vector3d agent_pos, 
+    const Eigen::Vector3d agent_vel,
+    const Eigen::Vector3d goal_pos, 
+    const std::vector<Obstacle> &obstacles,
+    const int obstacle_id,
+    const std::vector<Eigen::Vector3d> field_rotation_vecs) {
+  Eigen::Vector3d cfagent_to_obs{obstacles[obstacle_id].getPosition() -
+    agent_pos};
+  cfagent_to_obs.normalize();
+  Eigen::Vector3d current{
+      cfagent_to_obs.cross(field_rotation_vecs.at(obstacle_id))};
+  current.normalize();
+  return current;
+}
 
-//   // Vector from active obstacle to the obstacle which is closest to the
-//   // active obstacle
-//   Eigen::Vector3d obstacle_vec = obstacles[closest_obstacle_it].getPosition() -
-//                                  obstacles[obstacle_id].getPosition();
-//   Eigen::Vector3d cfagent_to_obs{obstacles[obstacle_id].getPosition() -
-//                                  agent_pos};
-//   cfagent_to_obs.normalize();
-//   // Current vector is perpendicular to obstacle surface normal and shows in
-//   // opposite direction of obstacle_vec
-//   Eigen::Vector3d obst_current{
-//       (cfagent_to_obs * obstacle_vec.dot(cfagent_to_obs)) - obstacle_vec};
-//   Eigen::Vector3d goal_vec{goal_pos - agent_pos};
-//   Eigen::Vector3d goal_current{goal_vec -
-//                                cfagent_to_obs * (cfagent_to_obs.dot(goal_vec))};
-//   Eigen::Vector3d current{goal_current.normalized() +
-//                           obst_current.normalized()};
+// GoalObstacleHeuristicCfAgent
+Eigen::Vector3d calculateRotationVector(
+  const Eigen::Vector3d agent_pos, 
+  const Eigen::Vector3d goal_pos,
+  const std::vector<Obstacle> &obstacles, 
+  const int obstacle_id
+) {
+  double min_dist_obs = 100.0;
+  int closest_obstacle_it = 0;
+  for (int i = 0; i < obstacles.size() - 1; i++) {
+    if (i != obstacle_id) {
+      double dist_obs{
+          (obstacles[obstacle_id].getPosition() - obstacles[i].getPosition())
+              .norm()};
+      if (min_dist_obs > dist_obs) {
+        min_dist_obs = dist_obs;
+        closest_obstacle_it = i;
+      }
+    }
+  }
 
-//   if (current.norm() < 1e-10) {
-//     current << 0.0, 0.0, 1.0;
-//     // current = makeRandomVector();
-//   }
-//   current.normalize();
-//   Eigen::Vector3d rot_vec{current.cross(cfagent_to_obs)};
-//   rot_vec.normalize();
-//   return rot_vec;
-// }
+  // Vector from active obstacle to the obstacle which is closest to the
+  // active obstacle
+  Eigen::Vector3d obstacle_vec = obstacles[closest_obstacle_it].getPosition() -
+                                 obstacles[obstacle_id].getPosition();
+  Eigen::Vector3d cfagent_to_obs{obstacles[obstacle_id].getPosition() -
+                                 agent_pos};
+  cfagent_to_obs.normalize();
+  // Current vector is perpendicular to obstacle surface normal and shows in
+  // opposite direction of obstacle_vec
+  Eigen::Vector3d obst_current{
+      (cfagent_to_obs * obstacle_vec.dot(cfagent_to_obs)) - obstacle_vec};
+  Eigen::Vector3d goal_vec{goal_pos - agent_pos};
+  Eigen::Vector3d goal_current{goal_vec -
+                               cfagent_to_obs * (cfagent_to_obs.dot(goal_vec))};
+  Eigen::Vector3d current{goal_current.normalized() +
+                          obst_current.normalized()};
 
-
-// void circForce(
-//   const std::vector<Obstacle> &obstacles,
-//   const double k_circ
-// ){
-//   Eigen::Vector3d force_{0.0,0.0,0.0};
-//   Eigen::Vector3d g_pos_{0.5, 0.0, 0.7}; // goal_pos
-//   Eigen::Vector3d goal_vec{g_pos_ - getLatestPosition()};
-  
-//   // optimize this
-//   for (int i = 0; i < obstacles.size() - 1; i++) {
-
-//     Eigen::Vector3d robot_obstacle_vec{obstacles.at(i).getPosition() -
-//       getLatestPosition()};
-//     Eigen::Vector3d vel_{0.0,0.0,0.0};
-//     Eigen::Vector3d rel_vel{vel_ - obstacles.at(i).getVelocity()};
-
-//     // wtf is this 1?
-//     if (robot_obstacle_vec.normalized().dot(goal_vec.normalized()) < -0.01 &&
-//       robot_obstacle_vec.dot(rel_vel) < -0.01) {
-//       continue;
-//     }
-//     const double rad_ = 0.5;
-//     double dist_obs{robot_obstacle_vec.norm() -
-//                     (rad_ + obstacles.at(i).getRadius())};
-//     // wtf is this 2?
-//     // min_obs_dist_ = detect_shell_rad
-//     // dist_obs = std::max(dist_obs, 1e-5);
-//     // if (dist_obs < min_obs_dist_) {
-//     //   min_obs_dist_ = dist_obs;
-//     // }
+  if (current.norm() < 1e-10) {
+    current << 0.0, 0.0, 1.0;
+    // current = makeRandomVector();
+  }
+  current.normalize();
+  Eigen::Vector3d rot_vec{current.cross(cfagent_to_obs)};
+  rot_vec.normalize();
+  return rot_vec;
+}
 
 
-//     // std::vector<bool> known_obstacles_;
-//     Eigen::Vector3d curr_force{0.0, 0.0, 0.0};
-//     Eigen::Vector3d current;
-//     float detect_shell_rad = 0.10;
+void circForce(
+  const std::vector<Obstacle> &obstacles,
+  const double k_circ
+){
+  Eigen::Vector3d force_{0.0,0.0,0.0};
+  Eigen::Vector3d g_pos_ = getGoalPosition(); // goal_pos
+  Eigen::Vector3d vel_ = getVelocity();
+  std::vector<bool> known_obstacles_(obstacles.size(), false);
+  std::vector<Eigen::Vector3d> field_rotation_vecs_(obstacles.size());
 
 
-//     if (dist_obs < detect_shell_rad_) {
-//       if (!known_obstacles_.at(i)) {
-//         field_rotation_vecs_.at(i) = calculateRotationVector(
-//             getLatestPosition(), 
-//             g_pos_, 
-//             obstacles, i
-//           );
-//         known_obstacles_.at(i) = true;
-//       }
+  // optimize below this
+  Eigen::Vector3d goal_vec{g_pos_ - getLatestPosition()};
+  for (int i = 0; i < obstacles.size() - 1; i++) {
 
-//       double vel_norm = rel_vel.norm();
-//       if (vel_norm != 0) {
-//         Eigen::Vector3d normalized_vel = rel_vel / vel_norm;
-//         current = currentVector(
-//           getLatestPosition(), rel_vel, 
+    Eigen::Vector3d robot_obstacle_vec{obstacles.at(i).getPosition() -
+      getLatestPosition()};
+    Eigen::Vector3d rel_vel{vel_ - obstacles.at(i).getVelocity()};
 
-//         curr_force = (k_circ / pow(dist_obs, 2)) *
-//           normalized_vel.cross(current.cross(normalized_vel));
-//       }
-//     }
+    // wtf is this 1?
+    if (robot_obstacle_vec.normalized().dot(goal_vec.normalized()) < -0.01 &&
+      robot_obstacle_vec.dot(rel_vel) < -0.01) {
+      continue;
+    }
+    const double rad_ = 0.5;
+    double dist_obs{robot_obstacle_vec.norm() -
+                    (rad_ + obstacles.at(i).getRadius())};
+    // wtf is this 2?
+    // min_obs_dist_ = detect_shell_rad
+    // dist_obs = std::max(dist_obs, 1e-5);
+    // if (dist_obs < min_obs_dist_) {
+    //   min_obs_dist_ = dist_obs;
+    // }
 
-//     force_ += curr_force;
-//   }
-// }
+
+
+    Eigen::Vector3d curr_force{0.0, 0.0, 0.0};
+    Eigen::Vector3d current;
+    float detect_shell_rad_ = 0.10;
+
+
+    if (dist_obs < detect_shell_rad_) {
+      if (!known_obstacles_.at(i)) {
+        field_rotation_vecs_.at(i) = calculateRotationVector(
+            getLatestPosition(), 
+            g_pos_, 
+            obstacles, i
+          );
+        known_obstacles_.at(i) = true;
+      }
+
+      double vel_norm = rel_vel.norm();
+      if (vel_norm != 0) {
+        Eigen::Vector3d normalized_vel = rel_vel / vel_norm;
+        current = currentVector(
+          getLatestPosition(), rel_vel, getGoalPosition(),
+          obstacles, i, field_rotation_vecs_);
+        curr_force = (k_circ / pow(dist_obs, 2)) *
+          normalized_vel.cross(current.cross(normalized_vel));
+      }
+    }
+
+    force_ += curr_force;
+  }
+
+  std::cout<<force_<<std::endl;
+}
 
 
 
@@ -250,10 +336,10 @@ int main(){
   std::vector<Obstacle> obstacles;
 
   loadObstacles(&obstacles);
-  // circForce(&obstacles);
+  circForce(obstacles, 0.025);
 
 
-  std::cout<<"WahGwan"<<std::endl;
+  std::cout<<"Program Done"<<std::endl;
 
   return 0;
 }
