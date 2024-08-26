@@ -1,32 +1,14 @@
-#include<iostream>
-#include<vector>
-#include<algorithm>
-#include<Eigen/Dense>
+#include  <iostream>
+#include  <vector>
+#include  <algorithm>
+#include  <Eigen/Dense>
 
 #define RYML_SINGLE_HDR_DEFINE_NOW
-#include<ryml_all.hpp>
-#include <fstream>
-#include <sstream>
-#include <string>
-
-
-#include<chrono>
-
-
-// #include <typeinfo>
-// #include <initializer_list>
-
-/*
-calculateRotationVector
-getGoalPosition
-currentVector
-
-normalized
-dot
-norm
-pow
-cross
-*/
+#include  <ryml_all.hpp>
+#include  <fstream>
+#include  <sstream>
+#include  <string>
+#include  <chrono>
 
 
 
