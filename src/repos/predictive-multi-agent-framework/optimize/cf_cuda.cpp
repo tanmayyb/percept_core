@@ -28,6 +28,17 @@
                                                                                          
 */
 
+extern void launch_radial_search_kernel(
+    float* coords,
+    float* target,
+    float obstacle_rad,
+    float detect_shell_rad,
+    int num_points,
+    int* output,
+    int* output_count
+);
+
+
 Eigen::Vector3d getLatestPosition() {
   Eigen::Vector3d pos{1.0,1.0,1.0};
   return pos;
@@ -157,6 +168,20 @@ int loadObstacles(std::vector<Obstacle>* obstacles){
   return 0;
 }
 
+void flattenCoordinates(
+  const std::vector<Obstacle>& objects, 
+  float* coords
+) {
+  int index = 0;
+  for (const auto& obj : objects) {
+    Eigen::Vector3d pos = obj.getPosition();
+    coords[index++] = pos.x();
+    coords[index++] = pos.y();
+    coords[index++] = pos.z();
+  }
+}
+
+
 
 
 /*
@@ -250,6 +275,8 @@ Eigen::Vector3d calculateRotationVector(
   
 void circForce(
   const std::vector<Obstacle> &obstacles,
+  int* indices, 
+  int index_count,
   const double k_circ,
   const double detect_shell_rad_
 ){
@@ -266,7 +293,9 @@ void circForce(
   auto start = std::chrono::high_resolution_clock::now();
   // optimize below this
   Eigen::Vector3d goal_vec{g_pos_ - getLatestPosition()};
-  for (int i = 0; i < obstacles.size() - 1; i++) {
+
+  for (int j = 0; j < index_count; j++) {
+    int i = indices[j];
 
     Eigen::Vector3d robot_obstacle_vec{obstacles.at(i).getPosition() -
       getLatestPosition()};
@@ -339,22 +368,47 @@ void circForce(
 */
 
 int main(){
-  std::vector<Obstacle> obstacles;
+  std::cout<<"<<<Program Start>>>"<<std::endl;
 
+  std::vector<Obstacle> obstacles;
   loadObstacles(&obstacles);
-  // circForce(obstacles, 0.025);
+
+  // convert vector of Obstacles to Serializable datatype
+  int num_points = obstacles.size();
+  float* coords = new float[num_points * 3];
+  flattenCoordinates(obstacles, coords);    
 
   std::cout<<std::endl<<"["<<std::endl;
-
   for(int i=0; i<20;i++){
-    float rad = float(i)*float(i)/200.0;
-    circForce(obstacles, 0.025, rad);
+    float* target = new float[3];
+    Eigen::Vector3d pos = getLatestPosition();
+    target[0] = pos.x();
+    target[1] = pos.y();
+    target[2] = pos.z();
+    float obstacle_rad = 0.06;
+    // float detect_shell_rad = 0.3;
+    int* output = new int[num_points];
+    int output_count = 0;
+
+    float detect_shell_rad = float(i)*float(i)/200.0;
+    // Launch the Kernel
+    launch_radial_search_kernel(
+      coords,
+      target,
+      obstacle_rad,
+      detect_shell_rad,
+      num_points,
+      output,
+      &output_count
+    );
+    // std::cout<<output_count<<std::endl;
+    circForce(obstacles, output, output_count, 0.025, detect_shell_rad);
   }
 
   std::cout<<"]"<<std::endl<<std::endl;
 
 
-  std::cout<<"Program Done"<<std::endl;
+  std::cout<<"<<<Program Done>>>"<<std::endl;
 
   return 0;
 }
