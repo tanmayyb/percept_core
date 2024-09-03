@@ -206,6 +206,7 @@ int main(){
 
 
     // pass serialized data into kernel and get indices
+    auto start = std::chrono::high_resolution_clock::now();
     launch_radial_search_kernel(
         coords,
         target,
@@ -217,17 +218,19 @@ int main(){
     );
     std::cout<<num_points<<std::endl;
     std::cout<<output_count<<std::endl;
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    std::cout << "Function execution time: " << duration.count() << " seconds" << std::endl;
 
+    // // create new vector of objects from old vector + indices
+    // // std::vector<Obstacle> obstacles_ = obstacles[indices]; // <<< these obstacles from radial search
+    // std::vector<Obstacle> filtered_obstacles;
+    // filtered_obstacles.reserve(obstacles.size());
 
-    // create new vector of objects from old vector + indices
-    // std::vector<Obstacle> obstacles_ = obstacles[indices]; // <<< these obstacles from radial search
-    std::vector<Obstacle> filtered_obstacles;
-    filtered_obstacles.reserve(obstacles.size());
-
-    for(int i=0;i<output_count;i++){
-        std::cout<<output[i]<<std::endl;
-        filtered_obstacles.push_back(obstacles[i]);
-    }
+    // for(int i=0;i<output_count;i++){
+    //     std::cout<<output[i]<<std::endl;
+    //     filtered_obstacles.push_back(obstacles[i]);
+    // }
 
 
     // or we could just use the generated indices in the code...
