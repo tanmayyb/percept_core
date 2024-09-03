@@ -181,7 +181,7 @@ void flattenCoordinates(
 
 
 int main(){
-    std::cout<<"Program Start"<<std::endl;
+    std::cout<<"<<<Program Start>>>"<<std::endl;
 
     std::vector<Obstacle> obstacles;
     loadObstacles(&obstacles);
@@ -189,18 +189,21 @@ int main(){
     int num_points = obstacles.size();
     float* coords = new float[num_points * 3];
     float* target = new float[3];
-    target[0] = 0.0f;
-    target[1] = 1.0f;
-    target[2] = 0.5f;
+    target[0] = 0.0;
+    target[1] = 1.0;
+    target[2] = 0.5;
     float obstacle_rad = 0.06;
+    // float detect_shell_rad = 0.3;
     float detect_shell_rad = 0.3;
-    int* output = new int[num_points * 3];
-    int* output_count;
-
-
-
+    int* output = new int[num_points];
+    int output_count = 0;
+    
     // convert vector of Obstacles to Serializable datatype
-    flattenCoordinates(obstacles, coords);
+    flattenCoordinates(obstacles, coords);    
+    // for(int i=0; i<100;i++){
+    //     std::cout<<coords[i]<<std::endl;
+    // }
+
 
     // pass serialized data into kernel and get indices
     launch_radial_search_kernel(
@@ -210,14 +213,26 @@ int main(){
         detect_shell_rad,
         num_points,
         output,
-        output_count
+        &output_count
     );
+    std::cout<<num_points<<std::endl;
+    std::cout<<output_count<<std::endl;
+
 
     // create new vector of objects from old vector + indices
     // std::vector<Obstacle> obstacles_ = obstacles[indices]; // <<< these obstacles from radial search
-    
+    std::vector<Obstacle> filtered_obstacles;
+    filtered_obstacles.reserve(obstacles.size());
 
-    std::cout<<"Program Done"<<std::endl;
+    for(int i=0;i<output_count;i++){
+        std::cout<<output[i]<<std::endl;
+        filtered_obstacles.push_back(obstacles[i]);
+    }
+
+
+    // or we could just use the generated indices in the code...
+
+    std::cout<<"<<<Program Done>>>"<<std::endl;
 
     return 0;
 }
