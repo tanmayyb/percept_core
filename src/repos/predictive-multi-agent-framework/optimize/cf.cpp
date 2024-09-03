@@ -29,7 +29,7 @@
 */
 
 Eigen::Vector3d getLatestPosition() {
-  Eigen::Vector3d pos{1.0,1.0,1.0};
+  Eigen::Vector3d pos{0.0,0.0,0.5};
   return pos;
 }
 
