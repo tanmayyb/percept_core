@@ -142,7 +142,7 @@ Obstacle create_obstacle_object(
 
 // read YAML and load obstacles into vector
 int loadObstacles(std::vector<Obstacle>* obstacles){
-  std::string filePath = "dual_arms_static3.yaml";
+  std::string filePath = "../assets/dual_arms_static3.yaml";
 
   // open and read into buffer
   std::ifstream fileStream(filePath);

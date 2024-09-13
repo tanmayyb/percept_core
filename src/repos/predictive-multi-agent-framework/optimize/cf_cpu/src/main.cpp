@@ -133,7 +133,7 @@ Obstacle create_obstacle_object(
 
 // read YAML and load obstacles into vector
 int loadObstacles(std::vector<Obstacle>* obstacles){
-  std::string filePath = "dual_arms_static3.yaml";
+  std::string filePath = "../assets/dual_arms_static3.yaml";
 
   // open and read into buffer
   std::ifstream fileStream(filePath);
@@ -345,6 +345,8 @@ int main(){
   // circForce(obstacles, 0.025);
 
   std::cout<<std::endl<<"["<<std::endl;
+  std::cout<<"\t[ r, n_obs, t]"<<std::endl;
+
 
   for(int i=0; i<20;i++){
     float rad = float(i)*float(i)/200.0;
