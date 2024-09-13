@@ -16,7 +16,7 @@ add_definitions(-DUSE_CUDA)
 
 
 set(HEADER_FILES
-    # include/dot.hpp
+    include/dot.hpp
 )
 
 set(SOURCE_FILES
