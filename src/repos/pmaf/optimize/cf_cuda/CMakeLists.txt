@@ -4,7 +4,7 @@ set( EXECUTABLE_NAME main.out)
 
 set(CMAKE_C_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" CACHE PATH "" FORCE)
 set(CMAKE_CXX_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/g++" CACHE PATH "" FORCE)
-# SET(CUDA_NVCC_FLAGS "--expt-relaxed-constexpr" CACHE STRING "nvcc flags" FORCE)
+SET(CUDA_NVCC_FLAGS "--expt-relaxed-constexpr" CACHE STRING "nvcc flags" FORCE)
 
 MESSAGE( STATUS ">> CMAKE_C_COMPILER:        " ${CMAKE_C_COMPILER} )
 MESSAGE( STATUS ">> CMAKE_CXX_COMPILER:      " ${CMAKE_CXX_COMPILER} )
@@ -15,12 +15,15 @@ find_package(CUDA REQUIRED)
 add_definitions(-DUSE_CUDA)
 
 
-set(HEADER_FILES
-    include/dot.hpp
-)
+# set(HEADER_FILES
+#     # include/obstacles.hpp
+#     # include/cf.cuhpp
+# )
 
 set(SOURCE_FILES
     src/main.cpp
+    src/cf.cu
+    src/reader.cpp
 )
 
 

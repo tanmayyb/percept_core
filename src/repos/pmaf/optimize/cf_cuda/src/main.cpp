@@ -3,36 +3,57 @@
 #include  <vector>
 #include  <algorithm>
 
-// file reading
-#include  <ryml_all.hpp>
-#include  <fstream>
-#include  <sstream>
-#include  <string>
+// necessary evils
+#include <Eigen/Dense>
+#include "obstacles.hpp"
+#include "reader.hpp"
 
 // time keeping
 #include  <chrono>
-#include "Obstacles.hpp"
 
-
-// special thingies
-#include <Eigen/Dense>
+// cf cuda-mode
+#include <cf.h>
 
 
 int main(){
-  Obstacle obstacle;
+  // Obstacle obstacle;
 
-  std::cout<<"obstacle: pos_x_:\t"<<obstacle.pos_x_<<std::endl;
-  std::cout<<"obstacle: pos_y_:\t"<<obstacle.pos_y_<<std::endl;
-  std::cout<<"obstacle: pos_z_:\t"<<obstacle.pos_z_<<std::endl;
+  std::vector<Obstacle> obstacles;
+  loadObstacles(&obstacles);
+  int n_obstacles = obstacles.size();
 
-  Eigen::Vector3d v{69.0f, 69.0f, 69.0f};
-  obstacle.setPosition(v);
+  double detect_shell_rad_;
+  double* goalPosition = new double[3];
+  double* agentPosition = new double[3];
+  double* agentVelocity = new double[3];
+  double* force = new double[3];
 
-  std::cout<<std::endl;
-  std::cout<<"obstacle: pos_x_:\t"<<obstacle.pos_x_<<std::endl;
-  std::cout<<"obstacle: pos_y_:\t"<<obstacle.pos_y_<<std::endl;
-  std::cout<<"obstacle: pos_z_:\t"<<obstacle.pos_z_<<std::endl;
+  goalPosition[0] = 0.5; goalPosition[1] = 0.0; goalPosition[2] = 0.7;
+  agentPosition[0] = 0.0; agentPosition[1] = 0.0; agentPosition[2] = 0.5;
+  agentVelocity[0] = -0.1; agentVelocity[1] = -0.1; agentVelocity[2] = -0.1;
+  force[0] = 0.0; force[1] = 0.0; force[2] = 0.0;
+  
+  int N = 5;
+  for(int i=0; i<N;i++){
 
+    detect_shell_rad_ = double(i)*double(i)/200.0;
+ 
+    // goalPosition[0] = 0.5; 
+    // goalPosition[1] = 0.0; 
+    // goalPosition[2] = 0.7;
+    launch_circForce_kernel(
+      &obstacles, 
+      n_obstacles,
+      0.025d, 
+      detect_shell_rad_,
+      goalPosition,
+      agentPosition,
+      agentVelocity,
+      force
+    );
+  }
+
+  hello_world();
 
   return 0;
 }

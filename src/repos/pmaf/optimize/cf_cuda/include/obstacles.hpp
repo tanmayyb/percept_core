@@ -1,6 +1,6 @@
 #pragma once
-#include  <Eigen/Dense>
-#include <cuda_runtime.h>
+#include <Eigen/Dense>
+#include <cuda_runtime.h> // redbull gives you wings
 
 
 class Obstacle {
@@ -34,4 +34,12 @@ class Obstacle {
   __host__ void setPosition(Eigen::Vector3d pos) { pos_x_ = pos.x(); pos_y_ = pos.y(); pos_z_ = pos.z();}
   __host__ void setVelocity(Eigen::Vector3d vel) { vel_x_ = vel.x(); vel_y_ = vel.y(); vel_z_ = vel.z();}
 
+  // this is that cuda life
+  __host__ __device__ double getPosX(){return pos_x_;}
+  __host__ __device__ double getPosY(){return pos_y_;}
+  __host__ __device__ double getPosZ(){return pos_z_;}
+  __host__ __device__ double getVelX(){return vel_x_;}
+  __host__ __device__ double getVelY(){return vel_y_;}
+  __host__ __device__ double getVelZ(){return vel_z_;}
+  __host__ __device__ double getRad(){return rad_;}
 };
