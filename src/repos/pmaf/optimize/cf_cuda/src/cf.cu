@@ -21,13 +21,13 @@
 
 
 // helper functions
-__device__ void __device__subtract_vectors(double* result, double* vec1, double* vec2){
+__host__ __device__ void subtract_vectors(double* result, double* vec1, double* vec2){
   result[0] = vec1[0] - vec2[0];
   result[1] = vec1[1] - vec2[1];
   result[2] = vec1[2] - vec2[2];
 }
 
-__device__ void __device__dot_vectors(double &result, double* vec1, double *vec2){
+__host__ __device__ void dot_vectors(double &result, double* vec1, double *vec2){
   double product[3];
   product[0] = vec1[0] * vec2[0];
   product[1] = vec1[1] * vec2[1];
@@ -35,7 +35,7 @@ __device__ void __device__dot_vectors(double &result, double* vec1, double *vec2
   result = product[0] + product[1] + product[2];
 }
 
-__device__ void __device__normalize_vector(double* result_vector, double* orig_vector){
+__host__ __device__ void normalize_vector(double* result_vector, double* orig_vector){
   double orig_vector_mag = sqrt(orig_vector[0]*orig_vector[0] + orig_vector[1]*orig_vector[1] + orig_vector[2]*orig_vector[2]); 
   if (orig_vector_mag == 0.f){
     result_vector[0] = 0.0;
@@ -49,6 +49,12 @@ __device__ void __device__normalize_vector(double* result_vector, double* orig_v
   }
 }
 
+__host__ __device__ void norm(double &result, double* vec){
+  result = sqrt(vec[0]*vec[0]+vec[1]*vec[1]+vec[2]*vec[2]);
+}
+
+
+
 
 // fancy kernel that does everything
 __global__ void circForce_kernel(
@@ -57,7 +63,9 @@ __global__ void circForce_kernel(
   double* goalPosition,
   double* goal_vec,
   double* agentPosition,
-  double* agentVelocity
+  double* agentVelocity,
+  double min_obs_dist_,
+  double detect_shell_rad_
 ){
   int i = blockIdx.x * blockDim.x + threadIdx.x;   // i refers to obstacle being computed
   if(i >= num_obstacles) return; 
@@ -76,29 +84,55 @@ __global__ void circForce_kernel(
 
 
   // if (robot_obstacle_vec.normalized().dot(goal_vec.normalized()) < -0.01 && robot_obstacle_vec.dot(rel_vel) < -0.01) {continue;}
-  double  a, b, robot_obstacle_vec_normalized[3], goal_vec_normalized[3];
-  __device__normalize_vector(robot_obstacle_vec_normalized, robot_obstacle_vec);
-  __device__normalize_vector(goal_vec_normalized, goal_vec);
-  __device__dot_vectors(a, robot_obstacle_vec_normalized, goal_vec);
-  __device__dot_vectors(b, robot_obstacle_vec, rel_vel);
-  if (a < -0.01 and b < -0.01){ // compute condition
+  double dot_product1, dot_product2, robot_obstacle_vec_normalized[3], goal_vec_normalized[3];
+  normalize_vector(robot_obstacle_vec_normalized, robot_obstacle_vec);
+  normalize_vector(goal_vec_normalized, goal_vec);
+  dot_vectors(dot_product1, robot_obstacle_vec_normalized, goal_vec);
+  dot_vectors(dot_product2, robot_obstacle_vec, rel_vel);
+  if (dot_product1 < -0.01 && dot_product2 < -0.01){ // compute condition
     return;
   }
 
+  // double dist_obs{robot_obstacle_vec.norm() - (rad_ + obstacles.at(i).getRadius())};
+  double norm1;
+  const double rad_ = 0.5; // what is this for?
+  norm(norm1, robot_obstacle_vec);
+  double dist_obs = norm1 - rad_ + obstacles[i].getRad();
 
+  dist_obs = max(dist_obs, 1e-5);
+  if (dist_obs<min_obs_dist_)
+    min_obs_dist_ = dist_obs;
 
+  // Eigen::Vector3d curr_force{0.0, 0.0, 0.0};
+  // Eigen::Vector3d current;
+  if(dist_obs < detect_shell_rad_){
 
-  // prints
-  // printf("%f %f %f\n", goalPosition[0],goalPosition[1], goalPosition[2]);
+    // // calculate rotation vector
+    // if (!known_obstacles_.at(i)) {
+    //   field_rotation_vecs_.at(i) = calculateRotationVector(
+    //       getLatestPosition(), 
+    //       g_pos_, 
+    //       obstacles, i
+    //     );
+    //   known_obstacles_.at(i) = true;
+    //   active_obstacles++;
+    // }
 
-  // printf("%f %f %f\n", 
-  //   obstacles[i].getPosX(),
-  //   obstacles[i].getPosY(),
-  //   obstacles[i].getPosZ());
+    // double vel_norm = rel_vel.norm();
+    // if (vel_norm != 0) {
+    //   Eigen::Vector3d normalized_vel = rel_vel / vel_norm;
+    //   current = currentVector(
+    //     getLatestPosition(), rel_vel, getGoalPosition(),
+    //     obstacles, i, field_rotation_vecs_);
+    //   curr_force = (k_circ / pow(dist_obs, 2)) *
+    //     normalized_vel.cross(current.cross(normalized_vel));
+    // }
+  }
 
-
+  // force_ += curr_force;
 
 } 
+
 
 void launch_circForce_kernel(
     std::vector<Obstacle> *obstacles, 
@@ -133,9 +167,7 @@ void launch_circForce_kernel(
     // preliminary calculations 
     // Note: can be moved inside kernel but with time cost
     double goal_vec[3];
-    goal_vec[0] = goalPosition[0] - agentPosition[0];
-    goal_vec[1] = goalPosition[1] - agentPosition[1];
-    goal_vec[2] = goalPosition[2] - agentPosition[2];
+    subtract_vectors(goal_vec, goalPosition, agentPosition);
 
 
 
@@ -162,7 +194,9 @@ void launch_circForce_kernel(
       d_goalPosition,
       d_goal_vec,
       d_agentPosition,
-      d_agentVelocity
+      d_agentVelocity,
+      min_obs_dist_,
+      detect_shell_rad_
     );
 
     // synchronize
