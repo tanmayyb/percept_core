@@ -20,6 +20,34 @@
 
 
 
+// helper functions
+__device__ void __device__subtract_vectors(double* result, double* vec1, double* vec2){
+  result[0] = vec1[0] - vec2[0];
+  result[1] = vec1[1] - vec2[1];
+  result[2] = vec1[2] - vec2[2];
+}
+
+__device__ void __device__dot_vectors(double &result, double* vec1, double *vec2){
+  double product[3];
+  product[0] = vec1[0] * vec2[0];
+  product[1] = vec1[1] * vec2[1];
+  product[2] = vec1[2] * vec2[2];
+  result = product[0] + product[1] + product[2];
+}
+
+__device__ void __device__normalize_vector(double* result_vector, double* orig_vector){
+  double orig_vector_mag = sqrt(orig_vector[0]*orig_vector[0] + orig_vector[1]*orig_vector[1] + orig_vector[2]*orig_vector[2]); 
+  if (orig_vector_mag == 0.f){
+    result_vector[0] = 0.0;
+    result_vector[1] = 0.0;
+    result_vector[2] = 0.0;
+  }
+  else{
+    result_vector[0] = orig_vector[0]/orig_vector_mag;
+    result_vector[1] = orig_vector[1]/orig_vector_mag;
+    result_vector[2] = orig_vector[2]/orig_vector_mag;
+  }
+}
 
 
 // fancy kernel that does everything
@@ -47,14 +75,16 @@ __global__ void circForce_kernel(
   rel_vel[2] = obstacles[i].getVelZ() - agentVelocity[2];
 
 
-  // if (robot_obstacle_vec.normalized().dot(goal_vec.normalized()) < -0.01 &&
-  //   robot_obstacle_vec.dot(rel_vel) < -0.01) {
-  //   continue;
-  // }
+  // if (robot_obstacle_vec.normalized().dot(goal_vec.normalized()) < -0.01 && robot_obstacle_vec.dot(rel_vel) < -0.01) {continue;}
+  double  a, b, robot_obstacle_vec_normalized[3], goal_vec_normalized[3];
+  __device__normalize_vector(robot_obstacle_vec_normalized, robot_obstacle_vec);
+  __device__normalize_vector(goal_vec_normalized, goal_vec);
+  __device__dot_vectors(a, robot_obstacle_vec_normalized, goal_vec);
+  __device__dot_vectors(b, robot_obstacle_vec, rel_vel);
+  if (a < -0.01 and b < -0.01){ // compute condition
+    return;
+  }
 
-  // l2 normalization on robot_obstacle_vec
-
-  // dot robot_obstacle_vec with goal_vec
 
 
 
