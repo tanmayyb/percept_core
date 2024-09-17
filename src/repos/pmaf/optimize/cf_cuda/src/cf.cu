@@ -21,16 +21,16 @@
 
 
 // helper functions
-__host__ __device__ void subtract_vectors(double* result, double* vec1, double* vec2){
-  result[0] = vec1[0] - vec2[0];
-  result[1] = vec1[1] - vec2[1];
-  result[2] = vec1[2] - vec2[2];
-}
-
 __host__ __device__ void add_vectors(double* result, double* vec1, double* vec2){
   result[0] = vec1[0] + vec2[0];
   result[1] = vec1[1] + vec2[1];
   result[2] = vec1[2] + vec2[2];
+}
+
+__host__ __device__ void subtract_vectors(double* result, double* vec1, double* vec2){
+  result[0] = vec1[0] - vec2[0];
+  result[1] = vec1[1] - vec2[1];
+  result[2] = vec1[2] - vec2[2];
 }
 
 __host__ __device__ void dot_vectors(double &result, double* vec1, double *vec2){
@@ -41,30 +41,36 @@ __host__ __device__ void dot_vectors(double &result, double* vec1, double *vec2)
   result = product[0] + product[1] + product[2];
 }
 
-__host__ __device__ void normalize_vector(double* result_vector, double* orig_vector){
-  double orig_vector_mag = sqrt(orig_vector[0]*orig_vector[0] + orig_vector[1]*orig_vector[1] + orig_vector[2]*orig_vector[2]); 
-  if (orig_vector_mag == 0.f){
-    result_vector[0] = 0.0;
-    result_vector[1] = 0.0;
-    result_vector[2] = 0.0;
+__host__ __device__ void cross_vectors(double* result_vec, double* vec1, double* vec2) {
+  result[0] = vec1[1] * vec2[2] - vec1[2] * vec2[1];
+  result[1] = vec1[2] * vec2[0] - vec1[0] * vec2[2];
+  result[2] = vec1[0] * vec2[1] - vec1[1] * vec2[0];
+}
+
+__host__ __device__ void normalize_vector(double* result_vec, double* orig_vec){
+  double orig_vec_mag = sqrt(orig_vec[0]*orig_vec[0] + orig_vec[1]*orig_vec[1] + orig_vec[2]*orig_vec[2]); 
+  if (orig_vec_mag == 0.f){
+    result_vec[0] = 0.0;
+    result_vec[1] = 0.0;
+    result_vec[2] = 0.0;
   }
   else{
-    result_vector[0] = orig_vector[0]/orig_vector_mag;
-    result_vector[1] = orig_vector[1]/orig_vector_mag;
-    result_vector[2] = orig_vector[2]/orig_vector_mag;
+    result_vec[0] = orig_vec[0]/orig_vec_mag;
+    result_vec[1] = orig_vec[1]/orig_vec_mag;
+    result_vec[2] = orig_vec[2]/orig_vec_mag;
   }
 }
 
-__host__ __device__ void scale_vector(double* result_vector, double* orig_vector, double scalar){
-  result_vector[0] = orig_vector[0]*scalar;
-  result_vector[1] = orig_vector[1]*scalar;
-  result_vector[2] = orig_vector[2]*scalar;
+__host__ __device__ void scale_vector(double* result_vec, double* orig_vec, double scalar){
+  result_vec[0] = orig_vec[0]*scalar;
+  result_vec[1] = orig_vec[1]*scalar;
+  result_vec[2] = orig_vec[2]*scalar;
 }
-
 
 __host__ __device__ void norm(double &result, double* vec){
   result = sqrt(vec[0]*vec[0]+vec[1]*vec[1]+vec[2]*vec[2]);
 }
+
 
 // pmaf helper functions
 __host__ __device__ void get_obstacle_position_vector(double* result_vector, Obstacle &obstacle){
@@ -112,9 +118,9 @@ __device__ void calculateRotationVector(
   // printf("closest_obstacle_it: %d\n", closest_obstacle_it);
 
   double obstacle_vec[3], cfagent_to_obs[3], cfagent_to_obs_normalized[3]; 
-  double cfagent_to_obs_scaled[3], dot_product1, dot_product2;
-  double obst_current[3], goal_current[3], current[3];
-  double obst_current_normalized[3], goal_current_normalized[3];
+  double cfagent_to_obs_scaled[3], dot_product1, dot_product2, current_norm;
+  double obst_current[3], goal_current[3], current_vec[3], rot_vec[3];
+  double obst_current_normalized[3], goal_current_normalized[3], current_normalized[3], rot_vec_normalized[3];
 
   // Vector from active obstacle to the obstacle which is closest to the active obstacle
   // Eigen::Vector3d obstacle_vec = obstacles[closest_obstacle_it].getPosition() - obstacles[obstacle_id].getPosition();
@@ -146,19 +152,28 @@ __device__ void calculateRotationVector(
   //                         obst_current.normalized()};
   normalize_vector(goal_current_normalized, goal_current);
   normalize_vector(obst_current_normalized, obst_current);
-  add_vectors(current, goal_current_normalized, obst_current_normalized);
+  add_vectors(current_vec, goal_current_normalized, obst_current_normalized);
 
-  // printf("%f\t%f\t%f\n", current[0],current[1],current[2]);
+  // printf("%f\t%f\t%f\n", current_vec[0],current_vec[1],current_vec[2]);
 
-  if (current.norm() < 1e-10) {
-    current << 0.0, 0.0, 1.0;
-    // current = makeRandomVector();
+  // check norm
+  norm(current_norm, current_vec);
+  if (current_norm < 1e-10) {
+    current_vec[0] = 0.0;
+    current_vec[1] = 0.0;
+    current_vec[2] = 1.0;
   }
-  current.normalize();
-  Eigen::Vector3d rot_vec{current.cross(cfagent_to_obs)};
-  rot_vec.normalize();
-  return rot_vec;
+  normalize_vector(current_normalized, current_vec);
 
+  // get rotation vector
+  // Eigen::Vector3d rot_vec{current.cross(cfagent_to_obs)};
+  
+
+
+  // rot_vec.normalize();
+  // norm(rot_vec_normalized, rot_vec);
+
+  // return rot_vec_normalized;
 }
 
 
@@ -237,6 +252,8 @@ __global__ void circForce_kernel(
     //   curr_force = (k_circ / pow(dist_obs, 2)) *
     //     normalized_vel.cross(current.cross(normalized_vel));
     // }
+
+
   }
 
   // force_ += curr_force;
