@@ -21,16 +21,30 @@
 
 
 // helper functions
-__host__ __device__ void add_vectors(double* result, double* vec1, double* vec2){
-  result[0] = vec1[0] + vec2[0];
-  result[1] = vec1[1] + vec2[1];
-  result[2] = vec1[2] + vec2[2];
+__host__ __device__ void init_vector(double* result_vec){
+  result_vec[0] = 0.0;
+  result_vec[1] = 0.0;
+  result_vec[2] = 0.0;
 }
 
-__host__ __device__ void subtract_vectors(double* result, double* vec1, double* vec2){
-  result[0] = vec1[0] - vec2[0];
-  result[1] = vec1[1] - vec2[1];
-  result[2] = vec1[2] - vec2[2];
+__host__ __device__ void copy_vector(double* result_vec, double* ref_vec){
+  result_vec[0] = ref_vec[0];
+  result_vec[1] = ref_vec[1];
+  result_vec[2] = ref_vec[2];
+}
+
+
+
+__host__ __device__ void add_vectors(double* result_vec, double* vec1, double* vec2){
+  result_vec[0] = vec1[0] + vec2[0];
+  result_vec[1] = vec1[1] + vec2[1];
+  result_vec[2] = vec1[2] + vec2[2];
+}
+
+__host__ __device__ void subtract_vectors(double* result_vec, double* vec1, double* vec2){
+  result_vec[0] = vec1[0] - vec2[0];
+  result_vec[1] = vec1[1] - vec2[1];
+  result_vec[2] = vec1[2] - vec2[2];
 }
 
 __host__ __device__ void dot_vectors(double &result, double* vec1, double *vec2){
@@ -42,9 +56,9 @@ __host__ __device__ void dot_vectors(double &result, double* vec1, double *vec2)
 }
 
 __host__ __device__ void cross_vectors(double* result_vec, double* vec1, double* vec2) {
-  result[0] = vec1[1] * vec2[2] - vec1[2] * vec2[1];
-  result[1] = vec1[2] * vec2[0] - vec1[0] * vec2[2];
-  result[2] = vec1[0] * vec2[1] - vec1[1] * vec2[0];
+  result_vec[0] = vec1[1] * vec2[2] - vec1[2] * vec2[1];
+  result_vec[1] = vec1[2] * vec2[0] - vec1[0] * vec2[2];
+  result_vec[2] = vec1[0] * vec2[1] - vec1[1] * vec2[0];
 }
 
 __host__ __device__ void normalize_vector(double* result_vec, double* orig_vec){
@@ -86,7 +100,85 @@ __host__ __device__ void get_obstacle_velocity_vector(double* result_vector, Obs
 }
 
 // pmaf functions
+
+// __device__ void currentVector(
+//   double* result,
+//   double* rot_vec,
+//   double* obstacle_pos_vec,
+//   double* agent_pos_vec,
+//   double* agent_vel_vec,
+//   double* goal_pos_vec
+// ){
+//   double cfagent_to_obs[3], current_vec[3];
+//   double cfagent_to_obs_normalized[3];
+
+//   // Eigen::Vector3d cfagent_to_obs{obstacles[obstacle_id].getPosition() - agent_pos};  
+//   subtract_vectors(cfagent_to_obs, obstacle_pos_vec, agent_pos_vec);
+
+//   // cfagent_to_obs.normalize();
+//   normalize_vector(cfagent_to_obs_normalized, cfagent_to_obs);
+
+//   // Eigen::Vector3d current{cfagent_to_obs.cross(field_rotation_vecs.at(obstacle_id))};
+//   cross_vectors(current_vec, cfagent_to_obs_normalized, rot_vec);
+
+//   // current.normalize();
+//   normalize_vector(result, current_vec);
+// }
+
+__device__ void calculateCurrForce(
+  double* curr_force,
+  double* rot_vec,
+  double* obstacle_pos_vec, 
+  double* agent_pos_vec, 
+  double* agent_vel_vec, 
+  double* goal_pos_vec, 
+  double* rel_vel, 
+  double k_circ,
+  double dist_obs
+){
+
+  double rel_vel_normalized[3];
+  double rel_vel_norm; 
+
+  // double vel_norm = rel_vel.norm();
+  norm(rel_vel_norm, rel_vel);
+
+  if(rel_vel_norm!=0.0){
+    // calculate currentVector
+
+    double cfagent_to_obs[3], current_vec[3], crossproduct1[3], crossproduct2[3];
+    double cfagent_to_obs_normalized[3], current_vec_normalized[3];
+    double scalar1;
+
+    //   Eigen::Vector3d normalized_vel = rel_vel / vel_norm;
+    normalize_vector(rel_vel_normalized, rel_vel);
+
+    // Eigen::Vector3d cfagent_to_obs{obstacles[obstacle_id].getPosition() - agent_pos};  
+    subtract_vectors(cfagent_to_obs, obstacle_pos_vec, agent_pos_vec);
+
+    // cfagent_to_obs.normalize();
+    normalize_vector(cfagent_to_obs_normalized, cfagent_to_obs);
+
+    // Eigen::Vector3d current{cfagent_to_obs.cross(field_rotation_vecs.at(obstacle_id))};
+    cross_vectors(current_vec, cfagent_to_obs_normalized, rot_vec);
+
+    // current.normalize();
+    normalize_vector(current_vec_normalized, current_vec);
+
+    // curr_force = (k_circ / pow(dist_obs, 2)) * rel_vel_normalized.cross(current.cross(rel_vel_normalized));
+    scalar1 = k_circ / pow(dist_obs,2);
+
+    cross_vectors(crossproduct1, current_vec_normalized, rel_vel_normalized);
+    cross_vectors(crossproduct2, rel_vel_normalized, crossproduct1);
+    scale_vector(curr_force, crossproduct2, scalar1);
+  }
+
+}
+
+
+
 __device__ void calculateRotationVector(
+  double* rot_vec_result,
   int &closest_obstacle_it, 
   int num_obstacles, 
   Obstacle *obstacles, 
@@ -94,7 +186,6 @@ __device__ void calculateRotationVector(
   double* agent_pos,
   double* goal_pos,
   double* goal_vec
-
 ){
 
   double dist_vec[3], obstacle_pos_vec[3], active_obstacle_pos_vec[3], dist_obs;
@@ -142,8 +233,6 @@ __device__ void calculateRotationVector(
 
   // passed by kernel so we ingore: Eigen::Vector3d goal_vec{goal_pos - agent_pos};
   // Eigen::Vector3d goal_current{goal_vec - cfagent_to_obs * (cfagent_to_obs.dot(goal_vec))};
-  
-  // cfagent_to_obs_normalized
   dot_vectors(dot_product2, cfagent_to_obs_normalized, goal_vec);
   scale_vector(cfagent_to_obs_scaled, cfagent_to_obs_normalized, dot_product2); // reusing cfagent_to_obs_scaled
   subtract_vectors(goal_current, goal_vec, cfagent_to_obs_scaled);
@@ -167,13 +256,13 @@ __device__ void calculateRotationVector(
 
   // get rotation vector
   // Eigen::Vector3d rot_vec{current.cross(cfagent_to_obs)};
-  
-
+  cross_vectors(rot_vec, current_normalized, cfagent_to_obs_normalized);
 
   // rot_vec.normalize();
-  // norm(rot_vec_normalized, rot_vec);
+  normalize_vector(rot_vec_normalized, rot_vec);
 
   // return rot_vec_normalized;
+  copy_vector(rot_vec_result, rot_vec_normalized);
 }
 
 
@@ -181,13 +270,14 @@ __device__ void calculateRotationVector(
 __global__ void circForce_kernel(
   int num_obstacles,
   Obstacle *obstacles,
-  double* goalPosition,
+  double* goal_pos_vec,
   double* goal_vec,
-  double* agentPosition,
-  double* agentVelocity,
+  double* agent_pos_vec,
+  double* agent_vel_vec,
   int* active_obstacles,
   double min_obs_dist_,
-  double detect_shell_rad_
+  double detect_shell_rad_,
+  double k_circ
 ){
   int i = blockIdx.x * blockDim.x + threadIdx.x;   // i refers to obstacle being computed
   if(i >= num_obstacles) return; 
@@ -196,11 +286,11 @@ __global__ void circForce_kernel(
 
   // get robot_obstacle_vec
   get_obstacle_position_vector(obstacle_pos_vec, obstacles[i]);
-  subtract_vectors(robot_obstacle_vec, obstacle_pos_vec, agentPosition);
+  subtract_vectors(robot_obstacle_vec, obstacle_pos_vec, agent_pos_vec);
 
   // get rel_vel
   get_obstacle_velocity_vector(obstacle_vel_vec, obstacles[i]);
-  subtract_vectors(rel_vel, obstacle_vel_vec, agentVelocity);
+  subtract_vectors(rel_vel, obstacle_vel_vec, agent_vel_vec);
 
   // if (robot_obstacle_vec.normalized().dot(goal_vec.normalized()) < -0.01 && robot_obstacle_vec.dot(rel_vel) < -0.01) {continue;}
   double dot_product1, dot_product2, robot_obstacle_vec_normalized[3], goal_vec_normalized[3];
@@ -224,35 +314,40 @@ __global__ void circForce_kernel(
   if (dist_obs<min_obs_dist_)
     min_obs_dist_ = dist_obs;
 
-  // Eigen::Vector3d curr_force{0.0, 0.0, 0.0};
-  // Eigen::Vector3d current;
 
   if(dist_obs < detect_shell_rad_){
-
     // calculate rotation vector (Goal Obstacle Heuristic)
+    double rot_vec[3];
     int closest_obstacle_it;
     calculateRotationVector(
+      rot_vec,
       closest_obstacle_it,
       num_obstacles, 
       obstacles, 
       i,
-      agentPosition,
-      goalPosition,
+      agent_pos_vec,
+      goal_pos_vec,
       goal_vec
     );
     atomicAdd(active_obstacles,1);
 
-    // // calculate current vector
-    // double vel_norm = rel_vel.norm();
-    // if (vel_norm != 0) {
-    //   Eigen::Vector3d normalized_vel = rel_vel / vel_norm;
-    //   current = currentVector(
-    //     getLatestPosition(), rel_vel, getGoalPosition(),
-    //     obstacles, i, field_rotation_vecs_);
-    //   curr_force = (k_circ / pow(dist_obs, 2)) *
-    //     normalized_vel.cross(current.cross(normalized_vel));
-    // }
+    // calculate current force
+    double curr_force[3];
+    init_vector(curr_force);
 
+    calculateCurrForce(
+      curr_force,
+      rot_vec,
+      obstacle_pos_vec, 
+      agent_pos_vec, 
+      agent_vel_vec, 
+      goal_pos_vec, 
+      rel_vel, 
+      k_circ,
+      dist_obs
+    );
+
+    // printf("%f\t%f\t%f\n", curr_force[0], curr_force[1], curr_force[2]);
 
   }
 
@@ -273,7 +368,7 @@ void launch_circForce_kernel(
 ){
     auto chrono_start = std::chrono::high_resolution_clock::now();
 
-    const double collision_rad_ = 0.5; 
+    // const double collision_rad_ = 0.5; 
     const double min_obs_dist_ = detect_shell_rad_;
     int *active_obstacles = new int[1];
     active_obstacles[0] = 0;
@@ -328,7 +423,8 @@ void launch_circForce_kernel(
       d_agentVelocity,
       d_active_obstacles,
       min_obs_dist_,
-      detect_shell_rad_
+      detect_shell_rad_,
+      k_circ
     );
 
     // synchronize
