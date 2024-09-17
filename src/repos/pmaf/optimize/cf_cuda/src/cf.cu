@@ -53,7 +53,68 @@ __host__ __device__ void norm(double &result, double* vec){
   result = sqrt(vec[0]*vec[0]+vec[1]*vec[1]+vec[2]*vec[2]);
 }
 
+// pmaf helper functions
+__host__ __device__ void get_obstacle_position_vector(double* result_vector, double* obstacle){
+  result_vector[0] = obstacle.getPosX();
+  result_vector[1] = obstacle.getPosY();
+  result_vector[2] = obstacle.getPosZ();
+}
 
+__host__ __device__ void get_obstacle_velocity_vector(double* result_vector, double* obstacle){
+  result_vector[0] = obstacle.getVelX();
+  result_vector[1] = obstacle.getVelY();
+  result_vector[2] = obstacle.getVelZ();
+}
+
+// pmaf functions
+__device__ void calculateRotationVector(
+  int &closest_obstacle_it, int num_obstacles, Obstacle *obstacles, int obstacle_id
+){
+
+  double dist_vec[3], dist_obs;
+  double min_dist_obs = 100.0;
+
+  for(int i=0; i<num_obstacles; i++){
+    if (i != obstacle_id) {
+      // double dist_obs{(obstacles[obstacle_id].getPosition() - obstacles[i].getPosition()).norm()};
+      dist_vec[0] = obstacles[obstacle_id].getPosX() - obstacles[i].getPosX();
+      dist_vec[1] = obstacles[obstacle_id].getPosY() - obstacles[i].getPosY();
+      dist_vec[2] = obstacles[obstacle_id].getPosZ() - obstacles[i].getPosZ();
+      norm(dist_obs, dist_vec);
+
+      if(min_dist_obs > dist_obs){
+        min_dist_obs = dist_obs;
+        closest_obstacle_it = i;
+      }
+    }
+  }
+  // printf("closest_obstacle_it: %d\n", closest_obstacle_it);
+
+  // Vector from active obstacle to the obstacle which is closest to the active obstacle
+
+  double *obstacle_vec = new double[3];
+
+
+  Eigen::Vector3d obstacle_vec = obstacles[closest_obstacle_it].getPosition() -
+                                 obstacles[obstacle_id].getPosition();
+
+  
+  // subtract_vectors(obstacle_vec, );
+  Eigen::Vector3d cfagent_to_obs{obstacles[obstacle_id].getPosition() -
+                                 agent_pos};
+  cfagent_to_obs.normalize();
+  // Current vector is perpendicular to obstacle surface normal and shows in
+  // opposite direction of obstacle_vec
+  Eigen::Vector3d obst_current{
+      (cfagent_to_obs * obstacle_vec.dot(cfagent_to_obs)) - obstacle_vec};
+  Eigen::Vector3d goal_vec{goal_pos - agent_pos};
+  Eigen::Vector3d goal_current{goal_vec -
+                               cfagent_to_obs * (cfagent_to_obs.dot(goal_vec))};
+  Eigen::Vector3d current{goal_current.normalized() +
+                          obst_current.normalized()};
+
+
+}
 
 
 // fancy kernel that does everything
@@ -64,6 +125,7 @@ __global__ void circForce_kernel(
   double* goal_vec,
   double* agentPosition,
   double* agentVelocity,
+  int* active_obstacles,
   double min_obs_dist_,
   double detect_shell_rad_
 ){
@@ -95,8 +157,9 @@ __global__ void circForce_kernel(
 
   // double dist_obs{robot_obstacle_vec.norm() - (rad_ + obstacles.at(i).getRadius())};
   double norm1;
-  const double rad_ = 0.5; // what is this for?
   norm(norm1, robot_obstacle_vec);
+  // const double rad_ = 0.5; // what is this for?
+  const double rad_ = 0.0; // what is this for?
   double dist_obs = norm1 - rad_ + obstacles[i].getRad();
 
   dist_obs = max(dist_obs, 1e-5);
@@ -105,18 +168,19 @@ __global__ void circForce_kernel(
 
   // Eigen::Vector3d curr_force{0.0, 0.0, 0.0};
   // Eigen::Vector3d current;
+
+  // printf("%f\n", dist_obs);
+
   if(dist_obs < detect_shell_rad_){
 
-    // // calculate rotation vector
-    // if (!known_obstacles_.at(i)) {
-    //   field_rotation_vecs_.at(i) = calculateRotationVector(
-    //       getLatestPosition(), 
-    //       g_pos_, 
-    //       obstacles, i
-    //     );
-    //   known_obstacles_.at(i) = true;
-    //   active_obstacles++;
-    // }
+    int closest_obstacle_it;
+    calculateRotationVector(
+      closest_obstacle_it,
+      num_obstacles, 
+      obstacles, 
+      i
+    );
+    atomicAdd(active_obstacles,1);
 
     // double vel_norm = rel_vel.norm();
     // if (vel_norm != 0) {
@@ -147,10 +211,11 @@ void launch_circForce_kernel(
     auto chrono_start = std::chrono::high_resolution_clock::now();
 
     const double collision_rad_ = 0.5; 
-    const int active_obstacles = 0;
     const double min_obs_dist_ = detect_shell_rad_;
+    int *active_obstacles = new int[1];
+    active_obstacles[0] = 0;
 
-    std::vector<bool> known_obstacles_(n_obstacles, false);
+    // std::vector<bool> known_obstacles_(n_obstacles, false);
     std::vector<double*> field_rotation_vecs_(n_obstacles*3*sizeof(double));
 
     // helper variables
@@ -163,6 +228,7 @@ void launch_circForce_kernel(
     double* d_agentPosition;
     double* d_agentVelocity;
     double* d_goal_vec;
+    int* d_active_obstacles;
 
     // preliminary calculations 
     // Note: can be moved inside kernel but with time cost
@@ -177,6 +243,8 @@ void launch_circForce_kernel(
     cudaMalloc((void**)&d_agentPosition, sizeof_vector3d);
     cudaMalloc((void**)&d_agentVelocity, sizeof_vector3d);
     cudaMalloc((void**)&d_goal_vec, sizeof_vector3d);
+    cudaMalloc((void**)&d_active_obstacles, 1*sizeof(int));
+
         
     // move memory to device
     cudaMemcpy(d_obstacles, (*obstacles).data(), obstacle_data_size, cudaMemcpyHostToDevice);
@@ -184,7 +252,7 @@ void launch_circForce_kernel(
     cudaMemcpy(d_agentPosition, agentPosition, sizeof_vector3d, cudaMemcpyHostToDevice);
     cudaMemcpy(d_agentVelocity, agentVelocity, sizeof_vector3d, cudaMemcpyHostToDevice);
     cudaMemcpy(d_goal_vec, goal_vec, sizeof_vector3d, cudaMemcpyHostToDevice);
-
+    cudaMemcpy(d_active_obstacles, active_obstacles, 1*sizeof(int), cudaMemcpyHostToDevice);
 
     // run kernel
     int blocks = n_obstacles/threads + 1;
@@ -195,6 +263,7 @@ void launch_circForce_kernel(
       d_goal_vec,
       d_agentPosition,
       d_agentVelocity,
+      d_active_obstacles,
       min_obs_dist_,
       detect_shell_rad_
     );
@@ -202,13 +271,16 @@ void launch_circForce_kernel(
     // synchronize
     cudaDeviceSynchronize();
 
+    // transfer memory back
+    cudaMemcpy(active_obstacles, d_active_obstacles, 1*sizeof(int), cudaMemcpyDeviceToHost);
+
 
     // cleanup
 
     // prints
     auto chrono_stop = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = chrono_stop - chrono_start;
-    std::cout<<"\t"<<"[ detect_shell_rad_: "<<detect_shell_rad_<<", active_obstacles: "<<active_obstacles<<", duration: "<<duration.count()<<" ],"<<std::endl;
+    std::cout<<"\t"<<"[ num_obstacles: "<<n_obstacles<<",\tdetect_shell_rad_: "<<detect_shell_rad_<<",\tactive_obstacles: "<<*active_obstacles<<",\tduration: "<<duration.count()<<" ],"<<std::endl;
 
 }
 
