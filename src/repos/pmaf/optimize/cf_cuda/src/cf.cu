@@ -33,7 +33,11 @@ __host__ __device__ void copy_vector(double* result_vec, double* ref_vec){
   result_vec[2] = ref_vec[2];
 }
 
-
+__host__ __device__ void place_vector_in_array_at_index(double* array, double* vec, int index){
+  array[index+0] = vec[0];
+  array[index+1] = vec[1];
+  array[index+2] = vec[2];
+}
 
 __host__ __device__ void add_vectors(double* result_vec, double* vec1, double* vec2){
   result_vec[0] = vec1[0] + vec2[0];
@@ -269,6 +273,7 @@ __device__ void calculateRotationVector(
 // fancy kernel that does everything
 __global__ void circForce_kernel(
   int num_obstacles,
+  double* force,
   Obstacle *obstacles,
   double* goal_pos_vec,
   double* goal_vec,
@@ -314,6 +319,8 @@ __global__ void circForce_kernel(
   if (dist_obs<min_obs_dist_)
     min_obs_dist_ = dist_obs;
 
+  double curr_force[3];
+  init_vector(curr_force);
 
   if(dist_obs < detect_shell_rad_){
     // calculate rotation vector (Goal Obstacle Heuristic)
@@ -332,9 +339,6 @@ __global__ void circForce_kernel(
     atomicAdd(active_obstacles,1);
 
     // calculate current force
-    double curr_force[3];
-    init_vector(curr_force);
-
     calculateCurrForce(
       curr_force,
       rot_vec,
@@ -352,8 +356,8 @@ __global__ void circForce_kernel(
   }
 
   // force_ += curr_force;
-
-} 
+  place_vector_in_array_at_index(force, curr_force, i);
+}
 
 
 void launch_circForce_kernel(
@@ -372,6 +376,9 @@ void launch_circForce_kernel(
     const double min_obs_dist_ = detect_shell_rad_;
     int *active_obstacles = new int[1];
     active_obstacles[0] = 0;
+    
+    double force_vec[3];
+    init_vector(force_vec);
 
     // std::vector<bool> known_obstacles_(n_obstacles, false);
     std::vector<double*> field_rotation_vecs_(n_obstacles*3*sizeof(double));
@@ -380,6 +387,9 @@ void launch_circForce_kernel(
     int obstacle_data_size = n_obstacles * sizeof(Obstacle);
     int sizeof_vector3d = 3*sizeof(double);
 
+    // host variables
+    double* h_force = new double[n_obstacles*3];
+
     // device data
     Obstacle *d_obstacles;
     double* d_goalPosition;
@@ -387,6 +397,7 @@ void launch_circForce_kernel(
     double* d_agentVelocity;
     double* d_goal_vec;
     int* d_active_obstacles;
+    double* d_force;
 
     // preliminary calculations 
     // Note: can be moved inside kernel but with time cost
@@ -402,6 +413,7 @@ void launch_circForce_kernel(
     cudaMalloc((void**)&d_agentVelocity, sizeof_vector3d);
     cudaMalloc((void**)&d_goal_vec, sizeof_vector3d);
     cudaMalloc((void**)&d_active_obstacles, 1*sizeof(int));
+    cudaMalloc((void**)&d_force, n_obstacles*sizeof_vector3d);
 
         
     // move memory to device
@@ -416,6 +428,7 @@ void launch_circForce_kernel(
     int blocks = n_obstacles/threads + 1;
     circForce_kernel<<<blocks, threads>>>(
       n_obstacles,
+      d_force,
       d_obstacles,
       d_goalPosition,
       d_goal_vec,
@@ -432,14 +445,30 @@ void launch_circForce_kernel(
 
     // transfer memory back
     cudaMemcpy(active_obstacles, d_active_obstacles, 1*sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_force, d_force, n_obstacles*sizeof_vector3d, cudaMemcpyDeviceToHost);
 
+    // final calc:
+    for(int i=0; i<n_obstacles; i++){
+      force_vec[0] += h_force[i+0];
+      force_vec[1] += h_force[i+1];
+      force_vec[2] += h_force[i+2];
+    }
 
     // cleanup
+    cudaFree(d_obstacles);
+    cudaFree(d_goalPosition);
+    cudaFree(d_agentPosition);
+    cudaFree(d_agentVelocity);
+    cudaFree(d_goal_vec);
+    cudaFree(d_active_obstacles);
+    cudaFree(d_force);
 
     // prints
     auto chrono_stop = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = chrono_stop - chrono_start;
-    std::cout<<"\t"<<"[ num_obstacles: "<<n_obstacles<<",\tdetect_shell_rad_: "<<detect_shell_rad_<<",\tactive_obstacles: "<<*active_obstacles<<",\tduration: "<<duration.count()<<" ],"<<std::endl;
+    std::cout<<"\t"<<"[ num_obstacles: "<<n_obstacles<<",\tdetect_shell_rad_: "<<detect_shell_rad_<<",\tactive_obstacles: "<<*active_obstacles<<",\tduration (s): "<<duration.count();
+    std::cout<<",\tforce: ["<<force_vec[0]<<", "<< force_vec[1]<<", "<< force_vec[2];
+    std::cout<<" ],"<<std::endl;
 
 }
 
