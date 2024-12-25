@@ -18,10 +18,9 @@
 
     <buildtool_depend>catkin</buildtool_depend>
 
-    <depend>roscpp</depend>
-    <depend>rospy</depend>
-    <depend>rosbag</depend>
-
+    <build_depend>rospy</build_depend>
+    <exec_depend>rospy</exec_depend>
+    <exec_depend>std_msgs</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

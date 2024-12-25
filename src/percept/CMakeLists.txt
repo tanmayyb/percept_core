@@ -9,40 +9,19 @@ project(percept)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rosbag
+  roscpp
+  rospy
+  std_msgs
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
 
-## Uncomment this if the package has a setup.py. This macro ensures
-## modules and global scripts declared therein get installed
-## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
-# catkin_python_setup()
 
 ################################################
 ## Declare ROS messages, services and actions ##
 ################################################
-
-## To declare and build messages, services or actions from within this
-## package, follow these steps:
-## * Let MSG_DEP_SET be the set of packages whose message types you use in
-##   your messages/services/actions (e.g. std_msgs, actionlib_msgs, ...).
-## * In the file package.xml:
-##   * add a build_depend tag for "message_generation"
-##   * add a build_depend and a exec_depend tag for each package in MSG_DEP_SET
-##   * If MSG_DEP_SET isn't empty the following dependency has been pulled in
-##     but can be declared for certainty nonetheless:
-##     * add a exec_depend tag for "message_runtime"
-## * In this file (CMakeLists.txt):
-##   * add "message_generation" and every package in MSG_DEP_SET to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * add "message_runtime" and every package in MSG_DEP_SET to
-##     catkin_package(CATKIN_DEPENDS ...)
-##   * uncomment the add_*_files sections below as needed
-##     and list every .msg/.srv/.action file to be processed
-##   * uncomment the generate_messages entry below
-##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
 # add_message_files(
@@ -100,6 +79,18 @@ find_package(catkin REQUIRED COMPONENTS
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
+
+if(DEFINED ENV{VIRTUAL_ENV})
+    set(PYTHON_EXECUTABLE "$ENV{VIRTUAL_ENV}/bin/python3")  # Adjust to 'python' if Python 2 is needed
+    set(ENV{PYTHONPATH} "${VENV_SITE_PACKAGES}:$ENV{PYTHONPATH}")
+    message(STATUS "Using virtual environment site-packages: ${VENV_SITE_PACKAGES}")
+else()
+    # Fallback to system Python if no virtual environment is active
+    message(WARNING "VIRTUAL_ENV is not set; falling back to system Python!")
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+endif()
+
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES percept
