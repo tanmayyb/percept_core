@@ -1,1 +1,6 @@
 /sample-data
+
+build/
+devel/
+.catkin_tools/
+logs
