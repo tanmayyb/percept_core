@@ -1,6 +1,11 @@
-/sample-data
+# env
+peract_env/
 
+# data/stubs
+sample-data/
+
+# building
+.catkin_tools/
 build/
 devel/
-.catkin_tools/
-logs
+logs/
