@@ -1,11 +1,26 @@
 <launch>
 <arg name = "pathToRosbag"  default = "/home/dev/percept/sample-data/d435i_sample_data/d435i_walking.bag" />
-<arg name = "selectedTopics"  default = "-topics /device_0/sensor_0/Depth_0/image/data /device_0/sensor_1/Color_0/image/data" />
-<remap from = "/device_0/sensor_0/Depth_0/image/data" to = "/device_0/Depth_Image" />
-<remap from = "/device_0/sensor_1/Color_0/image/data" to = "/device_0/Color_Image" />
+<arg 	name = "selectedTopics"  
+			default = "--topics \
+			/device_0/sensor_0/Depth_0/image/data \
+			/device_0/sensor_0/Depth_0/image/metadata \
+			/device_0/sensor_1/Color_0/image/data \
+			/device_0/sensor_1/Color_0/image/metadata \
+			/device_0/sensor_2/Accel_0/imu/data \
+			/device_0/sensor_2/Accel_0/imu/metadata \
+			/device_0/sensor_2/Gyro_0/imu/data \
+			/device_0/sensor_2/Gyro_0/imu/metadata" />
+<remap from = "/device_0/sensor_0/Depth_0/image/data" to = "/Depth_Image" />
+<remap from = "/device_0/sensor_0/Depth_0/image/metadata" to = "/Depth_Image_Metadata" />
+<remap from = "/device_0/sensor_1/Color_0/image/data" to = "/Color_Image" />
+<remap from = "/device_0/sensor_1/Color_0/image/metadata" to = "/Color_Image_Metadata" />
+<remap from = "/device_0/sensor_2/Accel_0/imu/data" to = "/Accel_Data" />
+<remap from = "/device_0/sensor_2/Accel_0/imu/metadata" to = "/Accel_Data_Metadata" />
+<remap from = "/device_0/sensor_2/Gyro_0/imu/data" to = "/Gyro_Data" />
+<remap from = "/device_0/sensor_2/Gyro_0/imu/metadata" to = "/Gyro_Data_Metadata" />	
 <node pkg  = "rosbag"
       type = "play"
       name = "rosbag_player"
       output="screen"
-      args = "$(arg selectedTopics) $(arg pathToRosbag) -l"/>
+      args = "$(arg pathToRosbag) $(arg selectedTopics) -l"/>
 </launch>
