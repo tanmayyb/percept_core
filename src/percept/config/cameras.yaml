@@ -1,0 +1,44 @@
+# Configuration for Multiple RealSense D400 Cameras
+
+# Camera configurations
+cameras:
+  camera_1:
+    info:
+      serial_no:  'xxx'
+    intrinsics:
+      fx: 615.0  # Focal length x
+      fy: 615.0  # Focal length y
+      cx: 320.0  # Principal point x
+      cy: 240.0  # Principal point y
+    pose:
+      position:
+        x: 0.0  # Position in meters (x-axis)
+        y: 0.0  # Position in meters (y-axis)
+        z: 0.0  # Position in meters (z-axis)
+      orientation:
+        roll: 0.0  # Rotation around x-axis in radians
+        pitch: 0.0  # Rotation around y-axis in radians
+        yaw: 0.0  # Rotation around z-axis in radians
+
+  camera_2:
+    info:
+      serial_no:  'xxx'
+    intrinsics:
+      fx: 615.0  # Focal length x
+      fy: 615.0  # Focal length y
+      cx: 320.0  # Principal point x
+      cy: 240.0  # Principal point y
+    pose:
+      position:
+        x: 0.5  # Position in meters (x-axis)
+        y: 0.0  # Position in meters (y-axis)
+        z: 0.0  # Position in meters (z-axis)
+      orientation:
+        roll: 0.0  # Rotation around x-axis in radians
+        pitch: 0.0  # Rotation around y-axis in radians
+        yaw: 0.0  # Rotation around z-axis in radians
+
+# Additional information
+info:
+  description: Intrinsics and poses for two RealSense D400 cameras observing the same scene
+  notes: Update positions and orientations based on camera placement.
