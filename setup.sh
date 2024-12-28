@@ -17,3 +17,7 @@ pip install --upgrade pip
 
 # python-dependencies
 pip install -r requirements.txt
+
+
+# libs
+# install pyrep etc. for simulation
