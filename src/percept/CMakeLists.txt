@@ -12,6 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  sensor_msgs
+  diagnostic_msgs
+  message_filters
 )
 
 ## System dependencies are found with CMake's conventions
@@ -92,10 +95,11 @@ else()
 endif()
 
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES percept
-#  CATKIN_DEPENDS rosbag
-#  DEPENDS system_lib
+  #  INCLUDE_DIRS include
+  #  LIBRARIES percept
+  #  CATKIN_DEPENDS rosbag
+  #  DEPENDS system_lib
+  CATKIN_DEPENDS rospy std_msgs diagnostic_msgs
 )
 
 ###########
@@ -152,6 +156,11 @@ include_directories(
 #   scripts/my_python_script
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
+
+install(PROGRAMS
+  src/perception_pipeline.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
