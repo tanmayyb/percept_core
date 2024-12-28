@@ -9,3 +9,6 @@ sample-data/
 build/
 devel/
 logs/
+
+# caches
+**/__pycache__/
