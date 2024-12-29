@@ -11,8 +11,8 @@ if ! grep -q "export PERCEPT_ROOT=" ~/.bashrc || ! grep -q "export PERCEPT_ROOT=
 fi
 
 # python env
-virtualenv -p $(which python3.8) --system-site-packages peract_env 
-source ./peract_env/bin/activate
+virtualenv -p $(which python3.8) --system-site-packages percept_env 
+source ./percept_env/bin/activate
 pip install --upgrade pip
 
 # python-dependencies

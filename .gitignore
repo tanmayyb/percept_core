@@ -1,8 +1,12 @@
 # env
-peract_env/
+percept_env/
+
 
 # data/stubs
 sample-data/
+
+# prototypes
+prototypes/
 
 # building
 .catkin_tools/
