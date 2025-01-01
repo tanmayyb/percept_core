@@ -55,14 +55,18 @@ class RealTimePerceptionPipeline(PerceptionPipeline):
         obs = dict()
         for camera_name in self.camera_names:
             obs[camera_name] = dict()
-            obs[camera_name]['pcl'] = msg
+            obs[camera_name]['pcd'] = msg
             obs[camera_name]['tf'] = self.cameras[camera_name]['tf']
         # add more to obs dict
         return obs
 
     def run_pipeline(self, msg:PointCloud2):
-        ret = self.create_observation(msg)
-        super.run(ret)
+        try:
+            ret = self.create_observation(msg)
+            self.run(ret)
+        except Exception as e:
+            rospy.logerr(troubleshoot.get_error_text(e))
+
 
 
 class PerceptionNode:
