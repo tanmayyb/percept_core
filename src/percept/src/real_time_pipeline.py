@@ -1,156 +1,107 @@
 #!/usr/bin/env python3
 
 import rospy
+# from message_filters import Subscriber, ApproximateTimeSynchronizer
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from message_filters import Subscriber, ApproximateTimeSynchronizer
+
+import argparse
+import utils.troubleshoot as troubleshoot
+
+from perception_pipeline import PerceptionPipeline
+from utils.camera_helpers import create_tf_matrix_from_euler, create_tf_matrix_from_msg
 
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
+from sensor_msgs.msg import PointCloud2, PointField
+import sensor_msgs.point_cloud2 as pc2
 
-import numpy as np
-import yaml
-from perception_pipeline import PerceptionPipeline
-import os
 
 class RealTimePerceptionPipeline(PerceptionPipeline):
-    def __init__(self):
+    def __init__(self, load_static_config=False):
         super().__init__()
 
         # load configs
-        self.load_configs()
+        self.load_and_setup_pipeline_configs()
+
+        if load_static_config:
+            rospy.loginfo("loading static camera configs...")
+            self.load_and_setup_static_camera_configs()
+
+        # finish setup
+        super().setup()
 
 
-    def load_configs(self):
-        # get config file path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        config_file_path = os.path.join(current_dir, "../config/cameras.yaml") # roslaunch param
-        config_file_path = os.path.abspath(config_file_path)
-
-        # load config
-        try:
-            with open(config_file_path, 'r') as file:
-                config = yaml.safe_load(file)
-                rospy.loginfo(f"Successfully loaded config: {config_file_path}")
-        except Exception as e:
-            rospy.logerr(f"Failed to load config file: {e}")
-            config = {}
-        self.config = config
-
-    def create_observation(self, msg):
-        # read message and create observation
-        image_array = np.frombuffer(msg.data, np.uint8)
-        width = msg.width
-        height = msg.height
-        step = msg.step
-        encoding = msg.encoding
+    def load_and_setup_pipeline_configs(self):
+        self.perception_pipeline_config = rospy.get_param("perception_pipeline_config/", None)  
+        self.scene_bounds = self.perception_pipeline_config['scene_bounds']
 
 
-        # self.observations = [
-        #     {
-        #         # Camera data for each camera (cam1, cam2, cam3)
-        #         "cam1": {
-        #             "rgb": array(...),        # RGB image data
-        #             "depth": array(...),      # Depth image data
-        #             "position": array(...),   # Camera position
-        #             "resolution": array(...), # Camera resolution
-        #             "extrinsics": array(...), # Camera extrinsic matrix
-        #             "intrinsics": array(...), # Camera intrinsic matrix
-        #             "pointcloud": array(...), # Point cloud data
-        #         },
-        #         "cam2": { ... },
-        #         "cam3": { ... },
+    def load_and_setup_static_camera_configs(self):
+        self.static_camera_config = rospy.get_param("static_camera_config/", None)  
 
-        #         # Robot arm data for each arm (panda0, panda1)
-        #         "panda0": {
-        #             "joint_pos": array(...),  # Joint positions
-        #             "global_pos": array(...), # Global position
-        #             "global_ang": array(...), # Global orientation
-        #         },
-        #         "panda1": { ... }
-        #     },
-        #     # Next timestep...
-        # ]
-        
+        def setup_cameras(static_camera_config):
+            self.cameras = dict()
+            for camera_name, camera_config in static_camera_config.items():
+                self.cameras[camera_name] = dict()
+                tf_matrix = create_tf_matrix_from_euler(camera_config['pose'])
+                self.cameras[camera_name]['tf'] = tf_matrix
+                rospy.loginfo(f"camera '{camera_name}' setup complete")
+            self.camera_names = list(self.cameras.keys())
+        setup_cameras(self.static_camera_config)
 
 
+    def create_observation(self, msg:PointCloud2):
+        obs = dict()
+        for camera_name in self.camera_names:
+            obs[camera_name] = dict()
+            obs[camera_name]['pcl'] = msg
+            obs[camera_name]['tf'] = self.cameras[camera_name]['tf']
+        # add more to obs dict
+        return obs
 
-    def run(self, msg): # for single camera
-        # Goal:
-        # run pipeline using new frames (from camera) and fixed extrinsics (from config file)
-
-        # config file loaded in init: DONE
-
-        # create observation when new message received 
-        self.obs = dict()
-        self.create_observation()
-        # self.do_point_cloud_registration()
-
-        # ...later steps
-
-
-
-        # use config files/extrinsics and 
-        # run pipeline using new frames (from camera) and fixed extrinsics (from config file)
-
-
-        return None
+    def run_pipeline(self, msg:PointCloud2):
+        ret = self.create_observation(msg)
+        super.run(ret)
 
 
 class PerceptionNode:
-    def __init__(self, max_threads=5):
+    def __init__(self, args, max_threads=5):
         rospy.init_node('perception_node')
-
         # threading
         self.max_threads = max_threads
         self.executor = ThreadPoolExecutor(max_threads)
         self.lock = threading.Lock()
 
-        # Publisher
-        self.publisher = rospy.Publisher('/output_topic', String, queue_size=10)
-
-        # Subscriber
-        rospy.Subscriber('/Depth_Image', Image, self.callback)
-
-        # # Subscribers
-        # self.sub1 = Subscriber('/camera1/Depth_Image', Image)
-        # self.sub2 = Subscriber('/camera2/Depth_Image', Image)
-        # self.sub3 = Subscriber('/camera3/Depth_Image', Image)
-
-        # # Synchronizer
-        # self.sync = ApproximateTimeSynchronizer([self.sub1, self.sub2, self.sub3], queue_size=10, slop=0.1)
-        # self.sync.registerCallback(self.callback)
-
-
-        # Perception Pipeline
-        self.perception_pipeline = RealTimePerceptionPipeline()
+        # Subscribers
+        rospy.Subscriber('/cameras/camera_1/depth/color/points', PointCloud2, self.callback)
         
-    def callback(self, msg):
-        # Launch a thread to process the data
-        self.executor.submit(self.process_and_publish, msg)
+        # Setup Perception Pipeline            
+        self.perception_pipeline = RealTimePerceptionPipeline(
+            load_static_config=args.static
+        )
+        
+    def callback(self, msg:PointCloud2):
+        self.executor.submit(self.run_pipeline, msg)
 
-    # def synchronized_callback(self, img1, img2, img3):
-    #         rospy.loginfo("Synchronized images received.")
-            
-    #         # Submit the synchronized processing to a thread
-    #         self.executor.submit(self.process_and_publish, img1, img2, img3)
-
-    def process_and_publish(self, msg):
-        result = self.perception_pipeline.run(msg)
-
-        # Publish the result
-        # with self.lock:
-        #     self.publisher.publish(result)
-        #     rospy.loginfo(f"Published: {result}")
+    def run_pipeline(self, msg:PointCloud2):
+        self.perception_pipeline.run_pipeline(msg)
 
     def shutdown(self):
-        # Shutdown the executor cleanly
         self.executor.shutdown(wait=True)
         rospy.loginfo("Shutting down node.")
 
+def main():
+    parser = argparse.ArgumentParser(description="Configurable ROS Node")
+    parser.add_argument('--static', action='store_true', help="Use static configuration instead of listening to a topic")
+    args = parser.parse_args(rospy.myargv()[1:])  # Use rospy.myargv to handle ROS remapping arguments
+
+    node = PerceptionNode(args, max_threads=5)
+    return node
+
 if __name__ == "__main__":
     try:
-        node = PerceptionNode(max_threads=5)
+        node = main()
         rospy.spin()
     except rospy.ROSInterruptException:
         node.shutdown()
