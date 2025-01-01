@@ -1,5 +1,19 @@
 <launch>
 
+
+  <group ns="perception"> 
+    <arg name="camera_config_file" value="$(find percept)/config/static_cameras.yaml"/>
+    <rosparam file="$(arg camera_config_file)" command="load"/>
+
+    <arg name="pipeline_config_file" value="$(find percept)/config/pipeline.yaml"/>
+    <rosparam file="$(arg pipeline_config_file)" command="load"/>
+
+    <!-- <node name="cph_visualizer" pkg="percept" type="cph_visualizer.py" output="screen"/> -->
+    <node name="perception_node" pkg="percept" type="real_time_pipeline.py" args="--static" output="screen"/>    
+    <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find realsense2_camera)/rviz/pointcloud.rviz" required="true" /> -->
+  </group>
+
+
   <group ns="cameras">
 
     <group ns="camera_1">
@@ -20,15 +34,6 @@
       </include>
     </group>
 
-  </group>
-
-  <group ns="perception"> 
-    <arg name="camera_config_file" value="$(find percept)/config/static_cameras.yaml"/>
-    <rosparam file="$(arg camera_config_file)" command="load"/>
-
-    <!-- <node name="cph_visualizer" pkg="percept" type="cph_visualizer.py" output="screen"/> -->
-    <node name="perception_node" pkg="percept" type="real_time_pipeline.py" args="--static" output="screen"/>    
-    <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find realsense2_camera)/rviz/pointcloud.rviz" required="true" /> -->
   </group>
   
 </launch>

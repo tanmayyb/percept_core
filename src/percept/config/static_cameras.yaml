@@ -1,4 +1,4 @@
-static_config:
+static_camera_config:
   camera_1:
     nickname: 'alpha'
     serial_no: '032622070733'
