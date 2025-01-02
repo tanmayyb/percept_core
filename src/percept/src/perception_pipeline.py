@@ -58,6 +58,13 @@ class PerceptionPipeline():
             rospy.loginfo(f"PCD Processing (CPU+GPU) [sec]: {time.time()-start}")
 
         return obs
+    
+    def perform_pcd_registration(self, obs):
+        # supposed to perform registration
+        pcd = obs[self.camera_names[0]]['pcd']
+        # pcd, ind = pcd.remove_statistical_outlier(nb_neighbors=2, std_ratio=2.0)
+        return pcd
+
 
     def perform_voxelization(self, pcd:cph.geometry.PointCloud, log_performance:bool=False):
         start = time.time()
@@ -92,15 +99,14 @@ class PerceptionPipeline():
 
     def run(self, obs:dict, log_performance:bool=False):
         
-        log_performance = False
+        log_performance = True
 
         start = time.time()
         obs = self.read_and_process_obs(obs)
-        # do registration
+        joint_pcd = self.perform_pcd_registration(obs)
         # do rbs
-        joint_pcd = obs[self.camera_names[0]]['pcd']
         voxel_grid = self.perform_voxelization(joint_pcd)        
-        primitive_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=True)
+        primitive_pos = self.convert_voxels_to_primitives(voxel_grid)
 
         if log_performance:
             rospy.loginfo(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")

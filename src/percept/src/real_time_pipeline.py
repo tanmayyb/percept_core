@@ -101,7 +101,7 @@ class PerceptionNode:
         rospy.Subscriber('/cameras/camera_1/depth/color/points', PointCloud2, self.callback)
 
         # Publishers
-        self.publisher = rospy.Publisher('/pointclouds', PointCloud2, queue_size=10)
+        self.publisher = rospy.Publisher('/primitives', PointCloud2, queue_size=10)
 
         # Setup Perception Pipeline            
         self.perception_pipeline = RealTimePerceptionPipeline(
