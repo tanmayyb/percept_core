@@ -12,7 +12,7 @@ from perception_pipeline import PerceptionPipeline
 from utils.camera_helpers import create_tf_matrix_from_euler, create_tf_matrix_from_msg
 
 from sensor_msgs.msg import Image
-from std_msgs.msg import String
+from std_msgs.msg import String, Header
 from sensor_msgs.msg import PointCloud2, PointField
 import sensor_msgs.point_cloud2 as pc2
 
@@ -35,6 +35,8 @@ class RealTimePerceptionPipeline(PerceptionPipeline):
     def load_and_setup_pipeline_configs(self):
         self.perception_pipeline_config = rospy.get_param("perception_pipeline_config/", None)  
         self.scene_bounds = self.perception_pipeline_config['scene_bounds']
+        self.cubic_size = self.perception_pipeline_config['voxel_props']['cubic_size']
+        self.voxel_resolution = self.perception_pipeline_config['voxel_props']['voxel_resolution']
 
 
     def load_and_setup_static_camera_configs(self):
@@ -63,10 +65,28 @@ class RealTimePerceptionPipeline(PerceptionPipeline):
     def run_pipeline(self, msg:PointCloud2):
         try:
             ret = self.create_observation(msg)
-            self.run(ret)
+            ret = self.run(ret)
+            return self.make_pcd_msg(ret) 
+
         except Exception as e:
             rospy.logerr(troubleshoot.get_error_text(e))
 
+    def make_pcd_msg(self, points_array):
+        # Define header
+        header = rospy.Header()
+        header.stamp = rospy.Time.now()
+        header.frame_id = "camera_1_link"  # Set the frame of reference
+
+        points_list = points_array
+
+        fields = [
+            PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
+        ]
+
+        point_cloud_msg = pc2.create_cloud(header, fields, points_list)
+        return point_cloud_msg
 
 
 class PerceptionNode:
@@ -79,7 +99,10 @@ class PerceptionNode:
 
         # Subscribers
         rospy.Subscriber('/cameras/camera_1/depth/color/points', PointCloud2, self.callback)
-        
+
+        # Publishers
+        self.publisher = rospy.Publisher('/pointclouds', PointCloud2, queue_size=10)
+
         # Setup Perception Pipeline            
         self.perception_pipeline = RealTimePerceptionPipeline(
             load_static_config=args.static
@@ -88,8 +111,12 @@ class PerceptionNode:
     def callback(self, msg:PointCloud2):
         self.executor.submit(self.run_pipeline, msg)
 
+    def publish_msg(self, msg:PointCloud2):
+        self.publisher.publish(msg)
+
     def run_pipeline(self, msg:PointCloud2):
-        self.perception_pipeline.run_pipeline(msg)
+        msg = self.perception_pipeline.run_pipeline(msg)
+        self.publish_msg(msg)
 
     def shutdown(self):
         self.executor.shutdown(wait=True)
@@ -98,8 +125,7 @@ class PerceptionNode:
 def main():
     parser = argparse.ArgumentParser(description="Configurable ROS Node")
     parser.add_argument('--static', action='store_true', help="Use static configuration instead of listening to a topic")
-    args = parser.parse_args(rospy.myargv()[1:])  # Use rospy.myargv to handle ROS remapping arguments
-
+    args = parser.parse_args(rospy.myargv()[1:])  
     node = PerceptionNode(args, max_threads=5)
     return node
 
