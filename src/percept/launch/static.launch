@@ -25,6 +25,7 @@
         <arg name="depth_fps"         value="30"/>
         <arg name="enable_pointcloud" value="true"/>
         <arg name="pointcloud_texture_stream" default="RS2_STREAM_ANY"/> 
+        <arg name="filters"           value="decimation,disparity,spatial,temporal,disparity,hole_filling"/> 
         <arg name="tf_prefix"         value="$(arg camera)"/> 
         <arg name="enable_sync"       value="true"/>
         <arg name="enable_color"      value="false"/>    
