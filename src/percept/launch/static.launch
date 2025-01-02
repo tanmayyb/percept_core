@@ -1,6 +1,5 @@
 <launch>
 
-
   <group ns="perception"> 
     <arg name="camera_config_file" value="$(find percept)/config/static_cameras.yaml"/>
     <rosparam file="$(arg camera_config_file)" command="load"/>
@@ -8,9 +7,8 @@
     <arg name="pipeline_config_file" value="$(find percept)/config/pipeline.yaml"/>
     <rosparam file="$(arg pipeline_config_file)" command="load"/>
 
-    <!-- <node name="cph_visualizer" pkg="percept" type="cph_visualizer.py" output="screen"/> -->
     <node name="perception_node" pkg="percept" type="real_time_pipeline.py" args="--static" output="screen"/>    
-    <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find realsense2_camera)/rviz/pointcloud.rviz" required="true" /> -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find percept)/rviz/perception.rviz"/>
   </group>
 
 
@@ -22,8 +20,8 @@
       <include file="$(find realsense2_camera)/launch/includes/nodelet.launch.xml">
         <arg name="serial_no"         value="$(arg serial_no)"/>
         <arg name="enable_depth"      value="true"/>
-        <arg name="depth_width"       value="1200"/>
-        <arg name="depth_height"      value="720"/>
+        <arg name="depth_width"       value="640"/>
+        <arg name="depth_height"      value="360"/>
         <arg name="depth_fps"         value="30"/>
         <arg name="enable_pointcloud" value="true"/>
         <arg name="pointcloud_texture_stream" default="RS2_STREAM_ANY"/> 

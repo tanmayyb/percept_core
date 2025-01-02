@@ -5,9 +5,9 @@ static_camera_config:
     pose:
       position:
         x: 0.0  # Position in meters (x-axis)
-        y: 0.0  # Position in meters (y-axis)
-        z: 0.0  # Position in meters (z-axis)
+        y: -1.5  # Position in meters (y-axis)
+        z: 1.0  # Position in meters (z-axis)
       orientation:
-        roll: 0.0  # Rotation around x-axis in radians
+        roll: -1.5  # Rotation around x-axis in radians
         pitch: 0.0  # Rotation around y-axis in radians
         yaw: 0.0  # Rotation around z-axis in radians
