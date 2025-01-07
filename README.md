@@ -10,7 +10,8 @@ Goal: Fast (~30Hz) perception pipline for generating control parameters and work
 |----|----|
 |librealsenseSDK |[install](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md)|
 
-
+- URDF model of selected robot (for Robot-Body Subtraction from scene). We use Franka Emika Robots for Sim and Real-World tests.
+- 
 
 ## Credits
 
