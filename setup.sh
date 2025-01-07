@@ -18,6 +18,10 @@ pip install --upgrade pip
 # python-dependencies
 pip install -r requirements.txt
 
-
-# libs
-# install pyrep etc. for simulation
+# install pyrep for simulation
+mkdir libs
+cd libs
+git clone https://github.com/stepjam/pyrep.git
+cd pyrep
+pip install -r requirements.txt
+pip install .
