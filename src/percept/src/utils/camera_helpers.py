@@ -1,5 +1,28 @@
 import numpy as np
-from tf.transformations import quaternion_matrix
+from tf.transformations import quaternion_matrix, quaternion_from_euler
+from geometry_msgs.msg import TransformStamped
+
+def create_tf_msg_from_xyzrpy(
+        child_frame:str, 
+        x:float, y:float, z:float,
+        a:float, b:float, g:float, 
+        frame_id='map'):
+    # https://robotics.stackexchange.com/questions/53148/quaternion-transformations-in-python
+    tf_msg = TransformStamped()
+    tf_msg.header.frame_id = frame_id
+    tf_msg.child_frame_id = child_frame
+    tf_msg.transform.translation.x = x
+    tf_msg.transform.translation.y = y
+    tf_msg.transform.translation.z = z
+    
+    quaternion = quaternion_from_euler(a, b, g, axes='sxyz')
+    # added 90deg to offset the camera NOA convention
+    tf_msg.transform.rotation.x = quaternion[0]
+    tf_msg.transform.rotation.y = quaternion[1]
+    tf_msg.transform.rotation.z = quaternion[2]
+    tf_msg.transform.rotation.w = quaternion[3]
+
+    return tf_msg
 
 def create_tf_matrix_from_msg(transform_msg):
     """
