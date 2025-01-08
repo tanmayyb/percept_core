@@ -1,5 +1,10 @@
 
 
+#### RVIZ
+```
+rosrun tf2_ros static_transform_publisher 0 0 0 0 0 -1.5 map camera_1_link
+```
+
 #### Observations
 ```
  self.observations = [
