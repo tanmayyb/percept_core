@@ -30,3 +30,8 @@ source peract_env/bin/activate
 catkin clean --yes
 catkin init && catkin config --cmake-args -DCMAKE_BUILD_TYPE=Debug && catkin build
 ```
+
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$COPPELIASIM_ROOT
+export QT_QPA_PLATFORM_PLUGIN_PATH=$COPPELIASIM_ROOT
+```
