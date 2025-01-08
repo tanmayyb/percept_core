@@ -16,7 +16,7 @@ class SimStreamer:
         
         # Initialize CoppeliaSim
         rospack = rospkg.RosPack()
-        SCENE_FILE = os.path.join(rospack.get_path('percept'), 'scenes/default.ttt')
+        SCENE_FILE = os.path.join(rospack.get_path('percept'), 'assets/scenes/default.ttt')
         self.pr = PyRep()
         self.pr.launch(SCENE_FILE, headless=True)
         self.pr.start()
