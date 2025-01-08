@@ -1,10 +1,25 @@
 <launch>
   
-    <node name="sim_streamer" pkg="percept" type="sim_stream.py" output="screen">
-        <env name="COPPELIASIM_ROOT" value="$(env COPPELIASIM_ROOT)" />
-        <env name="LD_LIBRARY_PATH" value="$(env LD_LIBRARY_PATH):$(env COPPELIASIM_ROOT)" />
-        <env name="QT_QPA_PLATFORM_PLUGIN_PATH" value="$(env COPPELIASIM_ROOT)" />
-    </node>
+
+    <group ns="sim_streamer"> 
+
+        <arg name="sim_config_file" value="$(find percept)/config/sim_conf.yaml"/>
+        <rosparam file="$(arg sim_config_file)" command="load"/>
+
+        <arg name="pipeline_config_file" value="$(find percept)/config/sim_pipeline_conf.yaml"/>
+        <rosparam file="$(arg pipeline_config_file)" command="load"/>
+
+        <arg name="no_headless" default="false"/>
+        <node name="sim_streamer" pkg="percept" type="sim_stream.py" output="screen">
+            <env name="COPPELIASIM_ROOT" value="$(env COPPELIASIM_ROOT)" />
+            <env name="LD_LIBRARY_PATH" value="$(env LD_LIBRARY_PATH):$(env COPPELIASIM_ROOT)" />
+            <env name="QT_QPA_PLATFORM_PLUGIN_PATH" value="$(env COPPELIASIM_ROOT)" />
+            
+            <param name="no_headless" value="true" if="$(arg no_headless)" />
+            <param name="no_headless" value="false" unless="$(arg no_headless)" />
+        </node>
+    </group>
 
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find percept)/rviz/sim.rviz"/>
 </launch>
+
