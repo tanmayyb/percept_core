@@ -26,8 +26,7 @@ from utils.camera_helpers import create_tf_msg_from_xyzrpy
 
 class SimStreamer:
     # Streams Scene from CoppeliaSim to ROS and back!
-    # def __init__(self, args):
-    def __init__(self):
+    def __init__(self, args):
         rospy.init_node('sim_streamer')
         
         # setup
@@ -122,7 +121,8 @@ class SimStreamer:
         points = points_array.reshape(-1, 3)
        
         # Create point cloud message
-        frame_id = f'{camera_name}_link'
+        frame_id = 'map'
+        # frame_id = f'{camera_name}_link'
         msg = PointCloud2()
         msg.header.stamp = rospy.Time.now()
         msg.header.frame_id = frame_id
@@ -176,14 +176,11 @@ class SimStreamer:
         rospy.loginfo("Shutting down SimStreamer node")
 
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser(description="Sim Streamer Node")
-    # parser.add_argument('--no_headless', action='store_true', help="Run CoppeliaSim in headless mode")
-    # args = parser.parse_args(rospy.myargv()[1:])  
+    parser = argparse.ArgumentParser(description="Sim Streamer Node")
+    args = parser.parse_args(rospy.myargv()[1:])  
     
     try:
-        # node = SimStreamer(args)
-        node = SimStreamer()
-
+        node = SimStreamer(args)
         node.run()
     except rospy.ROSInterruptException:
         node.shutdown()
