@@ -6,5 +6,5 @@
         <env name="QT_QPA_PLATFORM_PLUGIN_PATH" value="$(env COPPELIASIM_ROOT)" />
     </node>
 
-        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find percept)/rviz/sim.rviz"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find percept)/rviz/sim.rviz"/>
 </launch>
