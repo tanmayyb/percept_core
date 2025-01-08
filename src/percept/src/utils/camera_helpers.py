@@ -15,7 +15,7 @@ def create_tf_msg_from_xyzrpy(
     tf_msg.transform.translation.y = y
     tf_msg.transform.translation.z = z
     
-    quaternion = quaternion_from_euler(a, b, g, axes='sxyz')
+    quaternion = quaternion_from_euler(a, b, g, axes='rxyz')
     # added 90deg to offset the camera NOA convention
     tf_msg.transform.rotation.x = quaternion[0]
     tf_msg.transform.rotation.y = quaternion[1]
