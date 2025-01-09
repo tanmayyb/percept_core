@@ -75,7 +75,8 @@ class RealTimePerceptionPipeline(PerceptionPipeline):
         # Define header
         header = rospy.Header()
         header.stamp = rospy.Time.now()
-        header.frame_id = "camera_1_link"  # Set the frame of reference
+        header.frame_id = "map"
+
 
         points_list = points_array
 

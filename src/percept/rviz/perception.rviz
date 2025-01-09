@@ -3,12 +3,7 @@ Panels:
     Help Height: 78
     Name: Displays
     Property Tree Widget:
-      Expanded:
-        - /Global Options1
-        - /Status1
-        - /PointCloud21
-        - /Axes1
-        - /Image1
+      Expanded: ~
       Splitter Ratio: 0.5
     Tree Height: 514
   - Class: rviz/Selection
@@ -57,8 +52,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 1.9499999284744263
-        Min Value: -1.1500000953674316
+        Max Value: 1.9600000381469727
+        Min Value: -1.2400000095367432
         Value: true
       Axis: Y
       Channel Name: intensity
@@ -88,7 +83,34 @@ Visualization Manager:
       Length: 1
       Name: Axes
       Radius: 0.10000000149011612
+      Reference Frame: map
+      Show Trail: false
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.5
+      Name: Axes
+      Radius: 0.05000000074505806
       Reference Frame: camera_1_link
+      Show Trail: false
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.5
+      Name: Axes
+      Radius: 0.05000000074505806
+      Reference Frame: camera_2_link
+      Show Trail: false
+      Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.5
+      Name: Axes
+      Radius: 0.05000000074505806
+      Reference Frame: camera_3_link
       Show Trail: false
       Value: true
     - Class: rviz/Image
@@ -107,7 +129,7 @@ Visualization Manager:
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: camera_1_link
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -131,7 +153,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 6.156769752502441
+      Distance: 6.098964691162109
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -139,17 +161,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 1.2638990879058838
-        Y: 0.9622071385383606
-        Z: 0.7244153618812561
+        X: -0.6776979565620422
+        Y: 0.5973653197288513
+        Z: 1.1782867908477783
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.23479662835597992
+      Pitch: 0.10520441830158234
       Target Frame: <Fixed Frame>
-      Yaw: 4.748564720153809
+      Yaw: 4.5517120361328125
     Saved: ~
 Window Geometry:
   Displays:

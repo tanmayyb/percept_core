@@ -8,7 +8,7 @@
     <rosparam file="$(arg pipeline_config_file)" command="load"/>
 
     <node name="perception_node" pkg="percept" type="real_pipeline.py" args="--static" output="screen"/>    
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find percept)/rviz/perception.rviz"/>
+    <node name="perception_rviz" pkg="rviz" type="rviz" args="-d $(find percept)/rviz/perception.rviz"/>
   </group>
 
 
