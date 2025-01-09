@@ -21,9 +21,6 @@ from utils.troubleshoot import get_error_text
 from utils.camera_helpers import create_tf_msg_from_xyzrpy
 
 
-
-
-
 class SimStreamer:
     # Streams Scene from CoppeliaSim to ROS and back!
     def __init__(self, args):
@@ -41,18 +38,16 @@ class SimStreamer:
         # Publishing rate
         self.rate = rospy.Rate(30)  # 30 Hz
 
-
         # start
         self.pr.start()
 
 
     def load_and_setup_launch_configs(self):
-        self.static_camera_config = rospy.get_param("static_camera_config/", None)  
-        self.scene_config = rospy.get_param("scene_config/", None)  
+        self.static_camera_config = rospy.get_param("/static_camera_config/", None)  
+        self.scene_config = rospy.get_param("/scene_config/", None)  
 
         rospack = rospkg.RosPack()
         self.pkg_path = rospack.get_path('percept')
-
         self.no_headless = rospy.get_param("sim_streamer/no_headless/", False)  
 
 

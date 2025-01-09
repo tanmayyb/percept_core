@@ -26,7 +26,7 @@ class PerceptionPipeline():
         self.voxel_min_bound = (-cubic_size/2.0, -cubic_size/2.0, -cubic_size/2.0)
         self.voxel_max_bound = (cubic_size/2.0, cubic_size/2.0, cubic_size/2.0)
 
-    def read_and_process_obs(self, obs:dict, log_performance:bool=False):
+    def read_and_process_obs(self, obs:dict, log_performance:bool=False, sim=False):
         # loop to read and process pcds (to be parallelized)
         start = time.time()
         for camera_name in self.camera_names:
@@ -41,9 +41,10 @@ class PerceptionPipeline():
                 )
                 pcd.points = temp.points
 
-                # transform pcds to world frame           
-                tf_matrix = obs[camera_name]['tf']
-                pcd = pcd.transform(tf_matrix)
+                # transform pcds to world frame   
+                if not(sim):        
+                    tf_matrix = obs[camera_name]['tf']
+                    pcd = pcd.transform(tf_matrix)
 
                 # crop pcds according to defined scene bounds
                 pcd = pcd.crop(self.bbox)
@@ -97,12 +98,12 @@ class PerceptionPipeline():
         return primitives_pos
 
 
-    def run(self, obs:dict, log_performance:bool=False):
+    def run(self, obs:dict, log_performance:bool=False, sim=False):
         
         log_performance = True
 
         start = time.time()
-        obs = self.read_and_process_obs(obs)
+        obs = self.read_and_process_obs(obs, sim=sim)
         joint_pcd = self.perform_pcd_registration(obs)
         # do rbs
         voxel_grid = self.perform_voxelization(joint_pcd)        
