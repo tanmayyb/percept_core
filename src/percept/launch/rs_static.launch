@@ -7,7 +7,7 @@
     <arg name="pipeline_config_file" value="$(find percept)/config/rs_pipeline_conf.yaml"/>
     <rosparam file="$(arg pipeline_config_file)" command="load"/>
 
-    <node name="perception_node" pkg="percept" type="real_pipeline.py" args="--static" output="screen"/>    
+    <node name="real_perception_node" pkg="percept" type="real_pipeline.py" args="--static" output="screen"/>    
     <node name="perception_rviz" pkg="rviz" type="rviz" args="-d $(find percept)/rviz/perception.rviz"/>
   </group>
 

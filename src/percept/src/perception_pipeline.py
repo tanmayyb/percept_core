@@ -3,29 +3,16 @@ import numpy as np
 from copy import deepcopy
 
 import rospy
-from sensor_msgs.msg import PointCloud2
 
 import time
 import utils.troubleshoot as troubleshoot
 
 import subprocess
 
+
 class PerceptionPipeline():
     def __init__(self):
         self.check_cuda()
-
-    def setup(self):
-
-        # set scene props
-        min_bound, max_bound = np.array(self.scene_bounds['min']), np.array(self.scene_bounds['max'])
-        self.bbox = cph.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
-
-        # set voxel props
-        cubic_size = self.cubic_size
-        voxel_resolution = self.voxel_resolution
-        self.voxel_size = cubic_size/voxel_resolution
-        self.voxel_min_bound = (-cubic_size/2.0, -cubic_size/2.0, -cubic_size/2.0)
-        self.voxel_max_bound = (cubic_size/2.0, cubic_size/2.0, cubic_size/2.0)
 
     def check_cuda(self):
         """Check if CUDA is available using nvidia-smi"""
@@ -37,13 +24,32 @@ class PerceptionPipeline():
             rospy.logerr("CUDA is not available - nvidia-smi command failed")
             raise RuntimeError("CUDA is required for this pipeline")
 
-    def read_and_process_obs(self, obs:dict, log_performance:bool=False, sim=False, downsample=False):
+    def setup(self):
+        # set scene props
+        min_bound, max_bound = np.array(self.scene_bounds['min']), np.array(self.scene_bounds['max'])
+        self.bbox = cph.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+
+        # set voxel props
+        cubic_size = self.cubic_size
+        voxel_resolution = self.voxel_resolution
+        self.voxel_size = cubic_size/voxel_resolution
+        self.voxel_min_bound = (-cubic_size/2.0, -cubic_size/2.0, -cubic_size/2.0)
+        self.voxel_max_bound = (cubic_size/2.0, cubic_size/2.0, cubic_size/2.0)
+
+
+    def read_and_process_obs(self, pointclouds:dict, tfs:dict, use_sim=False, downsample:bool=False, log_performance:bool=False):
         # loop to read and process pcds (to be parallelized)
         start = time.time()
+
+        # pointcloud assertion check
+        try:
+            assert pointclouds is not None
+        except Exception as e:
+                rospy.logerr(troubleshoot.get_error_text(e))
+
         for camera_name in self.camera_names:
             try:
-                msg = obs[camera_name]['pcd']
-
+                msg = pointclouds[camera_name]
                 # read pcds
                 pcd = cph.geometry.PointCloud()
                 temp = cph.io.create_from_pointcloud2_msg(
@@ -51,22 +57,21 @@ class PerceptionPipeline():
                         msg.width, msg.height, msg.point_step)
                 )
                 pcd.points = temp.points
-
-                # transform pcds to world frame   
-                if not(sim):        
-                    tf_matrix = obs[camera_name]['tf']
-                    pcd = pcd.transform(tf_matrix)
+   
+                if not(use_sim): # transform pcds to world frame
+                    assert tfs is not None        
+                    tf_matrix = tfs[camera_name]
+                    pcd = pcd.transform(tf_matrix) # transform pcd
 
                 # crop pcds according to defined scene bounds
                 pcd = pcd.crop(self.bbox)
-
-                # downsample pcds
-                if downsample:
+                
+                if downsample: # downsample pcds
                     every_n_points = 3
                     pcd = pcd.uniform_down_sample(every_n_points)
 
                 # replace pcd object
-                obs[camera_name]['pcd'] = deepcopy(pcd)
+                pointclouds[camera_name] = deepcopy(pcd)
 
             except Exception as e:
                 rospy.logerr(troubleshoot.get_error_text(e))
@@ -74,9 +79,9 @@ class PerceptionPipeline():
         if log_performance:
             rospy.loginfo(f"PCD Processing (CPU+GPU) [sec]: {time.time()-start}")
 
-        return obs
+        return pointclouds
     
-    def perform_pcd_registration(self, obs:dict, log_performance:bool=False):
+    def perform_pcd_registration(self, pointclouds:dict, log_performance:bool=False):
         # supposed to perform registration
 
         start = time.time()
@@ -121,17 +126,17 @@ class PerceptionPipeline():
 
 
 
-        source_gpu = obs[self.camera_names[0]]['pcd']
+        source_gpu = pointclouds[self.camera_names[0]]
         # source_gpu.estimate_normals()
         merged_gpu = source_gpu
         if len(self.camera_names)>1:
-            target_gpu = obs[self.camera_names[1]]['pcd']
+            target_gpu = pointclouds[self.camera_names[1]]
             # merged_gpu = register(merged_gpu, 
             # target_gpu)    
             merged_gpu = dirty_merge(merged_gpu, target_gpu)
         if len(self.camera_names)>2:
             for camera_name in self.camera_names[2:]:
-                target_gpu = obs[camera_name]['pcd']
+                target_gpu = pointclouds[camera_name]
                 # merged_gpu = register(merged_gpu, 
                 # target_gpu)
                 merged_gpu = dirty_merge(merged_gpu, target_gpu)
@@ -160,6 +165,11 @@ class PerceptionPipeline():
         offset = voxel_grid.get_min_bound()
         voxel_size = self.voxel_size
         primitives_pos = np.array(list(voxels.keys()))
+
+        if primitives_pos.size == 0:  # Handle empty voxel grid
+            rospy.logwarn("No voxels found in voxel grid")
+            return None
+        
         primitives_pos = (primitives_pos - np.array([
                         min(primitives_pos[:,0]), 
                         min(primitives_pos[:,1]), 
@@ -172,18 +182,18 @@ class PerceptionPipeline():
         return primitives_pos
 
 
-    def run(self, obs:dict, log_performance:bool=False, sim=False):
-        
-        log_performance = True
-
+    def run_pipeline(self, pointclouds:dict, tfs:dict, use_sim=False, log_performance:bool=False):
+        # streamer/realsense gives pointclouds and tfs
+        log_performance = False
         start = time.time()
-        obs = self.read_and_process_obs(obs, sim=sim, downsample=False, log_performance=True)
-        joint_pcd = self.perform_pcd_registration(obs, log_performance=True)
+        pointclouds = self.read_and_process_obs(pointclouds, tfs, use_sim=use_sim, downsample=False, log_performance=log_performance)
+        merged_pointclouds = self.perform_pcd_registration(pointclouds, log_performance=log_performance)
         # do rbs
-        voxel_grid = self.perform_voxelization(joint_pcd, log_performance=True)
-        primitive_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=True)
+        voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
+        primitives = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)
 
+        log_performance = True
         if log_performance:
             rospy.loginfo(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
+        return primitives
 
-        return primitive_pos
