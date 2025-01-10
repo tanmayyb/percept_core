@@ -8,10 +8,11 @@ from sensor_msgs.msg import PointCloud2
 import time
 import utils.troubleshoot as troubleshoot
 
+import subprocess
+
 class PerceptionPipeline():
     def __init__(self):
-        # self.check_cuda() # add CUDA check
-        pass
+        self.check_cuda()
 
     def setup(self):
 
@@ -25,6 +26,16 @@ class PerceptionPipeline():
         self.voxel_size = cubic_size/voxel_resolution
         self.voxel_min_bound = (-cubic_size/2.0, -cubic_size/2.0, -cubic_size/2.0)
         self.voxel_max_bound = (cubic_size/2.0, cubic_size/2.0, cubic_size/2.0)
+
+    def check_cuda(self):
+        """Check if CUDA is available using nvidia-smi"""
+        try:
+            output = subprocess.check_output(["nvidia-smi"])
+            rospy.loginfo("CUDA is available")
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            rospy.logerr("CUDA is not available - nvidia-smi command failed")
+            raise RuntimeError("CUDA is required for this pipeline")
 
     def read_and_process_obs(self, obs:dict, log_performance:bool=False, sim=False, downsample=False):
         # loop to read and process pcds (to be parallelized)
