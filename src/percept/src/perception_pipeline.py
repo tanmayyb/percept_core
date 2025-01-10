@@ -26,7 +26,7 @@ class PerceptionPipeline():
         self.voxel_min_bound = (-cubic_size/2.0, -cubic_size/2.0, -cubic_size/2.0)
         self.voxel_max_bound = (cubic_size/2.0, cubic_size/2.0, cubic_size/2.0)
 
-    def read_and_process_obs(self, obs:dict, log_performance:bool=False, sim=False):
+    def read_and_process_obs(self, obs:dict, log_performance:bool=False, sim=False, downsample=False):
         # loop to read and process pcds (to be parallelized)
         start = time.time()
         for camera_name in self.camera_names:
@@ -49,6 +49,11 @@ class PerceptionPipeline():
                 # crop pcds according to defined scene bounds
                 pcd = pcd.crop(self.bbox)
 
+                # downsample pcds
+                if downsample:
+                    every_n_points = 3
+                    pcd = pcd.uniform_down_sample(every_n_points)
+
                 # replace pcd object
                 obs[camera_name]['pcd'] = deepcopy(pcd)
 
@@ -60,11 +65,69 @@ class PerceptionPipeline():
 
         return obs
     
-    def perform_pcd_registration(self, obs):
+    def perform_pcd_registration(self, obs:dict, log_performance:bool=False):
         # supposed to perform registration
-        pcd = obs[self.camera_names[0]]['pcd']
-        # pcd, ind = pcd.remove_statistical_outlier(nb_neighbors=2, std_ratio=2.0)
-        return pcd
+
+        start = time.time()
+
+
+        def register(
+            source_gpu:cph.geometry.PointCloud, 
+            target_gpu:cph.geometry.PointCloud,
+            remove_outliers=False
+        ) -> cph.geometry.PointCloud:
+            target_gpu.estimate_normals()
+            threshold = 0.02 # what does this do?
+            trans_init = np.asarray(
+                [[1.0, 0.0, 0.0, 0.0], 
+                 [0.0, 1.0, 0.0, 0.0],
+                 [0.0, 0.0, 1.0, 0.0], 
+                 [0.0, 0.0, 0.0, 1.0]])
+
+            # register pointclouds
+            register_icp = cph.registration.registration_icp(
+                source_gpu,
+                target_gpu,
+                threshold,
+                trans_init.astype(np.float32),
+                cph.registration.TransformationEstimationPointToPlane(),
+            )
+
+            source_gpu.transform(register_icp.transformation)
+
+            if remove_outliers:
+                # remove outliers
+                NEIGHBOURS = 2
+                source_gpu, ind = source_gpu.remove_statistical_outlier(nb_neighbors=NEIGHBOURS, std_ratio=2.0)
+                target_gpu, ind = target_gpu.remove_statistical_outlier(nb_neighbors=NEIGHBOURS, std_ratio=2.0)
+            return source_gpu+target_gpu
+
+        def dirty_merge(
+            source_gpu:cph.geometry.PointCloud,
+            target_gpu:cph.geometry.PointCloud
+        ):
+            return source_gpu+target_gpu
+
+
+
+        source_gpu = obs[self.camera_names[0]]['pcd']
+        # source_gpu.estimate_normals()
+        merged_gpu = source_gpu
+        if len(self.camera_names)>1:
+            target_gpu = obs[self.camera_names[1]]['pcd']
+            # merged_gpu = register(merged_gpu, 
+            # target_gpu)    
+            merged_gpu = dirty_merge(merged_gpu, target_gpu)
+        if len(self.camera_names)>2:
+            for camera_name in self.camera_names[2:]:
+                target_gpu = obs[camera_name]['pcd']
+                # merged_gpu = register(merged_gpu, 
+                # target_gpu)
+                merged_gpu = dirty_merge(merged_gpu, target_gpu)
+
+        if log_performance:
+            rospy.loginfo(f"Registration (GPU) [sec]: {time.time()-start}")
+        return merged_gpu
 
 
     def perform_voxelization(self, pcd:cph.geometry.PointCloud, log_performance:bool=False):
@@ -103,11 +166,11 @@ class PerceptionPipeline():
         log_performance = True
 
         start = time.time()
-        obs = self.read_and_process_obs(obs, sim=sim)
-        joint_pcd = self.perform_pcd_registration(obs)
+        obs = self.read_and_process_obs(obs, sim=sim, downsample=False, log_performance=True)
+        joint_pcd = self.perform_pcd_registration(obs, log_performance=True)
         # do rbs
-        voxel_grid = self.perform_voxelization(joint_pcd)        
-        primitive_pos = self.convert_voxels_to_primitives(voxel_grid)
+        voxel_grid = self.perform_voxelization(joint_pcd, log_performance=True)
+        primitive_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=True)
 
         if log_performance:
             rospy.loginfo(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
