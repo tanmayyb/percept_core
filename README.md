@@ -4,17 +4,22 @@ Goal: Fast (~30Hz) perception pipline for generating control parameters and work
 
 ## Requirements
 
+| Hardware                                        |
+| ------------------------------------------------- |
+| CUDA-capable PC (Our Setup: i7 8000U + RTX3070) |
+| Intel Realsense 435i                            |
+
+
 - Ubuntu 20.04 Focal Fossa ([iso](https://releases.ubuntu.com/focal/https:/))
+- CUDA ([instructions](https://x.com/jeremyphoward/status/1697435241152127369))
 - ROS 1 Noetic ([debian](http://wiki.ros.org/noetic/Installation/Debianhttps:/))
-
-
-| Packages                                    | Links                                                                                          |
-| :-------------------------------------------- | :----------------------------------------------------------------------------------------------- |
-| librealsenseSDK                             | [debian](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md) |
-| CoppeliaSim 4.1.0 EDU (for simulation) | [binaries](https://www.coppeliarobotics.com/previousVersionshttps:/)                           |
-
 - URDF model of selected robot (for Robot-Body Subtraction from scene). We use Franka Emika Robots for Sim and Real-World tests.
--
+
+
+| Packages                               | Links                                                                                          |
+| :--------------------------------------- | :----------------------------------------------------------------------------------------------- |
+| librealsenseSDK                        | [debian](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md) |
+| CoppeliaSim 4.1.0 EDU (for simulation) | [binaries](https://www.coppeliarobotics.com/previousVersionshttps:/)                           |
 
 ## Setup
 
