@@ -37,5 +37,5 @@ static_camera_config: # configs around world frame
         yaw: 0.0  # gamma in radians
 # https://dugas.ch/transform_viewer/index.html
 scene_config:
-  scene_file: 'assets/scenes/default.ttt'
+  scene_file: 'assets/scenes/tight_living_room.ttt'
   sim_timestep: 0.010
