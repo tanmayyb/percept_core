@@ -2,6 +2,9 @@
 
 Goal: Fast (~30Hz) perception pipline for workspace approximation research for heuristic-based multi-agent planning framework (PMAF) by Laha et al 2023. Support both sim/real-world perception for multiple cameras.
 
+![Rviz PointCloud](imgs/250121_rviz_pointclouds.png)
+![Rviz Primitives](imgs/250121_rviz_primitives.png)
+
 ## Requirements
 
 
