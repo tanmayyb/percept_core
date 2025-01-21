@@ -1,18 +1,22 @@
 import cupoch as cph
 import numpy as np
-from copy import deepcopy
+import cupy as cp
 
 import rospy
-
 import time
 import utils.troubleshoot as troubleshoot
 
 import subprocess
-
+import multiprocessing
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 class PerceptionPipeline():
     def __init__(self):
         self.check_cuda()
+        # Create process pool for CPU-intensive tasks
+        self.process_pool = ProcessPoolExecutor(max_workers=multiprocessing.cpu_count())
+        # Create thread pool for I/O operations
+        self.thread_pool = ThreadPoolExecutor(max_workers=4)
 
     def check_cuda(self):
         """Check if CUDA is available using nvidia-smi"""
@@ -27,7 +31,7 @@ class PerceptionPipeline():
     def setup(self):
         # set scene props
         min_bound, max_bound = np.array(self.scene_bounds['min']), np.array(self.scene_bounds['max'])
-        self.bbox = cph.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+        self.scene_bbox = cph.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
 
         # set voxel props
         cubic_size = self.cubic_size
@@ -36,8 +40,30 @@ class PerceptionPipeline():
         self.voxel_min_bound = (-cubic_size/2.0, -cubic_size/2.0, -cubic_size/2.0)
         self.voxel_max_bound = (cubic_size/2.0, cubic_size/2.0, cubic_size/2.0)
 
+    def _process_single_pointcloud(self, camera_name:str, msg, tf_matrix=None, downsample=False):
+        try:
+            pcd = cph.geometry.PointCloud()
+            temp = cph.io.create_from_pointcloud2_msg(
+                msg.data, cph.io.PointCloud2MsgInfo.default_dense(
+                    msg.width, msg.height, msg.point_step)
+            )
+            pcd.points = temp.points
 
-    def read_and_process_obs(self, pointclouds:dict, tfs:dict, use_sim=False, downsample:bool=False, log_performance:bool=False):
+            if tf_matrix is not None:
+                pcd = pcd.transform(tf_matrix)
+
+            pcd = pcd.crop(self.scene_bbox)
+            
+            if downsample:
+                every_n_points = 3
+                pcd = pcd.uniform_down_sample(every_n_points)
+
+            return pcd
+        except Exception as e:
+            rospy.logerr(troubleshoot.get_error_text(e))
+
+
+    def parse_pointclouds(self, pointclouds:dict, tfs:dict, use_sim=False, downsample:bool=False, log_performance:bool=False):
         # loop to read and process pcds (to be parallelized)
         start = time.time()
 
@@ -45,41 +71,33 @@ class PerceptionPipeline():
         try:
             assert pointclouds is not None
         except Exception as e:
-                rospy.logerr(troubleshoot.get_error_text(e))
+            rospy.logerr(troubleshoot.get_error_text(e))
 
+        # Process point clouds in parallel using threads
+        futures = list()
         for camera_name in self.camera_names:
-            try:
-                msg = pointclouds[camera_name]
-                # read pcds
-                pcd = cph.geometry.PointCloud()
-                temp = cph.io.create_from_pointcloud2_msg(
-                    msg.data, cph.io.PointCloud2MsgInfo.default_dense(
-                        msg.width, msg.height, msg.point_step)
+            futures.append(
+                self.thread_pool.submit(
+                    self._process_single_pointcloud,
+                    camera_name,
+                    pointclouds[camera_name],
+                    None if use_sim else tfs.get(camera_name),
+                    downsample
                 )
-                pcd.points = temp.points
-   
-                if not(use_sim): # transform pcds to world frame
-                    assert tfs is not None        
-                    tf_matrix = tfs[camera_name]
-                    pcd = pcd.transform(tf_matrix) # transform pcd
-
-                # crop pcds according to defined scene bounds
-                pcd = pcd.crop(self.bbox)
-                
-                if downsample: # downsample pcds
-                    every_n_points = 3
-                    pcd = pcd.uniform_down_sample(every_n_points)
-
-                # replace pcd object
-                pointclouds[camera_name] = deepcopy(pcd)
-
+            )
+        
+        # Collect results
+        processed_pointclouds = dict()
+        for camera_name, future in zip(self.camera_names, futures):
+            try:
+                processed_pointclouds[camera_name] = future.result()
             except Exception as e:
-                rospy.logerr(troubleshoot.get_error_text(e))
+                rospy.logerr(f"Error processing {camera_name}: {troubleshoot.get_error_text(e)}")
         
         if log_performance:
             rospy.loginfo(f"PCD Processing (CPU+GPU) [sec]: {time.time()-start}")
 
-        return pointclouds
+        return processed_pointclouds
     
     def perform_pcd_registration(self, pointclouds:dict, log_performance:bool=False):
         # supposed to perform registration
@@ -158,24 +176,33 @@ class PerceptionPipeline():
             rospy.loginfo(f"Voxelization (GPU) [sec]: {time.time()-start}")
 
         return voxel_grid
+
     
     def convert_voxels_to_primitives(self, voxel_grid:cph.geometry.VoxelGrid, log_performance:bool=False):
         start = time.time()
         voxels = voxel_grid.voxels.cpu()
-        offset = voxel_grid.get_min_bound()
-        voxel_size = self.voxel_size
         primitives_pos = np.array(list(voxels.keys()))
 
         if primitives_pos.size == 0:  # Handle empty voxel grid
             rospy.logwarn("No voxels found in voxel grid")
             return None
         
-        primitives_pos = (primitives_pos - np.array([
-                        min(primitives_pos[:,0]), 
-                        min(primitives_pos[:,1]), 
-                        min(primitives_pos[:,2])]))
-        primitives_pos = primitives_pos*voxel_size
-        primitives_pos += (offset + voxel_size/2)
+        offset = cp.asarray(voxel_grid.get_min_bound())
+        voxel_size = cp.asarray(self.voxel_size)
+
+        # Transfer data to GPU
+        primitives_pos_gpu = cp.asarray(primitives_pos)
+        
+        # Compute minimums for each column on GPU
+        mins = cp.min(primitives_pos_gpu, axis=0)
+        
+        # Perform operations on GPU
+        primitives_pos_gpu = primitives_pos_gpu - mins[None, :]
+        primitives_pos_gpu = primitives_pos_gpu * voxel_size
+        primitives_pos_gpu = primitives_pos_gpu + (offset + voxel_size/2)
+        
+        # Transfer result back to CPU
+        primitives_pos = cp.asnumpy(primitives_pos_gpu)
 
         if log_performance:
             rospy.loginfo(f"Voxel2Primitives (CPU) [sec]: {time.time()-start}")
@@ -186,7 +213,7 @@ class PerceptionPipeline():
         # streamer/realsense gives pointclouds and tfs
         log_performance = False
         start = time.time()
-        pointclouds = self.read_and_process_obs(pointclouds, tfs, use_sim=use_sim, downsample=False, log_performance=log_performance)
+        pointclouds = self.parse_pointclouds(pointclouds, tfs, use_sim=use_sim, downsample=False, log_performance=log_performance)
         merged_pointclouds = self.perform_pcd_registration(pointclouds, log_performance=log_performance)
         # do rbs
         voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
