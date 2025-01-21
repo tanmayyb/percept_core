@@ -38,3 +38,11 @@ Goal: Fast (~30Hz) perception pipline for workspace approximation research for h
 - CuPoch
 - Open3D
 - CoppeliaSim
+- PyRep (by stepjam)
+
+## Performance
+
+
+Performance w/o RBS:
+
+![Profiling Perception Pipeline](imgs/250121_pipeline_perf-min.jpg)
