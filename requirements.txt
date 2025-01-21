@@ -1,1 +1,11 @@
+# ros-specific
+empy
+catkin_pkg
+rospkg
+rospy
+sensor_msgs
+
+# project-specific
+pyyaml
 cupoch
+cupy-cuda12x

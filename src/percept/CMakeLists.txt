@@ -84,16 +84,46 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 
-if(DEFINED ENV{VIRTUAL_ENV})
-    set(PYTHON_EXECUTABLE "$ENV{VIRTUAL_ENV}/bin/python3")  # Adjust to 'python' if Python 2 is needed
-    set(ENV{PYTHONPATH} "${VENV_SITE_PACKAGES}:$ENV{PYTHONPATH}")
-    message(STATUS "Using virtual environment site-packages: ${VENV_SITE_PACKAGES}")
-else()
-    # Fallback to system Python if no virtual environment is active
-    message(WARNING "VIRTUAL_ENV is not set; falling back to system Python!")
-    find_package(Python3 REQUIRED COMPONENTS Interpreter)
-    set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
-endif()
+# Find Python from Conda environment
+execute_process(
+    COMMAND ${CMAKE_COMMAND} -E env python -c
+    "import sys; print(sys.executable)"
+    OUTPUT_VARIABLE PYTHON_EXECUTABLE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Set the Python executable
+set(PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
+message(STATUS "Using Python from: ${PYTHON_EXECUTABLE}")
+
+# Set the Python include directory
+execute_process(
+    COMMAND ${PYTHON_EXECUTABLE} -c
+    "from sysconfig import get_paths as gp; print(gp()['include'])"
+    OUTPUT_VARIABLE PYTHON_INCLUDE_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+include_directories(${PYTHON_INCLUDE_DIR})
+
+# Set the Python library directory
+execute_process(
+    COMMAND ${PYTHON_EXECUTABLE} -c
+    "from sysconfig import get_paths as gp; print(gp()['stdlib'])"
+    OUTPUT_VARIABLE PYTHON_LIB_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+link_directories(${PYTHON_LIB_DIR})
+
+# if(DEFINED ENV{VIRTUAL_ENV})
+#    set(PYTHON_EXECUTABLE "$ENV{VIRTUAL_ENV}/bin/python3")  # Adjust to 'python' if Python 2 is needed
+#    set(ENV{PYTHONPATH} "${VENV_SITE_PACKAGES}:$ENV{PYTHONPATH}")
+#    message(STATUS "Using virtual environment site-packages: ${VENV_SITE_PACKAGES}")
+#else()
+#    # Fallback to system Python if no virtual environment is active
+#    message(WARNING "VIRTUAL_ENV is not set; falling back to system Python!")
+#    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+#    set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+# endif()
 
 catkin_package(
   #  INCLUDE_DIRS include
