@@ -104,59 +104,20 @@ class PerceptionPipeline():
 
         start = time.time()
 
-
-        def register(
-            source_gpu:cph.geometry.PointCloud, 
-            target_gpu:cph.geometry.PointCloud,
-            remove_outliers=False
-        ) -> cph.geometry.PointCloud:
-            target_gpu.estimate_normals()
-            threshold = 0.02 # what does this do?
-            trans_init = np.asarray(
-                [[1.0, 0.0, 0.0, 0.0], 
-                 [0.0, 1.0, 0.0, 0.0],
-                 [0.0, 0.0, 1.0, 0.0], 
-                 [0.0, 0.0, 0.0, 1.0]])
-
-            # register pointclouds
-            register_icp = cph.registration.registration_icp(
-                source_gpu,
-                target_gpu,
-                threshold,
-                trans_init.astype(np.float32),
-                cph.registration.TransformationEstimationPointToPlane(),
-            )
-
-            source_gpu.transform(register_icp.transformation)
-
-            if remove_outliers:
-                # remove outliers
-                NEIGHBOURS = 2
-                source_gpu, ind = source_gpu.remove_statistical_outlier(nb_neighbors=NEIGHBOURS, std_ratio=2.0)
-                target_gpu, ind = target_gpu.remove_statistical_outlier(nb_neighbors=NEIGHBOURS, std_ratio=2.0)
-            return source_gpu+target_gpu
-
         def dirty_merge(
             source_gpu:cph.geometry.PointCloud,
             target_gpu:cph.geometry.PointCloud
         ):
             return source_gpu+target_gpu
 
-
-
         source_gpu = pointclouds[self.camera_names[0]]
-        # source_gpu.estimate_normals()
         merged_gpu = source_gpu
         if len(self.camera_names)>1:
             target_gpu = pointclouds[self.camera_names[1]]
-            # merged_gpu = register(merged_gpu, 
-            # target_gpu)    
             merged_gpu = dirty_merge(merged_gpu, target_gpu)
         if len(self.camera_names)>2:
             for camera_name in self.camera_names[2:]:
                 target_gpu = pointclouds[camera_name]
-                # merged_gpu = register(merged_gpu, 
-                # target_gpu)
                 merged_gpu = dirty_merge(merged_gpu, target_gpu)
 
         if log_performance:
