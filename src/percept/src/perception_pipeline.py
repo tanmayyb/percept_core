@@ -148,11 +148,10 @@ class PerceptionPipeline():
             rospy.logwarn("No voxels found in voxel grid")
             return None
         
-        offset = cp.asarray(voxel_grid.get_min_bound())
-        voxel_size = cp.asarray(self.voxel_size)
-
         # Transfer data to GPU
         primitives_pos_gpu = cp.asarray(primitives_pos)
+        offset = cp.asarray(voxel_grid.get_min_bound())
+        voxel_size = cp.asarray(self.voxel_size)
         
         # Compute minimums for each column on GPU
         mins = cp.min(primitives_pos_gpu, axis=0)
@@ -166,7 +165,7 @@ class PerceptionPipeline():
         primitives_pos = cp.asnumpy(primitives_pos_gpu)
 
         if log_performance:
-            rospy.loginfo(f"Voxel2Primitives (CPU) [sec]: {time.time()-start}")
+            rospy.loginfo(f"Voxel2Primitives (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos
 
 
@@ -174,7 +173,7 @@ class PerceptionPipeline():
         # streamer/realsense gives pointclouds and tfs
         log_performance = False
         start = time.time()
-        pointclouds = self.parse_pointclouds(pointclouds, tfs, use_sim=use_sim, downsample=False, log_performance=log_performance)
+        pointclouds = self.parse_pointclouds(pointclouds, tfs, use_sim=use_sim, downsample=True, log_performance=log_performance) # downsample increases performance
         merged_pointclouds = self.perform_pcd_registration(pointclouds, log_performance=log_performance)
         # do rbs
         voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
