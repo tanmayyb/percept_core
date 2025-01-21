@@ -42,6 +42,7 @@ class PerceptionPipeline():
 
     def _process_single_pointcloud(self, camera_name:str, msg, tf_matrix=None, downsample=False):
         try:
+            # load pointcloud from ROS msg
             pcd = cph.geometry.PointCloud()
             temp = cph.io.create_from_pointcloud2_msg(
                 msg.data, cph.io.PointCloud2MsgInfo.default_dense(
@@ -49,9 +50,11 @@ class PerceptionPipeline():
             )
             pcd.points = temp.points
 
+            # if tf_matrix available, transform to world-frame
             if tf_matrix is not None:
                 pcd = pcd.transform(tf_matrix)
 
+            # crop pointcloud according to scene bounds
             pcd = pcd.crop(self.scene_bbox)
             
             if downsample:
@@ -99,12 +102,11 @@ class PerceptionPipeline():
 
         return processed_pointclouds
     
-    def perform_pcd_registration(self, pointclouds:dict, log_performance:bool=False):
-        # supposed to perform registration
-
+    def merge_pointclouds(self, pointclouds:dict, log_performance:bool=False):
+        # merge pointclouds
         start = time.time()
 
-        def dirty_merge(
+        def direct_merge(
             source_gpu:cph.geometry.PointCloud,
             target_gpu:cph.geometry.PointCloud
         ):
@@ -114,15 +116,18 @@ class PerceptionPipeline():
         merged_gpu = source_gpu
         if len(self.camera_names)>1:
             target_gpu = pointclouds[self.camera_names[1]]
-            merged_gpu = dirty_merge(merged_gpu, target_gpu)
+            merged_gpu = direct_merge(merged_gpu, target_gpu)
         if len(self.camera_names)>2:
             for camera_name in self.camera_names[2:]:
                 target_gpu = pointclouds[camera_name]
-                merged_gpu = dirty_merge(merged_gpu, target_gpu)
+                merged_gpu = direct_merge(merged_gpu, target_gpu)
 
         if log_performance:
             rospy.loginfo(f"Registration (GPU) [sec]: {time.time()-start}")
         return merged_gpu
+
+    def perform_robot_body_subtraction(self):
+        pass
 
 
     def perform_voxelization(self, pcd:cph.geometry.PointCloud, log_performance:bool=False):
@@ -174,8 +179,8 @@ class PerceptionPipeline():
         log_performance = False
         start = time.time()
         pointclouds = self.parse_pointclouds(pointclouds, tfs, use_sim=use_sim, downsample=True, log_performance=log_performance) # downsample increases performance
-        merged_pointclouds = self.perform_pcd_registration(pointclouds, log_performance=log_performance)
-        # do rbs
+        merged_pointclouds = self.merge_pointclouds(pointclouds, log_performance=log_performance)
+        # pointclouds = self.perform_robot_body_subtraction()
         voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
         primitives = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)
 
