@@ -23,7 +23,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: PointCloud2
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -125,12 +125,21 @@ Visualization Manager:
       Transport Hint: raw
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Class: rviz/Axes
+      Enabled: true
+      Length: 0.5
+      Name: Axes
+      Radius: 0.05000000074505806
+      Reference Frame: agent_frame
+      Show Trail: false
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /distvec_vis
       Name: Marker
       Namespaces:
-        distvec_vis: true
+        {}
       Queue Size: 100
       Value: true
   Enabled: true
@@ -161,7 +170,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 6.098964691162109
+      Distance: 4.991628646850586
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -169,17 +178,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.6776979565620422
-        Y: 0.5973653197288513
-        Z: 1.1782867908477783
+        X: 0.0446527935564518
+        Y: 0.004730448126792908
+        Z: 0.6647931337356567
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4652016758918762
+      Pitch: 0.3902016878128052
       Target Frame: <Fixed Frame>
-      Yaw: 4.576744079589844
+      Yaw: 4.326738357543945
     Saved: ~
 Window Geometry:
   Displays:
