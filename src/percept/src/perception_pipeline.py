@@ -177,8 +177,13 @@ class PerceptionPipeline():
 
     def compute_radial_distance_vectors(self, primitives_pos:np.ndarray, log_performance:bool=False):
         start = time.time()
-        agent_location = np.array([0.0, 0.0, 1.0]) # anchor point
-        distance_vectors = compute_radial_distance_vectors(agent_location, primitives_pos, 1.0)
+        # NOTE: temp fix NOTE: IMPORTANT: add agent location in future!
+        agent_location = np.array([0.0, 0.0, 0.0]) # anchor point
+        search_radius = 0.5
+        # TODO: add sphere radius to include only primitives which touch the search shell
+        # voxel_size = self.voxel_size
+
+        distance_vectors = compute_radial_distance_vectors(agent_location, primitives_pos, search_radius)
         if log_performance:
             rospy.loginfo(f"Compute Distance Vectors (CPU+GPU) [sec]: {time.time()-start}")
         return distance_vectors
@@ -192,10 +197,14 @@ class PerceptionPipeline():
         # pointclouds = self.perform_robot_body_subtraction()
         voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
         primitives_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)
-        primitives_distance_vectors = self.compute_radial_distance_vectors(primitives_pos, log_performance=False)
+        primitives_distance_vectors = self.compute_radial_distance_vectors(primitives_pos, log_performance=log_performance)
         
         log_performance = True
         if log_performance:
             rospy.loginfo(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
-        return primitives_pos
+        # return primitives_pos
+
+        # NOTE: temp fix
+        return primitives_pos, primitives_distance_vectors
+
 
