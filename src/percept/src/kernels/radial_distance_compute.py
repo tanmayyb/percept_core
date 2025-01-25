@@ -38,6 +38,16 @@ def compute_radial_distance_vectors(anchor:np.ndarray, points:np.ndarray, radius
     Returns:
         np.ndarray: 2D array of distance vectors for points within the radius.
     """
+    # Handle empty input array
+    if points.size == 0:
+        return np.empty((0, 3), dtype=np.float64)
+    
+    # Ensure points is 2D array with shape (N, 3)
+    if len(points.shape) != 2 or points.shape[1] != 3:
+        return np.empty((0, 3), dtype=np.float64)
+
+    # TODO: add sphere radius to include only primitives which touch the search shell
+
     radius_squared = radius ** 2
     results = []
 
@@ -51,5 +61,9 @@ def compute_radial_distance_vectors(anchor:np.ndarray, points:np.ndarray, radius
         # Check if within the radius
         if dist_squared <= radius_squared:
             results.append((dx, dy, dz))
+
+    # Handle case where no points are within radius
+    if not results:
+        return np.empty((0, 3), dtype=np.float64)
 
     return np.array(results)
