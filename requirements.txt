@@ -9,3 +9,4 @@ sensor_msgs
 pyyaml
 cupoch
 cupy-cuda12x
+numba
