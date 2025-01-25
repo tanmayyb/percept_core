@@ -10,6 +10,8 @@ import subprocess
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
+from kernels.radial_distance_compute import compute_radial_distances, compute_radial_distance_vectors
+
 class PerceptionPipeline():
     def __init__(self):
         self.check_cuda()
@@ -173,6 +175,13 @@ class PerceptionPipeline():
             rospy.loginfo(f"Voxel2Primitives (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos
 
+    def compute_radial_distance_vectors(self, primitives_pos:np.ndarray, log_performance:bool=False):
+        start = time.time()
+        agent_location = np.array([0.0, 0.0, 1.0]) # anchor point
+        distance_vectors = compute_radial_distance_vectors(agent_location, primitives_pos, 1.0)
+        if log_performance:
+            rospy.loginfo(f"Compute Distance Vectors (CPU+GPU) [sec]: {time.time()-start}")
+        return distance_vectors
 
     def run_pipeline(self, pointclouds:dict, tfs:dict, use_sim=False, log_performance:bool=False):
         # streamer/realsense gives pointclouds and tfs
@@ -182,10 +191,11 @@ class PerceptionPipeline():
         merged_pointclouds = self.merge_pointclouds(pointclouds, log_performance=log_performance)
         # pointclouds = self.perform_robot_body_subtraction()
         voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
-        primitives = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)
-
+        primitives_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)
+        primitives_distance_vectors = self.compute_radial_distance_vectors(primitives_pos, log_performance=False)
+        
         log_performance = True
         if log_performance:
             rospy.loginfo(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
-        return primitives
+        return primitives_pos
 
