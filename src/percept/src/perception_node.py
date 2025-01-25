@@ -44,8 +44,11 @@ class PerceptionNode:
             # TODO: add params for which results to publish
             # TODO: add params for which NOTE: visualizations to publish
 
+            agent_config = rospy.get_param("agent_pos/", None)
+            agent_pos = np.array([agent_config['x'], agent_config['y'], agent_config['z']])
+
             primitives_pos_result, primitives_distance_vectors = self.pipeline.run_pipeline(
-                pointcloud_buffer, tfs, use_sim=use_sim)            
+                pointcloud_buffer, tfs, agent_pos, use_sim=use_sim)            
                 
             # NOTE: temp fix
             primitives_pos_msg = self.make_pointcloud_msg(primitives_pos_result)
@@ -83,7 +86,7 @@ class PerceptionNode:
             return None
         
         marker = Marker()
-        marker.header.frame_id = "map"  # Set to map frame TODO: change to agent frame
+        marker.header.frame_id = "agent_frame"  # Set to map frame TODO: change to agent frame
         marker.header.stamp = rospy.Time.now()
         marker.ns = "distvec_vis"
         marker.id = 0
@@ -96,8 +99,9 @@ class PerceptionNode:
         marker.color.a = 0.8  # Alpha (transparency)
 
         # NOTE: temp fix
-        # TODO: add agent location in future!
-        origin  = np.array([0.0, 0.0, 0.0])
+        # TODO: add agent pos in future!
+        agent_config = rospy.get_param("agent_pos/", None)
+        origin = np.array([agent_config['x'], agent_config['y'], agent_config['z']])
 
         # create new points array with origin and endpoints (interleaved)
         tmp_points_array = np.empty((2 * len(points_array), 3), dtype=np.float32)
