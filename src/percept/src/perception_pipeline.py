@@ -1,19 +1,20 @@
-import cupoch as cph
-import numpy as np
-import cupy as cp
-
-import rospy
+#!/usr/bin/env python3
 import time
-import utils.troubleshoot as troubleshoot
-
 import subprocess
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-from kernels.radial_distance_compute import compute_radial_distances, compute_radial_distance_vectors
+import cupoch as cph
+import numpy as np
+import cupy as cp
+
+from percept.kernels.radial_distance_compute import compute_radial_distances, compute_radial_distance_vectors
+import percept.utils.troubleshoot as troubleshoot
 
 class PerceptionPipeline():
-    def __init__(self):
+    def __init__(self, node):
+        self.node = node
+        self.logger = node.get_logger().get_child('perception_pipeline')
         self.check_cuda()
         # Create process pool for CPU-intensive tasks
         self.process_pool = ProcessPoolExecutor(max_workers=multiprocessing.cpu_count())
@@ -24,10 +25,10 @@ class PerceptionPipeline():
         """Check if CUDA is available using nvidia-smi"""
         try:
             output = subprocess.check_output(["nvidia-smi"])
-            rospy.loginfo("CUDA is available")
+            self.logger.info("CUDA is available")
             return True
         except (subprocess.CalledProcessError, FileNotFoundError):
-            rospy.logerr("CUDA is not available - nvidia-smi command failed")
+            self.logger.error("CUDA is not available - nvidia-smi command failed")
             raise RuntimeError("CUDA is required for this pipeline")
 
     def setup(self):
@@ -46,12 +47,13 @@ class PerceptionPipeline():
         try:
             # load pointcloud from ROS msg
             pcd = cph.geometry.PointCloud()
+            msg_bytes = bytes(msg.data)
             temp = cph.io.create_from_pointcloud2_msg(
-                msg.data, cph.io.PointCloud2MsgInfo.default_dense(
+                msg_bytes, cph.io.PointCloud2MsgInfo.default_dense(
                     msg.width, msg.height, msg.point_step)
-            )
+            )       
             pcd.points = temp.points
-
+            
             # if tf_matrix available, transform to world-frame
             if tf_matrix is not None:
                 pcd = pcd.transform(tf_matrix)
@@ -65,7 +67,7 @@ class PerceptionPipeline():
 
             return pcd
         except Exception as e:
-            rospy.logerr(troubleshoot.get_error_text(e))
+            self.logger.error(troubleshoot.get_error_text(e))
 
 
     def parse_pointclouds(self, pointclouds:dict, tfs:dict, use_sim=False, downsample:bool=False, log_performance:bool=False):
@@ -76,7 +78,7 @@ class PerceptionPipeline():
         try:
             assert pointclouds is not None
         except Exception as e:
-            rospy.logerr(troubleshoot.get_error_text(e))
+            self.logger.error(troubleshoot.get_error_text(e))
 
         # Process point clouds in parallel using threads
         futures = list()
@@ -97,10 +99,10 @@ class PerceptionPipeline():
             try:
                 processed_pointclouds[camera_name] = future.result()
             except Exception as e:
-                rospy.logerr(f"Error processing {camera_name}: {troubleshoot.get_error_text(e)}")
+                self.logger.error(f"Error processing {camera_name}: {troubleshoot.get_error_text(e)}")
         
         if log_performance:
-            rospy.loginfo(f"PCD Processing (CPU+GPU) [sec]: {time.time()-start}")
+            self.logger.info(f"PCD Processing (CPU+GPU) [sec]: {time.time()-start}")
 
         return processed_pointclouds
     
@@ -125,7 +127,7 @@ class PerceptionPipeline():
                 merged_gpu = direct_merge(merged_gpu, target_gpu)
 
         if log_performance:
-            rospy.loginfo(f"Registration (GPU) [sec]: {time.time()-start}")
+            self.logger.info(f"Registration (GPU) [sec]: {time.time()-start}")
         return merged_gpu
 
     def perform_robot_body_subtraction(self):
@@ -141,7 +143,7 @@ class PerceptionPipeline():
             max_bound=self.voxel_max_bound,
         )
         if log_performance:
-            rospy.loginfo(f"Voxelization (GPU) [sec]: {time.time()-start}")
+            self.logger.info(f"Voxelization (GPU) [sec]: {time.time()-start}")
 
         return voxel_grid
 
@@ -152,7 +154,7 @@ class PerceptionPipeline():
         primitives_pos = np.array(list(voxels.keys()))
 
         if primitives_pos.size == 0:  # Handle empty voxel grid
-            rospy.logwarn("No voxels found in voxel grid")
+            self.logger.warn("No voxels found in voxel grid")
             return None
         
         # Transfer data to GPU
@@ -172,7 +174,7 @@ class PerceptionPipeline():
         primitives_pos = cp.asnumpy(primitives_pos_gpu)
 
         if log_performance:
-            rospy.loginfo(f"Voxel2Primitives (CPU+GPU) [sec]: {time.time()-start}")
+            self.logger.info(f"Voxel2Primitives (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos
 
     def compute_radial_distance_vectors(self, primitives_pos:np.ndarray, agent_pos:np.ndarray, log_performance:bool=False):
@@ -184,26 +186,34 @@ class PerceptionPipeline():
 
         distance_vectors = compute_radial_distance_vectors(agent_pos, primitives_pos, search_radius)
         if log_performance:
-            rospy.loginfo(f"Compute Distance Vectors (CPU+GPU) [sec]: {time.time()-start}")
+            self.logger.info(f"Compute Distance Vectors (CPU+GPU) [sec]: {time.time()-start}")
         return distance_vectors
 
     def run_pipeline(self, pointclouds:dict, tfs:dict, agent_pos:np.ndarray, use_sim=False, log_performance:bool=False):
         # streamer/realsense gives pointclouds and tfs
         log_performance = False
         start = time.time()
-        pointclouds = self.parse_pointclouds(pointclouds, tfs, use_sim=use_sim, downsample=True, log_performance=log_performance) # downsample increases performance
-        merged_pointclouds = self.merge_pointclouds(pointclouds, log_performance=log_performance)
+
+        try:
+            pointclouds = self.parse_pointclouds(pointclouds, tfs, use_sim=use_sim, downsample=True, log_performance=log_performance) # downsample increases performance
+            merged_pointclouds = self.merge_pointclouds(pointclouds, log_performance=log_performance)
+        except Exception as e:
+            self.logger.error(troubleshoot.get_error_text(e))
+            return None, None
         # pointclouds = self.perform_robot_body_subtraction()
-        voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
-        primitives_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)
-        primitives_distance_vectors = self.compute_radial_distance_vectors(primitives_pos, agent_pos, log_performance=log_performance)
-        
+        if merged_pointclouds is not None:
+            voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
+            primitives_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)
+            primitives_distance_vectors = self.compute_radial_distance_vectors(primitives_pos, agent_pos, log_performance=log_performance)
+        else:
+            primitives_pos = None
+            primitives_distance_vectors = None
+
         log_performance = True
         if log_performance:
-            rospy.loginfo(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
+            self.logger.info(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
         # return primitives_pos
 
         # NOTE: temp fix
         return primitives_pos, primitives_distance_vectors
-
 

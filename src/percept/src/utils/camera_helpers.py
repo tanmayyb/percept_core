@@ -1,5 +1,5 @@
 import numpy as np
-from tf.transformations import quaternion_matrix, quaternion_from_euler
+from transforms3d.euler import euler2quat, quat2mat
 from geometry_msgs.msg import TransformStamped
 
 def create_tf_msg_from_xyzrpy(
@@ -15,18 +15,18 @@ def create_tf_msg_from_xyzrpy(
     tf_msg.transform.translation.y = y
     tf_msg.transform.translation.z = z
     
-    quaternion = quaternion_from_euler(a, b, g, axes='rxyz')
+    quaternion = euler2quat(a, b, g, 'rxyz')
     # added 90deg to offset the camera NOA convention
-    tf_msg.transform.rotation.x = quaternion[0]
-    tf_msg.transform.rotation.y = quaternion[1]
-    tf_msg.transform.rotation.z = quaternion[2]
-    tf_msg.transform.rotation.w = quaternion[3]
+    tf_msg.transform.rotation.x = quaternion[1]
+    tf_msg.transform.rotation.y = quaternion[2]
+    tf_msg.transform.rotation.z = quaternion[3]
+    tf_msg.transform.rotation.w = quaternion[0]
 
     return tf_msg
 
 def create_tf_matrix_from_msg(transform_msg):
     """
-    Create a 4x4 transformation matrix using tf.transformations.
+    Create a 4x4 transformation matrix using transforms3d.
     
     :param transform_msg: TransformStamped message containing translation and rotation.
     :return: 4x4 numpy array representing the transformation matrix.
@@ -38,16 +38,17 @@ def create_tf_matrix_from_msg(transform_msg):
         transform_msg.transform.translation.z
     ])
     
-    # Extract quaternion
+    # Extract quaternion (w,x,y,z)
     quaternion = [
+        transform_msg.transform.rotation.w,
         transform_msg.transform.rotation.x,
         transform_msg.transform.rotation.y,
-        transform_msg.transform.rotation.z,
-        transform_msg.transform.rotation.w
+        transform_msg.transform.rotation.z
     ]
     
     # Generate the rotation matrix from quaternion
-    rotation_matrix = quaternion_matrix(quaternion)  # 4x4 matrix
+    rotation_matrix = np.eye(4)
+    rotation_matrix[:3,:3] = quat2mat(quaternion)
     # Set the translation
     rotation_matrix[:3, 3] = translation
 
@@ -89,7 +90,7 @@ def create_tf_matrix_from_euler(pose_config):
     return extrinsic_matrix
 
 
-def create_intrinsic_matrix( intrinsics_config):
+def create_intrinsic_matrix(intrinsics_config):
     fx = intrinsics_config['fx']
     fy = intrinsics_config['fy'] 
     cx = intrinsics_config['cx']
@@ -154,9 +155,9 @@ def create_intrinsic_matrix( intrinsics_config):
 #         # Save observation dictionary to file
 #         import pickle
 #         import sys
-#         import rospy
+#         import rclpy
         
-#         rospy.loginfo(f'logging and killing...')
+#         rclpy.get_logger('camera_helpers').info('logging and killing...')
 #         try:
 #             # Save data to pickle file
 #             data_to_save = {
@@ -170,9 +171,9 @@ def create_intrinsic_matrix( intrinsics_config):
 #             with open('/tmp/camera_data.pickle', 'wb') as f:
 #                 pickle.dump(data_to_save, f)
 #         except Exception as e:
-#             rospy.logerr(f'{e}')
+#             rclpy.get_logger('camera_helpers').error(f'{e}')
 
-#         rospy.signal_shutdown("Shutting down node")
+#         rclpy.shutdown()
 #         sys.exit(0)
 
 #     return obs
