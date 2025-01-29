@@ -1,9 +1,9 @@
-# ros-specific
-empy
-catkin_pkg
-rospkg
-rospy
-sensor_msgs
+# #ros-specific
+# empy
+# catkin_pkg
+# rospkg
+# rospy
+# sensor_msgs
 
 # project-specific
 pyyaml

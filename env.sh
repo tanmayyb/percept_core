@@ -1,3 +1,4 @@
 #!/bin/bash
+source /opt/ros/humble/setup.bash
 conda activate percept_env
-source devel/setup.bash
+# source install/setup.bash

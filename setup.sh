@@ -8,17 +8,22 @@ if ! grep -q "export PERCEPT_ROOT=" ~/.bashrc || ! grep -q "export PERCEPT_ROOT=
 fi
 
 # conda env
-conda create -n percept_env python=3.8
-conda activate percept_env
+echo "Creating conda environment..."
+conda create -n percept_env python=3.10 -y
+eval "$(conda shell.bash hook)"
+conda init bash
+source ~/.bashrc
+conda activate percept_env || { echo "Failed to activate conda environment"; exit 1; }
 pip install --upgrade pip
 
 # python-dependencies
+echo "Installing python-dependencies..."
 pip install -r requirements.txt
 
 # setup PyRep - for coppelia simulation
-mkdir libs
-cd libs
-git clone https://github.com/stepjam/pyrep.git
-cd pyrep
-pip install -r requirements.txt
-pip install .
+# mkdir libs
+# cd libs
+# git clone https://github.com/stepjam/pyrep.git
+# cd pyrep
+# pip install -r requirements.txt
+# pip install .

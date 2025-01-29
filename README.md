@@ -17,11 +17,11 @@ Goal: Fast (~30Hz) perception pipline for workspace approximation research for h
 
 | Software Stack                                                                                                      |
 | --------------------------------------------------------------------------------------------------------------------- |
-| 1. Ubuntu 20.04 Focal Fossa ([iso](https://releases.ubuntu.com/focal/https:/))                                      |
-| 2. ROS 1 Noetic ([debian](http://wiki.ros.org/noetic/Installation/Debianhttps:/))                                   |
+| 1. Ubuntu 22.04 Jammy Jellyfish ([iso](https://releases.ubuntu.com/focal/https:/))                                      |
+| 2. ROS 2 Humble ([debian](http://wiki.ros.org/noetic/Installation/Debianhttps:/))                                   |
 | 3. Conda + CUDA ([instructions](https://x.com/jeremyphoward/status/1697435241152127369))                            |
 | 4. librealsenseSDK ([debian](https://github.com/IntelRealSense/librealsense/blob/master/doc/distribution_linux.md)) |
-| 5. CoppeliaSim 4.1.0 EDU (for simulation,[binaries](https://www.coppeliarobotics.com/previousVersionshttps:/))      |
+| 5. Sim (To Be Updated)      |
 
 ## Setup
 
