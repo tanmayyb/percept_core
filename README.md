@@ -40,6 +40,8 @@ Goal: Fast (~30Hz) perception pipline for workspace approximation research for h
 
 - CuPoch
 - Open3D
+- Numba
+- Cupy
 - CoppeliaSim
 - PyRep (by stepjam)
 

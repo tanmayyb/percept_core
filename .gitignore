@@ -13,6 +13,8 @@ prototypes/
 build/
 devel/
 logs/
+install/
+log/
 
 # caches
 **/__pycache__/

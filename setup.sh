@@ -16,6 +16,10 @@ source ~/.bashrc
 conda activate percept_env || { echo "Failed to activate conda environment"; exit 1; }
 pip install --upgrade pip
 
+# install CUDA packages
+echo "Installing CUDA packages"
+conda install -y -c conda-forge cupy numba
+
 # python-dependencies
 echo "Installing python-dependencies..."
 pip install -r requirements.txt

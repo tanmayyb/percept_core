@@ -1,12 +1,8 @@
-# #ros-specific
-# empy
-# catkin_pkg
-# rospkg
-# rospy
-# sensor_msgs
+# ros-specific
+catkin_pkg
+transforms3d
+
 
 # project-specific
 pyyaml
 cupoch
-cupy-cuda12x
-numba
