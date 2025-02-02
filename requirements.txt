@@ -1,7 +1,8 @@
 # ros-specific
 catkin_pkg
 transforms3d
-
+empy==3.3.4
+lark-parser
 
 # project-specific
 pyyaml
