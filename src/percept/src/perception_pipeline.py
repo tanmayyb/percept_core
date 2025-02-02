@@ -184,9 +184,6 @@ class PerceptionPipeline():
 
     def compute_heuristic_fields(self, anchors_np:np.ndarray, mass_radius:float, detect_radius:float, log_performance:bool=False):
 
-        # anchors_list = [[0.0, 0.0, 0.0]]
-        # anchors_np = np.array(anchors_list, dtype=np.float32)
-        # n_anchors = len(anchors_list)
         n_anchors = anchors_np.shape[0]
         mass_radius = 1.0
         detect_radius = 50.0
@@ -206,8 +203,7 @@ class PerceptionPipeline():
         if log_performance:
             self.logger.info(f"ObstacleHeuristic Kernel (CPU+GPU) [sec]: {time.time()-start}")
 
-        out_forces = d_out_forces.copy_to_host()
-
+        return d_out_forces.copy_to_host()
 
     def run_pipeline(self, pointclouds:dict, tfs:dict, agent_pos:np.ndarray, use_sim=False, log_performance:bool=False):
         # streamer/realsense gives pointclouds and tfs
@@ -220,7 +216,9 @@ class PerceptionPipeline():
         except Exception as e:
             self.logger.error(troubleshoot.get_error_text(e))
             return None, None
+        
         # pointclouds = self.perform_robot_body_subtraction()
+        
         if merged_pointclouds is not None:
             voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
             primitives_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)

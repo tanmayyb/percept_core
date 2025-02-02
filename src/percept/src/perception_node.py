@@ -9,8 +9,9 @@ import percept.utils.troubleshoot as troubleshoot
 from percept.utils.config_helpers import load_yaml_as_dict
 
 from sensor_msgs.msg import PointCloud2, PointField
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, Pose
 from visualization_msgs.msg import Marker
+from percept_interfaces.srv import PosesToVectors
 import sensor_msgs_py.point_cloud2 as pc2
 
 import numpy as np
@@ -34,31 +35,15 @@ class PerceptionNode(Node):
             10
         )
 
-        # NOTE: temp fix
-        # self.distance_vectors_publisher = self.create_publisher(PointCloud2, '/distance_vectors', 10)
-        # self.distance_vectors_visualization_publisher = self.create_publisher(
-        #     Marker,
-        #     '/distvec_vis',
-        #     10
-        # )
+        self.poses_to_vectors_service = self.create_service(
+            PosesToVectors,
+            '/get_heuristic_fields',
+            self.get_heuristic_fields_callback
+        )
+
 
     def run_pipeline(self, pointcloud_buffer, tfs, agent_pos, use_sim):
         try:
-            # result = self.pipeline.run_pipeline(
-            #     pointcloud_buffer, tfs, use_sim=use_sim)
-            # if result is not None:
-            #     self.primitives_publisher.publish(self.make_pointcloud_msg(result))
-
-            # NOTE: temp fix
-            # TODO: add params for which results to publish
-            # TODO: add params for which NOTE: visualizations to publish
-
-            # agent_config = self.get_parameter("agent_pos").get_parameter_value().string_value
-            # agent_pos = np.array([agent_config['x'], agent_config['y'], agent_config['z']])
-
-            # primitives_pos_result, primitives_distance_vectors = self.pipeline.run_pipeline(
-            #     pointcloud_buffer, tfs, agent_pos, use_sim=use_sim)            
-
             primitives_pos_result = self.pipeline.run_pipeline(
                 pointcloud_buffer, tfs, agent_pos, use_sim=use_sim)                    
 
@@ -66,16 +51,44 @@ class PerceptionNode(Node):
             if primitives_pos_result is not None:
                 # NOTE: temp fix
                 primitives_pos_msg = self.make_pointcloud_msg(primitives_pos_result)
-                # primitives_distance_vectors_msg = self.make_distance_vectors_visualization_msg(primitives_distance_vectors)
 
                 # publish messages
                 if primitives_pos_msg is not None:
                     self.primitives_publisher.publish(primitives_pos_msg)
-                # if primitives_distance_vectors_msg is not None:
-                #     self.distance_vectors_visualization_publisher.publish(primitives_distance_vectors_msg)
-            
+
         except Exception as e:
             self.get_logger().error(troubleshoot.get_error_text(e))
+
+
+    def get_heuristic_fields_callback(self, request, response):
+        """Convert a list of poses to vectors relative to the agent position."""
+        try:
+            # Convert poses to list of position vectors
+            poses_list = []
+            for pose in request.poses:
+                poses_list.append([
+                    pose.position.x,
+                    pose.position.y, 
+                    pose.position.z
+                ])
+            poses_list = np.array(poses_list).astype(np.float32)  
+
+            # compute heuristic fields
+            out_forces = self.pipeline.compute_heuristic_fields(
+                poses_list, 
+                0.1, 
+                request.radius, 
+                log_performance=True)
+            
+            response.vectors = [Point(x=float(v[0]), y=float(v[1]), z=float(v[2])) 
+                              for v in out_forces]
+            response.within_radius = [True] * len(out_forces)
+            return response
+            
+        except Exception as e:
+            self.get_logger().error(troubleshoot.get_error_text(e, show_error=True, print_stack_trace=True))
+            response.vectors = []
+            return response
 
     def make_pointcloud_msg(self, points_array):
         # Define header
@@ -110,11 +123,6 @@ class PerceptionNode(Node):
         marker.color.g = 0.0
         marker.color.b = 1.0
         marker.color.a = 0.8  # Alpha (transparency)
-
-        # NOTE: temp fix
-        # TODO: add agent pos in future!
-        # agent_config = self.get_parameter("agent_pose").get_parameter_value().string_value
-        # origin = np.array([agent_config['x'], agent_config['y'], agent_config['z']])
         origin = np.array([0.0, 0.0, 0.0])
 
         # create new points array with origin and endpoints (interleaved)
