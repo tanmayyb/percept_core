@@ -61,6 +61,7 @@ ament_python_install_package(${PROJECT_NAME}
 install(PROGRAMS
   src/real_pipeline.py
   src/utils/static_tf_publisher.py
+  src/service_tester.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
