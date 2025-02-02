@@ -7,10 +7,9 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import cupoch as cph
 import numpy as np
 import cupy as cp
-
-from percept.kernels.radial_distance_compute import compute_radial_distances, compute_radial_distance_vectors
+import numba.cuda as cuda
 import percept.utils.troubleshoot as troubleshoot
-from percept.kernels.heuristics import obstacle_heuristic_kernel
+from percept.kernels.obstacle_heuristic import obstacle_heuristic_kernel
 
 class PerceptionPipeline():
     def __init__(self, node):
@@ -43,6 +42,8 @@ class PerceptionPipeline():
         self.voxel_size = cubic_size/voxel_resolution
         self.voxel_min_bound = (-cubic_size/2.0, -cubic_size/2.0, -cubic_size/2.0)
         self.voxel_max_bound = (cubic_size/2.0, cubic_size/2.0, cubic_size/2.0)
+
+        self.primitives_pos_gpu = None
 
     def _process_single_pointcloud(self, camera_name:str, msg, tf_matrix=None, downsample=False):
         try:
@@ -170,6 +171,9 @@ class PerceptionPipeline():
         primitives_pos_gpu = primitives_pos_gpu - mins[None, :]
         primitives_pos_gpu = primitives_pos_gpu * voxel_size
         primitives_pos_gpu = primitives_pos_gpu + (offset + voxel_size/2)
+
+        # save copy of primitives_pos_gpu
+        self.primitives_pos_gpu = cuda.as_cuda_array(primitives_pos_gpu)
         
         # Transfer result back to CPU
         primitives_pos = cp.asnumpy(primitives_pos_gpu)
@@ -178,24 +182,32 @@ class PerceptionPipeline():
             self.logger.info(f"Voxel2Primitives (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos
 
-    # def compute_radial_distance_vectors(self, primitives_pos:np.ndarray, agent_pos:np.ndarray, log_performance:bool=False):
-    #     start = time.time()
-    #     # TODO: load search radius from config
-    #     search_radius = 0.5
-    #     # TODO: add sphere radius to include only primitives which touch the search shell
-    #     # voxel_size = self.voxel_size
+    def compute_heuristic_fields(self, anchors_np:np.ndarray, mass_radius:float, detect_radius:float, log_performance:bool=False):
 
-    #     distance_vectors = compute_radial_distance_vectors(agent_pos, primitives_pos, search_radius)
-    #     if log_performance:
-    #         self.logger.info(f"Compute Distance Vectors (CPU+GPU) [sec]: {time.time()-start}")
-    #     return distance_vectors
+        # anchors_list = [[0.0, 0.0, 0.0]]
+        # anchors_np = np.array(anchors_list, dtype=np.float32)
+        # n_anchors = len(anchors_list)
+        n_anchors = anchors_np.shape[0]
+        mass_radius = 1.0
+        detect_radius = 50.0
 
-    def compute_heuristic_fields(self, primitives_pos:np.ndarray, log_performance:bool=False):
+        d_masses = self.primitives_pos_gpu # center of voxelgrids are point masses
+        d_anchors = cuda.to_device(anchors_np)
+        d_out_forces = cuda.device_array((n_anchors, 3), dtype=np.float32)
+
+        threads_per_block = 256
+        blocks_per_grid = n_anchors  # one block per anchor
+
         start = time.time()
-        fields = obstacle_heuristic_kernel(primitives_pos)
+        obstacle_heuristic_kernel[blocks_per_grid, threads_per_block](
+            d_anchors, d_masses, mass_radius, detect_radius, d_out_forces)
+        cuda.synchronize()  # wait for the kernel to finish
+        end = time.time()
         if log_performance:
-            self.logger.info(f"Compute Fields (CPU+GPU) [sec]: {time.time()-start}")
-        return fields
+            self.logger.info(f"ObstacleHeuristic Kernel (CPU+GPU) [sec]: {time.time()-start}")
+
+        out_forces = d_out_forces.copy_to_host()
+
 
     def run_pipeline(self, pointclouds:dict, tfs:dict, agent_pos:np.ndarray, use_sim=False, log_performance:bool=False):
         # streamer/realsense gives pointclouds and tfs
@@ -212,11 +224,8 @@ class PerceptionPipeline():
         if merged_pointclouds is not None:
             voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
             primitives_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)
-            # primitives_distance_vectors = self.compute_radial_distance_vectors(primitives_pos, agent_pos, log_performance=log_performance)
-            fields = self.compute_heuristic_fields(primitives_pos, log_performance=log_performance)
         else:
             primitives_pos = None
-            # primitives_distance_vectors = None
 
         log_performance = True
         if log_performance:
