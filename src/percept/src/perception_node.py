@@ -36,11 +36,11 @@ class PerceptionNode(Node):
 
         # NOTE: temp fix
         # self.distance_vectors_publisher = self.create_publisher(PointCloud2, '/distance_vectors', 10)
-        self.distance_vectors_visualization_publisher = self.create_publisher(
-            Marker,
-            '/distvec_vis',
-            10
-        )
+        # self.distance_vectors_visualization_publisher = self.create_publisher(
+        #     Marker,
+        #     '/distvec_vis',
+        #     10
+        # )
 
     def run_pipeline(self, pointcloud_buffer, tfs, agent_pos, use_sim):
         try:
@@ -56,20 +56,23 @@ class PerceptionNode(Node):
             # agent_config = self.get_parameter("agent_pos").get_parameter_value().string_value
             # agent_pos = np.array([agent_config['x'], agent_config['y'], agent_config['z']])
 
-            primitives_pos_result, primitives_distance_vectors = self.pipeline.run_pipeline(
-                pointcloud_buffer, tfs, agent_pos, use_sim=use_sim)            
-                
+            # primitives_pos_result, primitives_distance_vectors = self.pipeline.run_pipeline(
+            #     pointcloud_buffer, tfs, agent_pos, use_sim=use_sim)            
 
-            if primitives_pos_result is not None and primitives_distance_vectors is not None:
+            primitives_pos_result = self.pipeline.run_pipeline(
+                pointcloud_buffer, tfs, agent_pos, use_sim=use_sim)                    
+
+            # if primitives_pos_result is not None and primitives_distance_vectors is not None:
+            if primitives_pos_result is not None:
                 # NOTE: temp fix
                 primitives_pos_msg = self.make_pointcloud_msg(primitives_pos_result)
-                primitives_distance_vectors_msg = self.make_distance_vectors_visualization_msg(primitives_distance_vectors)
+                # primitives_distance_vectors_msg = self.make_distance_vectors_visualization_msg(primitives_distance_vectors)
 
                 # publish messages
                 if primitives_pos_msg is not None:
                     self.primitives_publisher.publish(primitives_pos_msg)
-                if primitives_distance_vectors_msg is not None:
-                    self.distance_vectors_visualization_publisher.publish(primitives_distance_vectors_msg)
+                # if primitives_distance_vectors_msg is not None:
+                #     self.distance_vectors_visualization_publisher.publish(primitives_distance_vectors_msg)
             
         except Exception as e:
             self.get_logger().error(troubleshoot.get_error_text(e))
