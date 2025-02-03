@@ -34,7 +34,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/PosesToVectors.srv"
-  "srv/PoseToVector.srv"
+  "srv/AgentStateToCircForce.srv"
   DEPENDENCIES geometry_msgs std_msgs sensor_msgs
 )
 

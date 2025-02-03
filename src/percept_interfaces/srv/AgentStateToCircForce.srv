@@ -1,0 +1,6 @@
+geometry_msgs/Pose pose
+geometry_msgs/Vector3 velocity
+float64 detect_shell_rad
+---
+geometry_msgs/Vector3 circ_force
+bool not_null
