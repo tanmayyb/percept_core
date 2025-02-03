@@ -35,11 +35,11 @@ class PerceptionNode(Node):
             10
         )
 
-        self.poses_to_vectors_service = self.create_service(
-            PosesToVectors,
-            '/get_heuristic_fields',
-            self.get_heuristic_fields_callback
-        )
+        # self.poses_to_vectors_service = self.create_service(
+        #     PosesToVectors,
+        #     'get_heuristic_fields',
+        #     self.get_heuristic_fields_callback
+        # )
 
 
     def run_pipeline(self, pointcloud_buffer, tfs, agent_pos, use_sim):
@@ -60,35 +60,35 @@ class PerceptionNode(Node):
             self.get_logger().error(troubleshoot.get_error_text(e))
 
 
-    def get_heuristic_fields_callback(self, request, response):
-        """Convert a list of poses to vectors relative to the agent position."""
-        try:
-            # Convert poses to list of position vectors
-            poses_list = []
-            for pose in request.poses:
-                poses_list.append([
-                    pose.position.x,
-                    pose.position.y, 
-                    pose.position.z
-                ])
-            poses_list = np.array(poses_list).astype(np.float32)  
+    # def get_heuristic_fields_callback(self, request, response):
+    #     """Convert a list of poses to vectors relative to the agent position."""
+    #     try:
+    #         # Convert poses to list of position vectors
+    #         poses_list = []
+    #         for pose in request.poses:
+    #             poses_list.append([
+    #                 pose.position.x,
+    #                 pose.position.y, 
+    #                 pose.position.z
+    #             ])
+    #         poses_list = np.array(poses_list).astype(np.float32)  
 
-            # compute heuristic fields
-            out_forces = self.pipeline.compute_heuristic_fields(
-                poses_list, 
-                0.1, 
-                request.radius, 
-                log_performance=True)
+    #         # compute heuristic fields
+    #         out_forces = self.pipeline.compute_heuristic_fields(
+    #             poses_list, 
+    #             0.1, 
+    #             request.radius, 
+    #             log_performance=True)
             
-            response.vectors = [Point(x=float(v[0]), y=float(v[1]), z=float(v[2])) 
-                              for v in out_forces]
-            response.within_radius = [True] * len(out_forces)
-            return response
+    #         response.vectors = [Point(x=float(v[0]), y=float(v[1]), z=float(v[2])) 
+    #                           for v in out_forces]
+    #         response.within_radius = [True] * len(out_forces)
+    #         return response
             
-        except Exception as e:
-            self.get_logger().error(troubleshoot.get_error_text(e, show_error=True, print_stack_trace=True))
-            response.vectors = []
-            return response
+    #     except Exception as e:
+    #         self.get_logger().error(troubleshoot.get_error_text(e, show_error=True, print_stack_trace=True))
+    #         response.vectors = []
+    #         return response
 
     def make_pointcloud_msg(self, points_array):
         # Define header

@@ -9,7 +9,7 @@ import numpy as np
 import cupy as cp
 import numba.cuda as cuda
 import percept.utils.troubleshoot as troubleshoot
-from percept.kernels.obstacle_heuristic import obstacle_heuristic_kernel
+# from percept.kernels.obstacle_heuristic import obstacle_heuristic_kernel
 
 class PerceptionPipeline():
     def __init__(self, node):
@@ -182,28 +182,28 @@ class PerceptionPipeline():
             self.logger.info(f"Voxel2Primitives (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos
 
-    def compute_heuristic_fields(self, anchors_np:np.ndarray, mass_radius:float, detect_radius:float, log_performance:bool=False):
+    # def compute_heuristic_fields(self, anchors_np:np.ndarray, mass_radius:float, detect_radius:float, log_performance:bool=False):
 
-        n_anchors = anchors_np.shape[0]
-        mass_radius = 1.0
-        detect_radius = 50.0
+    #     n_anchors = anchors_np.shape[0]
+    #     mass_radius = 1.0
+    #     detect_radius = 50.0
 
-        d_masses = self.primitives_pos_gpu # center of voxelgrids are point masses
-        d_anchors = cuda.to_device(anchors_np)
-        d_out_forces = cuda.device_array((n_anchors, 3), dtype=np.float32)
+    #     d_masses = self.primitives_pos_gpu # center of voxelgrids are point masses
+    #     d_anchors = cuda.to_device(anchors_np)
+    #     d_out_forces = cuda.device_array((n_anchors, 3), dtype=np.float32)
 
-        threads_per_block = 256
-        blocks_per_grid = n_anchors  # one block per anchor
+    #     threads_per_block = 256
+    #     blocks_per_grid = n_anchors  # one block per anchor
 
-        start = time.time()
-        obstacle_heuristic_kernel[blocks_per_grid, threads_per_block](
-            d_anchors, d_masses, mass_radius, detect_radius, d_out_forces)
-        cuda.synchronize()  # wait for the kernel to finish
-        end = time.time()
-        if log_performance:
-            self.logger.info(f"ObstacleHeuristic Kernel (CPU+GPU) [sec]: {time.time()-start}")
+    #     start = time.time()
+    #     obstacle_heuristic_kernel[blocks_per_grid, threads_per_block](
+    #         d_anchors, d_masses, mass_radius, detect_radius, d_out_forces)
+    #     cuda.synchronize()  # wait for the kernel to finish
+    #     end = time.time()
+    #     if log_performance:
+    #         self.logger.info(f"ObstacleHeuristic Kernel (CPU+GPU) [sec]: {time.time()-start}")
 
-        return d_out_forces.copy_to_host()
+    #     return d_out_forces.copy_to_host()
 
     def run_pipeline(self, pointclouds:dict, tfs:dict, agent_pos:np.ndarray, use_sim=False, log_performance:bool=False):
         # streamer/realsense gives pointclouds and tfs
