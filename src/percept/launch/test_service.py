@@ -5,8 +5,8 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='percept',
-            executable='service_tester.py',
-            name='service_tester',
+            executable='test_service.py',
+            name='test_service',
             output='screen'
         )
     ])

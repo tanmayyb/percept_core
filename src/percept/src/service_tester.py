@@ -15,7 +15,7 @@ class ServiceTester(Node):
         self.timer = self.create_timer(1.0, self.timer_callback)
         
         # Create service client
-        self.client = self.create_client(PosesToVectors, '/get_heuristic_fields')
+        self.client = self.create_client(PosesToVectors, '/get_heuristic_circforce')
         
         # Wait for service to become available
         while not self.client.wait_for_service(timeout_sec=1.0):
