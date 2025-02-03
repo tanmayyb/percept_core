@@ -1,23 +1,35 @@
-#pragma once
+#ifndef FIELDS_COMPUTER_HPP_
+#define FIELDS_COMPUTER_HPP_
 
-#include <chrono>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <vector>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <vector_types.h>
+#include <mutex>
+#include <atomic>
+#include "percept_interfaces/srv/agent_state_to_circ_force.hpp"
 
-#include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/string.hpp"
+#include <cuda_runtime.h>
+#include <vector_types.h>
 
-namespace cuda_kernel {
-    void hello_cuda_world();
-}
+class FieldsComputer : public rclcpp::Node
+{
+public:
+    FieldsComputer();
+    ~FieldsComputer();
 
-namespace percept{
-    class FieldsComputer : public rclcpp::Node{
-        public:
-            FieldsComputer();
-        private:
-            rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
-    };
-}
+private:
+    bool check_cuda_error(cudaError_t err, const char* operation);
+    void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    void handle_agent_state_to_circ_force(
+        const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+        std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
+    rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_;
+    double3* gpu_points_buffer{nullptr};
+    size_t gpu_num_points_{0};
+    std::mutex gpu_points_mutex_;
+    std::atomic<bool> is_gpu_points_in_use_{false};
+};
+
+#endif  // FIELDS_COMPUTER_HPP_
