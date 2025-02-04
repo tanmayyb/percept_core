@@ -13,7 +13,7 @@ class ServiceTester(Node):
         super().__init__('service_tester')
         
         # Create timer that calls service every second
-        self.timer = self.create_timer(1.0, self.timer_callback)
+        self.timer = self.create_timer(0.5, self.timer_callback)
         
         # Create service client
         self.client = self.create_client(AgentStateToCircForce, '/get_heuristic_circforce')
@@ -21,6 +21,11 @@ class ServiceTester(Node):
         # Wait for service to become available
         while not self.client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Service not available, waiting...')
+        
+        # Create publisher for markers
+        self.marker_publisher = self.create_publisher(Marker, 'circ_force_markers', 10)
+
+
 
     def timer_callback(self):
         # Create request with a single pose
@@ -84,78 +89,95 @@ class ServiceTester(Node):
                              f'  agent_vel = [{request.agent_velocity.x:.3f}, {request.agent_velocity.y:.3f}, {request.agent_velocity.z:.3f}]\n' +
                              f'  goal_pos  = [{request.goal_pose.position.x:.3f}, {request.goal_pose.position.y:.3f}, {request.goal_pose.position.z:.3f}]\n' +
                              f'  detect_rad = {request.detect_shell_rad:.3f}\n')
-
         # Add callback for when response is received
         future.add_done_callback(
-            lambda future: self.response_callback(future, start_time))
+            lambda future: self.response_callback(future, start_time, request))
 
-    def response_callback(self, future, start_time):
+    def response_callback(self, future, start_time, request):
         try:
             response = future.result()
             elapsed_time = time.time() - start_time
             
             self.get_logger().info('\nResponse:\n' +
                                  f'  Time elapsed: {elapsed_time:.3f} seconds\n' +
-                                 f'  Circ force:   [{response.circ_force.x:.3f}, {response.circ_force.y:.3f}, {response.circ_force.z:.3f}]\n' +
-                                 f'  Within radius: {response.not_null}\n')
+                                 f'  Circ force:   [{response.circ_force.x:.3f}, {response.circ_force.y:.3f}, {response.circ_force.z:.3f}]\n' #+f'  Within radius: {response.not_null}\n'
+                                 )
+            
+            # Publish markers for agent position and circular force
+            self.publish_markers(response, request)
             
         except Exception as e:
             self.get_logger().error(f'Service call failed: {str(e)}')
 
-    def publish_markers(self):
-            # Point mass as a sphere
-            sphere_marker = Marker()
-            sphere_marker.header.frame_id = "world"
-            sphere_marker.header.stamp = self.get_clock().now().to_msg()
-            sphere_marker.ns = "point_mass"
-            sphere_marker.id = 0
-            sphere_marker.type = Marker.SPHERE
-            sphere_marker.action = Marker.ADD
-            sphere_marker.pose.position.x = 0.0
-            sphere_marker.pose.position.y = 0.0
-            sphere_marker.pose.position.z = 0.0
-            sphere_marker.scale.x = 0.2  # Sphere size
-            sphere_marker.scale.y = 0.2
-            sphere_marker.scale.z = 0.2
-            sphere_marker.color.r = 0.0
-            sphere_marker.color.g = 0.0
-            sphere_marker.color.b = 1.0
-            sphere_marker.color.a = 1.0  # Alpha
+    def publish_markers(self, response, request):
+        # Agent position as a sphere
+        agent_marker = Marker()
+        agent_marker.header.frame_id = "map"
+        agent_marker.header.stamp = self.get_clock().now().to_msg()
+        agent_marker.ns = "agent"
+        agent_marker.id = 0
+        agent_marker.type = Marker.SPHERE
+        agent_marker.action = Marker.ADD
+        agent_marker.pose = request.agent_pose
+        agent_marker.scale.x = 0.2  # Sphere size
+        agent_marker.scale.y = 0.2
+        agent_marker.scale.z = 0.2
+        agent_marker.color.r = 0.0
+        agent_marker.color.g = 1.0
+        agent_marker.color.b = 0.0
+        agent_marker.color.a = 1.0
 
-            # Force vector as an arrow
-            arrow_marker = Marker()
-            arrow_marker.header.frame_id = "world"
-            arrow_marker.header.stamp = self.get_clock().now().to_msg()
-            arrow_marker.ns = "force_vector"
-            arrow_marker.id = 1
-            arrow_marker.type = Marker.ARROW
-            arrow_marker.action = Marker.ADD
-            arrow_marker.scale.x = 0.05  # Shaft diameter
-            arrow_marker.scale.y = 0.1   # Arrowhead diameter
-            arrow_marker.scale.z = 0.1
-            arrow_marker.color.r = 1.0
-            arrow_marker.color.g = 0.0
-            arrow_marker.color.b = 0.0
-            arrow_marker.color.a = 1.0  # Alpha
+        # Circular force vector as an arrow
+        force_marker = Marker()
+        force_marker.header.frame_id = "map"
+        force_marker.header.stamp = self.get_clock().now().to_msg()
+        force_marker.ns = "circ_force"
+        force_marker.id = 1
+        force_marker.type = Marker.ARROW
+        force_marker.action = Marker.ADD
+        force_marker.scale.x = 0.05  # Shaft diameter
+        force_marker.scale.y = 0.1   # Arrowhead diameter
+        force_marker.scale.z = 0.1
+        force_marker.color.r = 1.0
+        force_marker.color.g = 0.0
+        force_marker.color.b = 0.0
+        force_marker.color.a = 1.0
 
-            # Define start and end points of the arrow
-            start_point = Point()
-            start_point.x = 0.0
-            start_point.y = 0.0
-            start_point.z = 0.0
+        # Define start and end points of the force arrow
+        start_point = Point()
+        start_point.x = request.agent_pose.position.x
+        start_point.y = request.agent_pose.position.y
+        start_point.z = request.agent_pose.position.z
 
-            end_point = Point()
-            end_point.x = self.force_vector[0]
-            end_point.y = self.force_vector[1]
-            end_point.z = self.force_vector[2]
+        end_point = Point()
+        end_point.x = request.agent_pose.position.x + response.circ_force.x
+        end_point.y = request.agent_pose.position.y + response.circ_force.y
+        end_point.z = request.agent_pose.position.z + response.circ_force.z
 
-            arrow_marker.points.append(start_point)
-            arrow_marker.points.append(end_point)
+        force_marker.points.append(start_point)
+        force_marker.points.append(end_point)
 
-            # Publish markers
-            self.publisher.publish(sphere_marker)
-            self.publisher.publish(arrow_marker)
-            # self.get_logger().info("Published Point Mass and Force Vector Markers")
+        # Goal position as a sphere
+        goal_marker = Marker()
+        goal_marker.header.frame_id = "map"
+        goal_marker.header.stamp = self.get_clock().now().to_msg()
+        goal_marker.ns = "goal"
+        goal_marker.id = 2
+        goal_marker.type = Marker.SPHERE
+        goal_marker.action = Marker.ADD
+        goal_marker.pose = request.goal_pose
+        goal_marker.scale.x = 0.2  # Sphere size
+        goal_marker.scale.y = 0.2
+        goal_marker.scale.z = 0.2
+        goal_marker.color.r = 1.0
+        goal_marker.color.g = 0.0
+        goal_marker.color.b = 0.0
+        goal_marker.color.a = 1.0
+
+        # Publish markers
+        self.marker_publisher.publish(agent_marker)
+        self.marker_publisher.publish(force_marker)
+        self.marker_publisher.publish(goal_marker)
 
 def main(args=None):
     rclpy.init(args=args)
