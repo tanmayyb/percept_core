@@ -13,6 +13,7 @@ double3 launch_ObstacleHeuristic_circForce_kernel(
     size_t gpu_num_points_,
     double3 agent_position,
     double3 agent_velocity,
+    double3 goal_position,
     double k_circ, 
     double detect_shell_rad_,
     bool debug

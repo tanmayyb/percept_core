@@ -123,15 +123,21 @@ void FieldsComputer::handle_agent_state_to_circ_force(
     
     try {    
         double3 agent_position = make_double3(
-            request->pose.position.x,
-            request->pose.position.y,
-            request->pose.position.z
+            request->agent_pose.position.x,
+            request->agent_pose.position.y,
+            request->agent_pose.position.z
         );
 
         double3 agent_velocity = make_double3(
-            request->velocity.x,
-            request->velocity.y,
-            request->velocity.z
+            request->agent_velocity.x,
+            request->agent_velocity.y,
+            request->agent_velocity.z
+        );
+
+        double3 goal_position = make_double3(
+            request->goal_pose.position.x,
+            request->goal_pose.position.y,
+            request->goal_pose.position.z
         );
     
         double3 net_force = heuristic_kernel::launch_ObstacleHeuristic_circForce_kernel(           
@@ -139,6 +145,7 @@ void FieldsComputer::handle_agent_state_to_circ_force(
             gpu_num_points_,
             agent_position,
             agent_velocity,
+            goal_position,
             1.0,  // k_circ
             2.0,  // detect_shell_rad_
             false // debug
