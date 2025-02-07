@@ -13,7 +13,7 @@ class ServiceTester(Node):
         super().__init__('service_tester')
         
         # Create timer that calls service every second
-        self.timer = self.create_timer(0.5, self.timer_callback)
+        self.timer = self.create_timer(0.100, self.timer_callback)
         
         # Create service client
         self.client = self.create_client(AgentStateToCircForce, '/get_heuristic_circforce')
@@ -25,56 +25,45 @@ class ServiceTester(Node):
         # Create publisher for markers
         self.marker_publisher = self.create_publisher(Marker, 'circ_force_markers', 10)
 
+        self.start_time = time.time()
+        self.start_pos = np.array([-2.0, -0.50, 1.0])  # Start 2m to the left and 0.5m offset
+        self.velocity = np.array([0.1, 0.0, 0.0])    # Moving right at 1 m/s
+        # self.velocity = self.velocity / np.linalg.norm(self.velocity)  # Normalize
+
 
 
     def timer_callback(self):
         # Create request with a single pose
         request = AgentStateToCircForce.Request()
         
-        # Generate random spherical coordinates for one point
-        theta = 2 * 3.14159 * np.random.random() # azimuthal angle
-        phi = np.arccos(2 * np.random.random() - 1) # polar angle
-        r = 2.0 * np.random.random() # radius up to 2m
-        # Convert to cartesian coordinates for agent pose
+        # Calculate current position based on elapsed time
+        elapsed_time = time.time() - self.start_time
+        current_pos = self.start_pos + self.velocity * elapsed_time
+        
+        # Reset position if we've gone too far
+        if current_pos[0] > 2.0:  # Reset after moving 2m to the right
+            self.start_time = time.time()
+            current_pos = self.start_pos
+
+        # Set agent position
         request.agent_pose = Pose()
-        request.agent_pose.position.x = r * np.sin(phi) * np.cos(theta)
-        request.agent_pose.position.y = r * np.sin(phi) * np.sin(theta)
-        request.agent_pose.position.z = r * np.cos(phi)
+        request.agent_pose.position.x = float(current_pos[0])
+        request.agent_pose.position.y = float(current_pos[1])
+        request.agent_pose.position.z = float(current_pos[2])
         request.agent_pose.orientation.w = 1.0
 
-        # Calculate velocity vector towards goal (origin) with noise
-        base_speed = 0.5  # meters per second
-        noise_magnitude = 0.2  # magnitude of random noise
-        
-        # Calculate direction vector from agent to goal
-        direction = np.array([-request.agent_pose.position.x,
-                            -request.agent_pose.position.y,
-                            -request.agent_pose.position.z])
-        
-        # Normalize direction vector
-        direction_norm = np.linalg.norm(direction)
-        if direction_norm > 0:
-            direction = direction / direction_norm
-        
-        # Add random noise to direction
-        noise = noise_magnitude * (np.random.random(3) - 0.5)
-        noisy_direction = direction + noise
-        
-        # Normalize and scale to desired speed
-        noisy_direction = noisy_direction / np.linalg.norm(noisy_direction) * base_speed
-        
-        # Set agent velocity
+        # Set constant velocity
         request.agent_velocity = Vector3()
-        request.agent_velocity.x = float(noisy_direction[0])
-        request.agent_velocity.y = float(noisy_direction[1])
-        request.agent_velocity.z = float(noisy_direction[2])
+        request.agent_velocity.x = float(self.velocity[0])
+        request.agent_velocity.y = float(self.velocity[1])
+        request.agent_velocity.z = float(self.velocity[2])
 
-        # Set goal pose
-        request.goal_pose = Pose()
-        request.goal_pose.position.x = 0.0
-        request.goal_pose.position.y = 0.0
-        request.goal_pose.position.z = 0.0
-        request.goal_pose.orientation.w = 1.0
+        # Set goal pose at origin
+        request.target_pose = Pose()
+        request.target_pose.position.x = 0.0
+        request.target_pose.position.y = 0.0
+        request.target_pose.position.z = 1.0
+        request.target_pose.orientation.w = 1.0
     
         # Set detection shell radius parameter
         request.detect_shell_rad = 2.0
@@ -84,11 +73,11 @@ class ServiceTester(Node):
         future = self.client.call_async(request)
         
         # data sent as request
-        self.get_logger().info('\nRequest:\n' + 
+        self.get_logger().info('Request:\n' + 
                              f'  agent_pos = [{request.agent_pose.position.x:.3f}, {request.agent_pose.position.y:.3f}, {request.agent_pose.position.z:.3f}]\n' +
                              f'  agent_vel = [{request.agent_velocity.x:.3f}, {request.agent_velocity.y:.3f}, {request.agent_velocity.z:.3f}]\n' +
-                             f'  goal_pos  = [{request.goal_pose.position.x:.3f}, {request.goal_pose.position.y:.3f}, {request.goal_pose.position.z:.3f}]\n' +
-                             f'  detect_rad = {request.detect_shell_rad:.3f}\n')
+                             f'  target_pos  = [{request.target_pose.position.x:.3f}, {request.target_pose.position.y:.3f}, {request.target_pose.position.z:.3f}]\n' +
+                             f'  detect_rad = {request.detect_shell_rad:.3f}')
         # Add callback for when response is received
         future.add_done_callback(
             lambda future: self.response_callback(future, start_time, request))
@@ -98,8 +87,8 @@ class ServiceTester(Node):
             response = future.result()
             elapsed_time = time.time() - start_time
             
-            self.get_logger().info('\nResponse:\n' +
-                                 f'  Time elapsed: {elapsed_time:.3f} seconds\n' +
+            self.get_logger().info('Response:\n' +
+                                 f'  Time elapsed: {elapsed_time:.5f} seconds\n' +
                                  f'  Circ force:   [{response.circ_force.x:.3f}, {response.circ_force.y:.3f}, {response.circ_force.z:.3f}]\n' #+f'  Within radius: {response.not_null}\n'
                                  )
             
@@ -165,7 +154,7 @@ class ServiceTester(Node):
         goal_marker.id = 2
         goal_marker.type = Marker.SPHERE
         goal_marker.action = Marker.ADD
-        goal_marker.pose = request.goal_pose
+        goal_marker.pose = request.target_pose
         goal_marker.scale.x = 0.2  # Sphere size
         goal_marker.scale.y = 0.2
         goal_marker.scale.z = 0.2

@@ -135,9 +135,9 @@ void FieldsComputer::handle_agent_state_to_circ_force(
         );
 
         double3 goal_position = make_double3(
-            request->goal_pose.position.x,
-            request->goal_pose.position.y,
-            request->goal_pose.position.z
+            request->target_pose.position.x,
+            request->target_pose.position.y,
+            request->target_pose.position.z
         );
     
         double3 net_force = heuristic_kernel::launch_ObstacleHeuristic_circForce_kernel(           
@@ -146,7 +146,7 @@ void FieldsComputer::handle_agent_state_to_circ_force(
             agent_position,
             agent_velocity,
             goal_position,
-            1.0,  // k_circ
+            0.01,  // k_circ
             2.0,  // detect_shell_rad_
             false // debug
         );
