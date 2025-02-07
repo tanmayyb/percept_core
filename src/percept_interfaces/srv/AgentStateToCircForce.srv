@@ -1,7 +1,0 @@
-geometry_msgs/Pose agent_pose
-geometry_msgs/Vector3 agent_velocity
-geometry_msgs/Pose goal_pose
-float64 detect_shell_rad
----
-geometry_msgs/Vector3 circ_force
-bool not_null

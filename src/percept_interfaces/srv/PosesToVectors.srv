@@ -1,5 +1,0 @@
-geometry_msgs/Pose[] poses
-float64 radius   # Added radius parameter to use with radial distance computation
----
-geometry_msgs/Point[] vectors
-bool[] within_radius  # Added to indicate which poses were within the radius
