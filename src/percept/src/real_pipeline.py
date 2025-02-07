@@ -105,6 +105,7 @@ class RealPerceptionNode(PerceptionNode):
         with self.buffer_lock:
             self.pointcloud_buffer[camera_name] = msg
 
+            # TODO: move lock here
             # Check if we have data from all cameras
             if len(self.pointcloud_buffer) == len(self.pipeline.camera_names):
                 buffer_copy = self.pointcloud_buffer.copy()

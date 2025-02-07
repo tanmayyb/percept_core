@@ -32,7 +32,7 @@ class PerceptionNode(Node):
         self.primitives_publisher = self.create_publisher(
             PointCloud2, 
             '/primitives', 
-            10
+            1
         )
 
         # self.poses_to_vectors_service = self.create_service(
@@ -40,10 +40,15 @@ class PerceptionNode(Node):
         #     'get_heuristic_fields',
         #     self.get_heuristic_fields_callback
         # )
+        self.processing = False
 
 
     def run_pipeline(self, pointcloud_buffer, tfs, agent_pos, use_sim):
         try:
+            if self.processing:
+                return
+            self.processing = True
+
             primitives_pos_result = self.pipeline.run_pipeline(
                 pointcloud_buffer, tfs, agent_pos, use_sim=use_sim)                    
 
@@ -55,6 +60,8 @@ class PerceptionNode(Node):
                 # publish messages
                 if primitives_pos_msg is not None:
                     self.primitives_publisher.publish(primitives_pos_msg)
+
+            self.processing = False
 
         except Exception as e:
             self.get_logger().error(troubleshoot.get_error_text(e))
