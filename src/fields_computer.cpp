@@ -9,6 +9,16 @@
 FieldsComputer::FieldsComputer()
     : Node("fields_computer")
 {
+
+    this->declare_parameter("k_circular_force", 0.00);
+    this->get_parameter("k_circular_force", k_circular_force);
+
+    this->declare_parameter("agent_radius", 0.1);
+    this->get_parameter("agent_radius", agent_radius);
+
+    this->declare_parameter("mass_radius", 0.1);
+    this->get_parameter("mass_radius", mass_radius);
+
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/primitives", 10,
         std::bind(&FieldsComputer::pointcloud_callback, this, std::placeholders::_1));
@@ -103,6 +113,15 @@ void FieldsComputer::handle_agent_state_to_circ_force(
 {
     std::lock_guard<std::mutex> lock(gpu_points_mutex_);
     
+
+    if (k_circular_force == 0.0) {
+        response->circ_force.x = 0.0;
+        response->circ_force.y = 0.0;
+        response->circ_force.z = 0.0;
+        response->not_null = false;
+        return;
+    }
+
     if (gpu_points_buffer == nullptr) {
         response->not_null = false;
         return;
@@ -121,47 +140,47 @@ void FieldsComputer::handle_agent_state_to_circ_force(
         ~GPUGuard() { flag.store(false); }
     } guard(is_gpu_points_in_use_);
     
-    try {    
-        double3 agent_position = make_double3(
-            request->agent_pose.position.x,
-            request->agent_pose.position.y,
-            request->agent_pose.position.z
-        );
+    double3 agent_position = make_double3(
+        request->agent_pose.position.x,
+        request->agent_pose.position.y,
+        request->agent_pose.position.z
+    );
 
-        double3 agent_velocity = make_double3(
-            request->agent_velocity.x,
-            request->agent_velocity.y,
-            request->agent_velocity.z
-        );
+    double3 agent_velocity = make_double3(
+        request->agent_velocity.x,
+        request->agent_velocity.y,
+        request->agent_velocity.z
+    );
 
-        double3 goal_position = make_double3(
-            request->target_pose.position.x,
-            request->target_pose.position.y,
-            request->target_pose.position.z
-        );
+    double3 goal_position = make_double3(
+        request->target_pose.position.x,
+        request->target_pose.position.y,
+        request->target_pose.position.z
+    );
+
+    double detect_shell_rad = request->detect_shell_rad;
+
+    double3 net_force = heuristic_kernel::launch_ObstacleHeuristic_circForce_kernel(           
+        gpu_points_buffer, // on device
+        gpu_num_points_,
+        agent_position,
+        agent_velocity,
+        goal_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        k_circular_force,  // k_circ
+        false // debug
+    );
+
+    RCLCPP_INFO(this->get_logger(), "Net force: x=%.10f, y=%.10f, z=%.10f", net_force.x, net_force.y, net_force.z);
     
-        double3 net_force = heuristic_kernel::launch_ObstacleHeuristic_circForce_kernel(           
-            gpu_points_buffer, // on device
-            gpu_num_points_,
-            agent_position,
-            agent_velocity,
-            goal_position,
-            0.01,  // k_circ
-            2.0,  // detect_shell_rad_
-            false // debug
-        );
+    response->circ_force.x = net_force.x;
+    response->circ_force.y = net_force.y;
+    response->circ_force.z = net_force.z;
+    response->not_null = true;
 
-        // double3 net_force = make_double3(0.0, 0.0, 0.0);
 
-        response->circ_force.x = net_force.x;
-        response->circ_force.y = net_force.y;
-        response->circ_force.z = net_force.z;
-        response->not_null = true;
-    }
-    catch (const std::exception& e) {
-        RCLCPP_ERROR(this->get_logger(), "Error in handle_agent_state_to_circ_force: %s", e.what());
-        response->not_null = false;
-    }
 }
 
 int main(int argc, char **argv)
