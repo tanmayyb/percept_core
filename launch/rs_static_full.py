@@ -41,7 +41,7 @@ def create_perception_group(pkg_share:str):
                 package='percept',
                 executable='real_pipeline.py',
                 name='real_perception_node',
-                output='screen',
+                # output='screen',
                 parameters=[real_pipeline_params], # load all configs
                 namespace=namespace
             ),
@@ -57,7 +57,7 @@ def create_perception_group(pkg_share:str):
                 package='rviz2',
                 executable='rviz2',
                 name='perception_rviz',
-                arguments=['-d', get_path(pkg_share, 'config', 'perception.rviz')],
+                arguments=['-d', get_path(pkg_share, 'config', 'perception_full.rviz')],
                 namespace='perception' 
             )
         ]
@@ -93,7 +93,16 @@ def create_fields_computer_group(pkg_share:str):
         Node(
             package='percept',
             executable='fields_computer',
-            output='screen'
+            name='fields_computer',
+            output='screen',
+            parameters=[{
+                'k_circular_force': 0.0, #0.000001
+                'agent_radius': 0.1,
+                'mass_radius': 0.04,
+            }],
+            remappings=[
+                ('/get_heuristic_circforce', '/oriented_pointmass/get_obstacle_force'),
+            ]
         )
     ]
     return GroupAction(fields_computer_group)
