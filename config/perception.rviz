@@ -4,10 +4,7 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Global Options1
-        - /Status1
         - /PointCloud21/Topic1
-        - /Marker1
       Splitter Ratio: 0.5
     Tree Height: 725
   - Class: rviz_common/Selection
@@ -54,7 +51,7 @@ Visualization Manager:
       Length: 0.5
       Name: Axes
       Radius: 0.05000000074505806
-      Reference Frame: map
+      Reference Frame: world
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -122,9 +119,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        agent: true
-        circ_force: true
-        goal: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -136,7 +131,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: map
+    Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:
@@ -179,25 +174,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 5.2590155601501465
+      Distance: 4.029773712158203
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.2380288988351822
-        Y: -0.32074955105781555
-        Z: 0.9804304242134094
+        X: 1.0601983070373535
+        Y: 0.11166578531265259
+        Z: 1.104806661605835
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4703986644744873
+      Pitch: 0.08539893478155136
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.6885550022125244
+      Yaw: 4.458559989929199
     Saved: ~
 Window Geometry:
   Displays:
@@ -215,5 +210,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 2527
-  X: 2161
-  Y: 306
+  X: 3637
+  Y: 246

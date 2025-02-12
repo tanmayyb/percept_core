@@ -101,7 +101,7 @@ class ServiceTester(Node):
     def publish_markers(self, response, request):
         # Agent position as a sphere
         agent_marker = Marker()
-        agent_marker.header.frame_id = "map"
+        agent_marker.header.frame_id = "world"
         agent_marker.header.stamp = self.get_clock().now().to_msg()
         agent_marker.ns = "agent"
         agent_marker.id = 0
@@ -118,7 +118,7 @@ class ServiceTester(Node):
 
         # Circular force vector as an arrow
         force_marker = Marker()
-        force_marker.header.frame_id = "map"
+        force_marker.header.frame_id = "world"
         force_marker.header.stamp = self.get_clock().now().to_msg()
         force_marker.ns = "circ_force"
         force_marker.id = 1
@@ -148,7 +148,7 @@ class ServiceTester(Node):
 
         # Goal position as a sphere
         goal_marker = Marker()
-        goal_marker.header.frame_id = "map"
+        goal_marker.header.frame_id = "world"
         goal_marker.header.stamp = self.get_clock().now().to_msg()
         goal_marker.ns = "goal"
         goal_marker.id = 2

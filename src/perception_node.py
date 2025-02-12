@@ -101,7 +101,7 @@ class PerceptionNode(Node):
         # Define header
         header = pc2.Header()
         header.stamp = self.get_clock().now().to_msg()
-        header.frame_id = "map"
+        header.frame_id = "world"
 
         points_list = points_array
 
