@@ -81,6 +81,7 @@ install(PROGRAMS
   src/real_pipeline.py
   src/utils/static_tf_publisher.py
   src/service_tester.py
+  src/sim_stream.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
