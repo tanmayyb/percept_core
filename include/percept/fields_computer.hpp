@@ -30,6 +30,9 @@ private:
     size_t gpu_num_points_{0};
     std::mutex gpu_points_mutex_;
     std::atomic<bool> is_gpu_points_in_use_{false};
+    double agent_radius{0.0};
+    double mass_radius{0.0};
+    double k_circular_force{0.0}; 
 };
 
 #endif  // FIELDS_COMPUTER_HPP_

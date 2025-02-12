@@ -21,28 +21,28 @@
 
 namespace heuristic_kernel{
 
-__device__ inline double3 operator+(const double3& a, const double3& b) {
+__host__ __device__ inline double3 operator+(const double3& a, const double3& b) {
     return make_double3(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-__device__ inline double3 operator-(const double3& a, const double3& b) {
+__host__ __device__ inline double3 operator-(const double3& a, const double3& b) {
     return make_double3(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
-__device__ inline double3 operator*(const double3& a, const double scalar) {
+__host__ __device__ inline double3 operator*(const double3& a, const double scalar) {
     return make_double3(a.x * scalar, a.y * scalar, a.z * scalar);
 }
 
-__device__ inline double norm(const double3 &v) {
+__host__ __device__ inline double norm(const double3 &v) {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
-__device__ inline double norm_reciprocal(const double3 &v) {
+__host__ __device__ inline double norm_reciprocal(const double3 &v) {
     double mag2 = v.x * v.x + v.y * v.y + v.z * v.z;
     return mag2 > 0.0 ? 1.0 / sqrt(mag2) : 0.0;
 }
 
-__device__ inline double squared_distance(const double3 a, const double3 b) {
+__host__ __device__ inline double squared_distance(const double3 a, const double3 b) {
     double dx = a.x - b.x;
     double dy = a.y - b.y;
     double dz = a.z - b.z;
@@ -53,17 +53,17 @@ __device__ inline double fma(double a, double b, double c) {
     return __fma_rn(a, b, c); // computes a * b + c in one instruction
 }
 
-__device__ inline double dot(const double3 &a, const double3 &b) {
+__host__ __device__ inline double dot(const double3 &a, const double3 &b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-__device__ inline double3 cross(const double3 &a, const double3 &b) {
+__host__ __device__ inline double3 cross(const double3 &a, const double3 &b) {
     return make_double3(a.y * b.z - a.z * b.y,
                         a.z * b.x - a.x * b.z,
                         a.x * b.y - a.y * b.x);
 }
 
-__device__ inline double3 normalize(const double3 &v) {
+__host__ __device__ inline double3 normalize(const double3 &v) {
     double mag = sqrt(dot(v, v));
     if (mag > 0.0) {
         return v * (1.0 / mag);
@@ -80,8 +80,10 @@ __global__ void ObstacleHeuristic_circForce_kernel(
     double3 agent_position,
     double3 agent_velocity,
     double3 goal_position,
-    double k_circ,
-    double detect_shell_rad_
+    double agent_radius,
+    double mass_radius,
+    double detect_shell_rad,
+    double k_circ
 ){
     extern __shared__ double3 sdata[];
 
@@ -104,8 +106,6 @@ __global__ void ObstacleHeuristic_circForce_kernel(
     double3 force_vec;
     double3 mass_dist_vec_normalized;
     double dist_to_mass;
-    double agent_radius = 0.0;
-    double mass_radius = 0.1;
     double3 current_vec;
     double nn_distance = 1000.0;
     double nn_mass_dist_k;
@@ -138,7 +138,7 @@ __global__ void ObstacleHeuristic_circForce_kernel(
 
     // implement OBSTACLE HEURISTIC
     // calculate rotation vector, current vector, and force vector
-    if(dist_to_mass < detect_shell_rad_ && norm(mass_rvel_vec) > 1e-10){ 
+    if(dist_to_mass < detect_shell_rad && norm(mass_rvel_vec) > 1e-10){ 
             
 
         // find nearest neighbor using brute force :/
@@ -202,8 +202,10 @@ __host__ double3 launch_ObstacleHeuristic_circForce_kernel(
     double3 agent_position,
     double3 agent_velocity,
     double3 goal_position,
+    double agent_radius,
+    double mass_radius,
+    double detect_shell_rad,
     double k_circ, 
-    double detect_shell_rad_,
     bool debug
 ){
     // Allocate device memory for net force
@@ -226,7 +228,8 @@ __host__ double3 launch_ObstacleHeuristic_circForce_kernel(
     ObstacleHeuristic_circForce_kernel<<<num_blocks, threads, shared_mem_size>>>(
         d_net_force, d_masses, num_masses,
         agent_position, agent_velocity, goal_position,
-        k_circ, detect_shell_rad_
+        agent_radius, mass_radius, detect_shell_rad,
+        k_circ
     ); // CUDA kernels automatically copy value-type parameters to the device when called
     // Check for kernel launch errors
     err = cudaGetLastError();
@@ -248,6 +251,13 @@ __host__ double3 launch_ObstacleHeuristic_circForce_kernel(
     // Free device memory
     cudaFree(d_net_force);
     // Don't free d_masses here as it was allocated elsewhere
+
+    // cap the force magnitude
+    double force_magnitude = sqrt(norm(net_force));   
+    if (force_magnitude > MAX_ALLOWABLE_FORCE) {
+        double scale = MAX_ALLOWABLE_FORCE / force_magnitude;
+        net_force = net_force * scale;
+    }
 
     return net_force;
 }
