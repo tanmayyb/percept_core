@@ -1,0 +1,117 @@
+obstacles:
+  - name: "Obstacle1"
+    position: [5.0, 5.0, 0.0]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.5
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle2"
+    position: [6.0, 7.0, 0.0]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.5
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle3"
+    position: [8.0, 6.0, 0.0]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle4"
+    position: [2.0, 3.0, 0.0]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle5"
+    position: [4.0, 2.0, 0.0]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle6"
+    position: [4.0, 6.0, 0.0]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle7"
+    position: [8.0, 8.0, 0.0]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+
+  - name: "Obstacle8"
+    position: [4.5, 6.0, 1.2]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.5
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle9"
+    position: [6.0, 4.5, -0.8]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle10"
+    position: [3.5, 5.5, 0.9]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.5
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle11"
+    position: [7.0, 5.0, -1.5]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle12"
+    position: [5.5, 4.0, 1.8]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.5
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle13"
+    position: [4.0, 6.5, -1.2]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle14"
+    position: [5.0, 7.0, 1.5]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.5
+    is_dynamic: true
+    angular_speed: 0.0
+
+  - name: "Obstacle15"
+    position: [5.5, 5.5, 0.5]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.5
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle16"
+    position: [4.8, 5.2, -0.3]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle17"
+    position: [5.2, 4.8, 0.7]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.5
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle18"
+    position: [4.5, 5.0, -0.5]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.6
+    is_dynamic: true
+    angular_speed: 0.0
+  - name: "Obstacle19"
+    position: [5.0, 4.5, 0.4]
+    velocity: [0.0, 0.0, 0.0]
+    radius: 0.5
+    is_dynamic: true
+    angular_speed: 0.0

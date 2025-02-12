@@ -35,6 +35,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(message_filters REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 # find_package(percept_interfaces REQUIRED
 find_package(percept_interfaces)
@@ -82,6 +83,7 @@ install(PROGRAMS
   src/utils/static_tf_publisher.py
   src/service_tester.py
   src/sim_stream.py
+  src/scene_creator.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -105,6 +107,7 @@ ament_target_dependencies(fields_computer
   std_msgs 
   sensor_msgs
   geometry_msgs
+  visualization_msgs
   percept_interfaces
 )
 target_link_libraries(fields_computer 
