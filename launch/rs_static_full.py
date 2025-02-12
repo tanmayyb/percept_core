@@ -96,9 +96,9 @@ def create_fields_computer_group(pkg_share:str):
             name='fields_computer',
             output='screen',
             parameters=[{
-                'k_circular_force': 0.0, #0.000001
-                'agent_radius': 0.1,
-                'mass_radius': 0.04,
+                'k_circular_force': 0.00050,
+                'agent_radius': 0.02,
+                'mass_radius': 0.02,
             }],
             remappings=[
                 ('/get_heuristic_circforce', '/oriented_pointmass/get_obstacle_force'),

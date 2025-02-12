@@ -4,6 +4,7 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
         - /PointCloud21
         - /PointCloud21/Topic1
         - /Pose1/Topic1
@@ -78,7 +79,7 @@ Visualization Manager:
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.6000000238418579
+      Size (m): 0.30000001192092896
       Style: Spheres
       Topic:
         Depth: 5
@@ -162,7 +163,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        {}
+        force_vectors: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -173,7 +174,7 @@ Visualization Manager:
       Value: true
   Enabled: true
   Global Options:
-    Background Color: 48; 48; 48
+    Background Color: 255; 255; 255
     Fixed Frame: world
     Frame Rate: 30
   Name: root
@@ -217,25 +218,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 9.303598403930664
+      Distance: 6.348358631134033
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 3.150351047515869
-        Y: 2.016012668609619
-        Z: 1.3723387718200684
+        X: 4.2405500411987305
+        Y: 8.000849723815918
+        Z: 3.4109230041503906
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.0002029798924922943
+      Pitch: 0.30979642271995544
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.083564281463623
+      Yaw: 2.2935616970062256
     Saved: ~
 Window Geometry:
   Displays:
@@ -253,5 +254,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1685
-  X: 3675
+  X: 1755
   Y: 27

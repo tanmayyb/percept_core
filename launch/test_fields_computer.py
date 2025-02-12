@@ -43,9 +43,9 @@ def generate_launch_description():
             name='fields_computer',
             output='screen',
             parameters=[{
-                'k_circular_force': 10.0,
-                'agent_radius': 0.35,
-                'mass_radius': 0.30,
+                'k_circular_force': 0.01,
+                'agent_radius': 0.01,
+                'mass_radius': 0.01,
             }],
             remappings=[
                 ('/get_heuristic_circforce', '/oriented_pointmass/get_obstacle_force'),
