@@ -5,6 +5,7 @@
 #include <cuda_runtime.h>
 #include <thread>
 #include "percept/ObstacleHeuristicCircForce.h"
+#include <visualization_msgs/msg/marker.hpp>
 
 FieldsComputer::FieldsComputer()
     : Node("fields_computer")
@@ -18,6 +19,24 @@ FieldsComputer::FieldsComputer()
 
     this->declare_parameter("mass_radius", 0.1);
     this->get_parameter("mass_radius", mass_radius);
+
+
+    // experimental
+    this->declare_parameter("force_viz_scale", 1.0);
+    this->get_parameter("force_viz_scale", force_viz_scale_);
+    
+    RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
+    
+    marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
+        "force_vector", 10);
+
+    double force_viz_scale_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+
+    RCLCPP_INFO(this->get_logger(), "Parameters:");
+    RCLCPP_INFO(this->get_logger(), "  k_circular_force: %.2f", k_circular_force);
+    RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius); 
+    RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
 
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/primitives", 10,
@@ -173,13 +192,48 @@ void FieldsComputer::handle_agent_state_to_circ_force(
         false // debug
     );
 
-    RCLCPP_INFO(this->get_logger(), "Net force: x=%.10f, y=%.10f, z=%.10f", net_force.x, net_force.y, net_force.z);
+    RCLCPP_INFO(this->get_logger(), "Net force: x=%.10f, y=%.10f, z=%.10f, num_points=%d", net_force.x, net_force.y, net_force.z, gpu_num_points_);
     
     response->circ_force.x = net_force.x;
     response->circ_force.y = net_force.y;
     response->circ_force.z = net_force.z;
     response->not_null = true;
 
+    // experimental
+    // Publish force vector as marker
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = "world";  // Adjust frame_id as needed
+    marker.header.stamp = this->now();
+    marker.ns = "force_vectors";
+    marker.id = 0;
+    marker.type = visualization_msgs::msg::Marker::ARROW;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    
+    // Set start point (agent position)
+    marker.points.resize(2);
+    marker.points[0].x = request->agent_pose.position.x;
+    marker.points[0].y = request->agent_pose.position.y;
+    marker.points[0].z = request->agent_pose.position.z;
+    
+    // Set end point (agent position + scaled force)
+    marker.points[1].x = request->agent_pose.position.x + net_force.x * force_viz_scale_;
+    marker.points[1].y = request->agent_pose.position.y + net_force.y * force_viz_scale_;
+    marker.points[1].z = request->agent_pose.position.z + net_force.z * force_viz_scale_;
+    
+    // Set marker properties
+    marker.scale.x = 0.1;  // shaft diameter
+    marker.scale.y = 0.2;  // head diameter
+    marker.scale.z = 0.3;  // head length
+    
+    marker.color.r = 1.0;
+    marker.color.g = 0.0;
+    marker.color.b = 0.0;
+    marker.color.a = 1.0;
+    
+    marker_pub_->publish(marker);
+
+
+    return;
 
 }
 

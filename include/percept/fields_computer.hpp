@@ -7,6 +7,7 @@
 #include <mutex>
 #include <atomic>
 #include "percept_interfaces/srv/agent_state_to_circ_force.hpp"
+#include <visualization_msgs/msg/marker.hpp>
 
 #include <cuda_runtime.h>
 #include <vector_types.h>
@@ -33,6 +34,10 @@ private:
     double agent_radius{0.0};
     double mass_radius{0.0};
     double k_circular_force{0.0}; 
+
+    // experimental
+    double force_viz_scale_{1.0};  // Initialize with default value
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
 };
 
 #endif  // FIELDS_COMPUTER_HPP_
