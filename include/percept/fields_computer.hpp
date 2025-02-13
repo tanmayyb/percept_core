@@ -34,6 +34,9 @@ private:
     double agent_radius{0.0};
     double mass_radius{0.0};
     double k_circular_force{0.0}; 
+    double max_allowable_force{0.0};
+    double detect_shell_rad{0.0};
+    bool override_detect_shell_rad{false};
 
     // experimental
     double force_viz_scale_{1.0};  // Initialize with default value

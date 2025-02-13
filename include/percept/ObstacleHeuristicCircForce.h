@@ -8,8 +8,6 @@
 
 namespace heuristic_kernel{
 
-const double MAX_ALLOWABLE_FORCE = 200.0; // Define maximum allowed force magnitude
-
 double3 launch_ObstacleHeuristic_circForce_kernel(
     double3* gpu_points_, 
     size_t gpu_num_points_,
@@ -20,6 +18,7 @@ double3 launch_ObstacleHeuristic_circForce_kernel(
     double mass_radius,
     double detect_shell_rad,
     double k_circ, 
+    double max_allowable_force,
     bool debug
 );
 

@@ -15,7 +15,7 @@ def generate_launch_description():
         default_value=os.path.join(
             pkg_share,
             'config',
-            'obstacles2.yaml'
+            'obstacles3.yaml'
         ),
         description='Path to the obstacles configuration file'
     )
@@ -43,9 +43,11 @@ def generate_launch_description():
             name='fields_computer',
             output='screen',
             parameters=[{
-                'k_circular_force': 0.01,
-                'agent_radius': 0.01,
-                'mass_radius': 0.01,
+                'k_circular_force': 0.0010,
+                'agent_radius': 0.05,
+                'mass_radius': 0.025,
+                'max_allowable_force': 20.0,
+                'detect_shell_rad': 1.0,
             }],
             remappings=[
                 ('/get_heuristic_circforce', '/oriented_pointmass/get_obstacle_force'),

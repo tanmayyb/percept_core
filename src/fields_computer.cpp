@@ -10,8 +10,7 @@
 FieldsComputer::FieldsComputer()
     : Node("fields_computer")
 {
-
-    this->declare_parameter("k_circular_force", 0.00);
+    this->declare_parameter("k_circular_force", 0.1);
     this->get_parameter("k_circular_force", k_circular_force);
 
     this->declare_parameter("agent_radius", 0.1);
@@ -20,12 +19,20 @@ FieldsComputer::FieldsComputer()
     this->declare_parameter("mass_radius", 0.1);
     this->get_parameter("mass_radius", mass_radius);
 
+    this->declare_parameter("max_allowable_force", 0.0);
+    this->get_parameter("max_allowable_force", max_allowable_force);
+
+    this->declare_parameter("detect_shell_rad", 0.0);
+    this->get_parameter("detect_shell_rad", detect_shell_rad);
+
+    if (detect_shell_rad > 0.0) {
+        override_detect_shell_rad = true;
+    }
 
     // experimental
     this->declare_parameter("force_viz_scale", 1.0);
     this->get_parameter("force_viz_scale", force_viz_scale_);
     
-    RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
     
     marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
         "force_vector", 10);
@@ -37,6 +44,10 @@ FieldsComputer::FieldsComputer()
     RCLCPP_INFO(this->get_logger(), "  k_circular_force: %.2f", k_circular_force);
     RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius); 
     RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
+    RCLCPP_INFO(this->get_logger(), "  max_allowable_force: %.2f", max_allowable_force);
+    RCLCPP_INFO(this->get_logger(), "  detect_shell_rad: %.2f", detect_shell_rad);
+    RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
+
 
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/primitives", 10,
@@ -177,7 +188,9 @@ void FieldsComputer::handle_agent_state_to_circ_force(
         request->target_pose.position.z
     );
 
-    double detect_shell_rad = request->detect_shell_rad;
+    if (!override_detect_shell_rad) {
+        detect_shell_rad = request->detect_shell_rad;
+    }
 
     double3 net_force = heuristic_kernel::launch_ObstacleHeuristic_circForce_kernel(           
         gpu_points_buffer, // on device
@@ -189,6 +202,7 @@ void FieldsComputer::handle_agent_state_to_circ_force(
         mass_radius,
         detect_shell_rad,
         k_circular_force,  // k_circ
+        max_allowable_force,
         false // debug
     );
 

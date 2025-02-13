@@ -127,12 +127,16 @@ __global__ void ObstacleHeuristic_circForce_kernel(
 
 
     // "Skip this obstacle if it's behind us AND we're moving away from it"
-    if(dot(mass_dist_vec_normalized, normalize(goal_vec)) < -0.01 &&
-        dot(mass_dist_vec, mass_rvel_vec) < -0.01)
+    // if(dot(mass_dist_vec_normalized, normalize(goal_vec)) < -0.01 &&
+    //     dot(mass_dist_vec, mass_rvel_vec) < -0.01)
+    //     {
+    //         goto reduction; //sdata already set to zero
+    //     }
+    if(dot(mass_dist_vec_normalized, normalize(goal_vec)) < -1e-5 &&
+        dot(mass_dist_vec, mass_rvel_vec) < -1e-5)
         {
             goto reduction; //sdata already set to zero
         }
-
     dist_to_mass = norm(mass_dist_vec) - (agent_radius + mass_radius);
     dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
 
@@ -206,6 +210,7 @@ __host__ double3 launch_ObstacleHeuristic_circForce_kernel(
     double mass_radius,
     double detect_shell_rad,
     double k_circ, 
+    double max_allowable_force,
     bool debug
 ){
     // Allocate device memory for net force
@@ -253,10 +258,12 @@ __host__ double3 launch_ObstacleHeuristic_circForce_kernel(
     // Don't free d_masses here as it was allocated elsewhere
 
     // cap the force magnitude
-    double force_magnitude = sqrt(norm(net_force));   
-    if (force_magnitude > MAX_ALLOWABLE_FORCE) {
-        double scale = MAX_ALLOWABLE_FORCE / force_magnitude;
-        net_force = net_force * scale;
+    if(max_allowable_force > 0.0){
+        double force_magnitude = sqrt(norm(net_force));   
+        if (force_magnitude > max_allowable_force) {
+            double scale = max_allowable_force / force_magnitude;
+            net_force = net_force * scale;
+        }
     }
 
     return net_force;
