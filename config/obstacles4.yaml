@@ -1,0 +1,854 @@
+# hole in the wall example
+obstacles:
+  - position: [-1.0, 1.0, 0.0]
+    radius: 0.25
+  - position: [-1.0, 1.0, 0.1]
+    radius: 0.25
+  - position: [-1.0, 1.0, 0.2]
+    radius: 0.25
+  - position: [-1.0, 1.0, 0.3]
+    radius: 0.25
+  - position: [-1.0, 1.0, 0.4]
+    radius: 0.25
+  - position: [-1.0, 1.0, 0.5]
+    radius: 0.25
+  - position: [-1.0, 1.0, 0.6]
+    radius: 0.25
+  - position: [-1.0, 1.0, 0.7]
+    radius: 0.25
+  - position: [-1.0, 1.0, 0.8]
+    radius: 0.25
+  - position: [-1.0, 1.0, 0.9]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.0]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.1]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.2]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.3]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.4]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.5]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.6]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.7]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.8]
+    radius: 0.25
+  - position: [-1.0, 1.0, 1.9]
+    radius: 0.25
+  - position: [-1.0, 1.0, 2.0]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.0]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.1]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.2]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.3]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.4]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.5]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.6]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.7]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.8]
+    radius: 0.25
+  - position: [-0.9, 1.0, 0.9]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.0]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.1]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.2]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.3]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.4]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.5]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.6]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.7]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.8]
+    radius: 0.25
+  - position: [-0.9, 1.0, 1.9]
+    radius: 0.25
+  - position: [-0.9, 1.0, 2.0]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.0]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.1]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.2]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.3]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.4]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.5]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.6]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.7]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.8]
+    radius: 0.25
+  - position: [-0.8, 1.0, 0.9]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.0]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.1]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.2]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.3]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.4]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.5]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.6]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.7]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.8]
+    radius: 0.25
+  - position: [-0.8, 1.0, 1.9]
+    radius: 0.25
+  - position: [-0.8, 1.0, 2.0]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.0]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.1]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.2]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.3]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.4]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.5]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.6]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.7]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.8]
+    radius: 0.25
+  - position: [-0.7, 1.0, 0.9]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.0]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.1]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.2]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.3]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.4]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.5]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.6]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.7]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.8]
+    radius: 0.25
+  - position: [-0.7, 1.0, 1.9]
+    radius: 0.25
+  - position: [-0.7, 1.0, 2.0]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.0]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.1]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.2]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.3]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.4]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.5]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.6]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.7]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.8]
+    radius: 0.25
+  - position: [-0.6, 1.0, 0.9]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.0]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.1]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.2]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.3]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.4]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.5]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.6]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.7]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.8]
+    radius: 0.25
+  - position: [-0.6, 1.0, 1.9]
+    radius: 0.25
+  - position: [-0.6, 1.0, 2.0]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.0]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.1]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.2]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.3]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.4]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.5]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.6]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.7]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.8]
+    radius: 0.25
+  - position: [-0.5, 1.0, 0.9]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.0]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.1]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.2]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.3]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.4]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.5]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.6]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.7]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.8]
+    radius: 0.25
+  - position: [-0.5, 1.0, 1.9]
+    radius: 0.25
+  - position: [-0.5, 1.0, 2.0]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.0]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.1]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.2]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.3]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.4]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.5]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.6]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.7]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.8]
+    radius: 0.25
+  - position: [-0.4, 1.0, 0.9]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.0]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.1]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.2]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.3]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.4]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.5]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.6]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.7]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.8]
+    radius: 0.25
+  - position: [-0.4, 1.0, 1.9]
+    radius: 0.25
+  - position: [-0.4, 1.0, 2.0]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.0]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.1]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.2]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.3]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.4]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.5]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.6]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.7]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.8]
+    radius: 0.25
+  - position: [-0.3, 1.0, 0.9]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.0]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.1]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.2]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.3]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.4]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.5]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.6]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.7]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.8]
+    radius: 0.25
+  - position: [-0.3, 1.0, 1.9]
+    radius: 0.25
+  - position: [-0.3, 1.0, 2.0]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.0]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.1]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.2]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.3]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.4]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.5]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.6]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.7]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.8]
+    radius: 0.25
+  - position: [-0.2, 1.0, 0.9]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.0]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.1]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.2]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.3]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.4]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.5]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.6]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.7]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.8]
+    radius: 0.25
+  - position: [-0.2, 1.0, 1.9]
+    radius: 0.25
+  - position: [-0.2, 1.0, 2.0]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.0]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.1]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.2]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.3]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.4]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.5]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.6]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.7]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.8]
+    radius: 0.25
+  - position: [-0.1, 1.0, 0.9]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.0]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.1]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.2]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.3]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.4]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.5]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.6]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.7]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.8]
+    radius: 0.25
+  - position: [-0.1, 1.0, 1.9]
+    radius: 0.25
+  - position: [-0.1, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.8]
+    radius: 0.25
+  - position: [0.0, 1.0, 0.9]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.0]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.1]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.2]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.0, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.0, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.8]
+    radius: 0.25
+  - position: [0.1, 1.0, 0.9]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.0]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.1]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.2]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.1, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.1, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.2, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.2, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.2, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.2, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.2, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.2, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.2, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.2, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.2, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.2, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.2, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.2, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.2, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.2, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.2, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.2, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.3, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.3, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.3, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.3, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.3, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.3, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.3, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.3, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.3, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.3, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.3, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.3, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.3, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.3, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.3, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.3, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.4, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.4, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.4, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.4, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.4, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.4, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.4, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.4, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.4, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.4, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.4, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.4, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.4, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.4, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.4, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.4, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.8]
+    radius: 0.25
+  - position: [0.5, 1.0, 0.9]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.0]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.1]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.2]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.5, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.5, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.8]
+    radius: 0.25
+  - position: [0.6, 1.0, 0.9]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.0]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.1]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.2]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.6, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.6, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.8]
+    radius: 0.25
+  - position: [0.7, 1.0, 0.9]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.0]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.1]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.2]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.7, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.7, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.8]
+    radius: 0.25
+  - position: [0.8, 1.0, 0.9]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.0]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.1]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.2]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.8, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.8, 1.0, 2.0]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.0]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.1]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.2]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.3]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.4]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.5]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.6]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.7]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.8]
+    radius: 0.25
+  - position: [0.9, 1.0, 0.9]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.0]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.1]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.2]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.3]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.4]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.5]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.6]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.7]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.8]
+    radius: 0.25
+  - position: [0.9, 1.0, 1.9]
+    radius: 0.25
+  - position: [0.9, 1.0, 2.0]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.0]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.1]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.2]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.3]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.4]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.5]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.6]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.7]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.8]
+    radius: 0.25
+  - position: [1.0, 1.0, 0.9]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.0]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.1]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.2]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.3]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.4]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.5]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.6]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.7]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.8]
+    radius: 0.25
+  - position: [1.0, 1.0, 1.9]
+    radius: 0.25
+  - position: [1.0, 1.0, 2.0]
+    radius: 0.25
