@@ -14,16 +14,10 @@
 // time keeper
 #include <chrono>
 
-
 #define threads 256
-//  NEED EDGE CONDITION HANDLER 
-//  i.e. when known num_obstacles < 256
-
 
 namespace heuristic_kernel{
-
 using namespace cuda_vector_ops;
-
 
 __global__ void ObstacleHeuristic_circForce_kernel(
     double3* d_net_force,
@@ -75,16 +69,11 @@ __global__ void ObstacleHeuristic_circForce_kernel(
     mass_velocity = make_double3(0.0, 0.0, 0.0);
     mass_rvel_vec = agent_velocity - mass_velocity;
     force_vec = make_double3(0.0, 0.0, 0.0); // set default as zero
-    mass_dist_vec_normalized = normalize(mass_dist_vec);
+    mass_dist_vec_normalized = normalized(mass_dist_vec);
 
 
     // "Skip this obstacle if it's behind us AND we're moving away from it"
-    // if(dot(mass_dist_vec_normalized, normalize(goal_vec)) < -0.01 &&
-    //     dot(mass_dist_vec, mass_rvel_vec) < -0.01)
-    //     {
-    //         goto reduction; //sdata already set to zero
-    //     }
-    if(dot(mass_dist_vec_normalized, normalize(goal_vec)) < -1e-5 &&
+    if(dot(mass_dist_vec_normalized, normalized(goal_vec)) < -1e-5 &&
         dot(mass_dist_vec, mass_rvel_vec) < -1e-5)
         {
             goto reduction; //sdata already set to zero
@@ -115,11 +104,11 @@ __global__ void ObstacleHeuristic_circForce_kernel(
         nn_mass_position = d_masses[nn_mass_idx];
         obstacle_vec = nn_mass_position - mass_position;
         current_vec = mass_dist_vec_normalized * dot(mass_dist_vec_normalized, obstacle_vec) - obstacle_vec;     
-        rot_vec = normalize(cross(current_vec, mass_dist_vec_normalized));
+        rot_vec = normalized(cross(current_vec, mass_dist_vec_normalized));
 
         // calculate current vector
-        current_vec = normalize(cross(mass_dist_vec_normalized, rot_vec)); // same variable name, different context
-        mass_rvel_vec_normalized = normalize(mass_rvel_vec);
+        current_vec = normalized(cross(mass_dist_vec_normalized, rot_vec)); // same variable name, different context
+        mass_rvel_vec_normalized = normalized(mass_rvel_vec);
 
         // calculate force vector
         // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
@@ -223,8 +212,8 @@ __host__ double3 launch_ObstacleHeuristic_circForce_kernel(
 
 
 // best function ever
-__host__  void hello_cuda_world(){
-  std::cout<<"Hello CUDA World!"<<std::endl;
+__host__  void hello_cuda_world_obstacle_heuristic_circ_force(){
+  std::cout<<"Hello CUDA World! -From Obstacle Heuristic Circ Force Kernel <3"<<std::endl;
 }
 
 

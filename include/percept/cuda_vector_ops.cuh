@@ -47,7 +47,7 @@ __host__ __device__ inline double3 cross(const double3 &a, const double3 &b) {
                         a.x * b.y - a.y * b.x);
 }
 
-__host__ __device__ inline double3 normalize(const double3 &v) {
+__host__ __device__ inline double3 normalized(const double3 &v) {
     double mag = sqrt(dot(v, v));
     if (mag > 0.0) {
         return v * (1.0 / mag);
