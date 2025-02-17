@@ -1,0 +1,17 @@
+# random 2D points example
+obstacles:
+- position: [0.07, 0.54, 0.0]
+- position: [-0.11, 0.83, 0.0]
+- position: [0.12, 1.52, 0.0]
+- position: [0.2, 0.63, 0.0]
+- position: [-0.04, 0.54, 0.0]
+- position: [-0.14, 1.26, 0.0]
+- position: [-0.24, 0.8, 0.0]
+- position: [0.07, 1.32, 0.0]
+- position: [-0.14, 1.38, 0.0]
+- position: [0.15, 0.51, 0.0]
+- position: [0.15, 1.55, 0.0]
+- position: [-0.08, 0.73, 0.0]
+- position: [0.23, 1.0, 0.0]
+- position: [-0.2, 0.65, 0.0]
+- position: [0.17, 1.41, 0.0]
