@@ -98,6 +98,8 @@ install(DIRECTORY
 add_executable(fields_computer 
   src/fields_computer.cpp 
   src/kernels/ObstacleHeuristicCircForce.cu
+  src/kernels/VelocityHeuristicCircForce.cu
+  src/kernels/GoalObstacleHeuristicCircForce.cu
 )
 target_include_directories(fields_computer 
   PRIVATE include
