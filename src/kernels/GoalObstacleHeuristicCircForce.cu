@@ -16,7 +16,7 @@
 
 #define threads 256
 
-namespace goalobstacle_heuristic_kernel{
+namespace goalobstacle_heuristic{
 using namespace cuda_vector_ops;
 
 
@@ -43,7 +43,7 @@ __device__ double3 calculate_rotation_vector(
     // find ways to optimize this
     // need to use kdtrees/FLANN or some other method to find nearest neighbor
         if(k != i){
-            double nn_mass_dist_k = squared_distance(d_masses[k], mass_position);
+            nn_mass_dist_k = squared_distance(d_masses[k], mass_position);
             if(nn_mass_dist_k < nn_distance){ // update nearest neighbor
                 nn_distance = nn_mass_dist_k;
                 nn_mass_idx = k;

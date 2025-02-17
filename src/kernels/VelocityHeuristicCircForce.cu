@@ -20,7 +20,7 @@ namespace velocity_heuristic{
 using namespace cuda_vector_ops;
 
 
-__device__ double3 calculate_current_vec(double3 mass_rvel_vec_normalized, double3 mass_dist_vec_normalized){
+__device__ double3 calculate_current_vec(double3 mass_dist_vec_normalized, double3 mass_rvel_vec_normalized){
     // Project out the component of velocity parallel to obstacle direction to get perpendicular component
     double3 current_vec = mass_rvel_vec_normalized - (mass_dist_vec_normalized * dot(mass_rvel_vec_normalized, mass_dist_vec_normalized));
 
@@ -98,7 +98,7 @@ __global__ void kernel(
 
         // calculate current vector
         mass_rvel_vec_normalized = normalized(mass_rvel_vec);
-        current_vec = calculate_current_vec(mass_rvel_vec_normalized, mass_dist_vec_normalized);
+        current_vec = calculate_current_vec(mass_dist_vec_normalized, mass_rvel_vec_normalized);
 
         // calculate force vector
         // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));

@@ -8,7 +8,7 @@
 
 #include "percept/cuda_vector_ops.cuh"
 
-namespace goalobstacle_heuristic_kernel{
+namespace goalobstacle_heuristic{
 
 double3 launch_kernel(
     double3* gpu_points_, 
