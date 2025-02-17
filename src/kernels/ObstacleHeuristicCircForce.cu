@@ -16,10 +16,47 @@
 
 #define threads 256
 
-namespace heuristic_kernel{
+namespace obstacle_heuristic_kernel{
 using namespace cuda_vector_ops;
 
-__global__ void ObstacleHeuristic_circForce_kernel(
+
+__device__ double3 calculate_rotation_vector(
+    int i,
+    double3* d_masses,
+    int num_masses,
+    double3 mass_position,
+    double3 mass_dist_vec_normalized,
+    double3 current_vec
+){
+
+    double nn_distance = 1000.0;
+    double nn_mass_dist_k;
+    int nn_mass_idx = -1;
+    double3 nn_mass_position;
+    double3 obstacle_vec;
+
+    // find nearest neighbor using brute force :/
+    for(int k=0; k<num_masses; k++){
+    // find ways to optimize this
+    // need to use kdtrees/FLANN or some other method to find nearest neighbor
+        if(k != i){
+            double nn_mass_dist_k = squared_distance(d_masses[k], mass_position);
+            if(nn_mass_dist_k < nn_distance){ // update nearest neighbor
+                nn_distance = nn_mass_dist_k;
+                nn_mass_idx = k;
+            }
+        }
+    }
+
+    // calculate rotation vector
+    nn_mass_position = d_masses[nn_mass_idx];
+    obstacle_vec = nn_mass_position - mass_position;
+    current_vec = mass_dist_vec_normalized * dot(mass_dist_vec_normalized, obstacle_vec) - obstacle_vec;     
+    return normalized(cross(current_vec, mass_dist_vec_normalized));
+}
+
+
+__global__ void kernel(
     double3* d_net_force,
     double3* d_masses,
     size_t num_masses,
@@ -53,11 +90,6 @@ __global__ void ObstacleHeuristic_circForce_kernel(
     double3 mass_dist_vec_normalized;
     double dist_to_mass;
     double3 current_vec;
-    double nn_distance = 1000.0;
-    double nn_mass_dist_k;
-    int nn_mass_idx = -1;
-    double3 nn_mass_position;
-    double3 obstacle_vec;
     double3 rot_vec;
     double3 mass_rvel_vec_normalized;
 
@@ -84,28 +116,10 @@ __global__ void ObstacleHeuristic_circForce_kernel(
     // implement OBSTACLE HEURISTIC
     // calculate rotation vector, current vector, and force vector
     if(dist_to_mass < detect_shell_rad && norm(mass_rvel_vec) > 1e-10){ 
-            
 
-        // find nearest neighbor using brute force :/
-        for(int k=0; k<num_masses; k++){
-        // find ways to optimize this
-        // need to use kdtrees/FLANN or some other method to find nearest neighbor
-            if(k != i){
-                nn_mass_dist_k = squared_distance(d_masses[k], mass_position);
-                if(nn_mass_dist_k < nn_distance){ // update nearest neighbor
-                    nn_distance = nn_mass_dist_k;
-                    nn_mass_idx = k;
-                }
-            }
+
+        rot_vec =  calculate_rotation_vector(i, d_masses, num_masses, mass_position, mass_dist_vec_normalized,  mass_rvel_vec);
         
-        }
-
-        // calculate rotation vector
-        nn_mass_position = d_masses[nn_mass_idx];
-        obstacle_vec = nn_mass_position - mass_position;
-        current_vec = mass_dist_vec_normalized * dot(mass_dist_vec_normalized, obstacle_vec) - obstacle_vec;     
-        rot_vec = normalized(cross(current_vec, mass_dist_vec_normalized));
-
         // calculate current vector
         current_vec = normalized(cross(mass_dist_vec_normalized, rot_vec)); // same variable name, different context
         mass_rvel_vec_normalized = normalized(mass_rvel_vec);
@@ -141,7 +155,7 @@ reduction:
 }
 
 
-__host__ double3 launch_ObstacleHeuristic_circForce_kernel(
+__host__ double3 launch_kernel(
     double3* d_masses,
     size_t num_masses,
     double3 agent_position,
@@ -171,7 +185,7 @@ __host__ double3 launch_ObstacleHeuristic_circForce_kernel(
 
     int num_blocks = (num_masses + threads - 1) / threads; // ceiling division
     size_t shared_mem_size = threads * sizeof(double3);
-    ObstacleHeuristic_circForce_kernel<<<num_blocks, threads, shared_mem_size>>>(
+    kernel<<<num_blocks, threads, shared_mem_size>>>(
         d_net_force, d_masses, num_masses,
         agent_position, agent_velocity, goal_position,
         agent_radius, mass_radius, detect_shell_rad,
@@ -181,6 +195,14 @@ __host__ double3 launch_ObstacleHeuristic_circForce_kernel(
     err = cudaGetLastError();
     if (err != cudaSuccess) {
         fprintf(stderr, "Failed to launch kernel: %s\n", cudaGetErrorString(err));
+        cudaFree(d_net_force);
+        return make_double3(0.0, 0.0, 0.0);
+    }
+
+    // Add synchronization check after kernel launch
+    err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Failed to synchronize: %s\n", cudaGetErrorString(err));
         cudaFree(d_net_force);
         return make_double3(0.0, 0.0, 0.0);
     }
@@ -212,7 +234,7 @@ __host__ double3 launch_ObstacleHeuristic_circForce_kernel(
 
 
 // best function ever
-__host__  void hello_cuda_world_obstacle_heuristic_circ_force(){
+__host__  void hello_cuda_world(){
   std::cout<<"Hello CUDA World! -From Obstacle Heuristic Circ Force Kernel <3"<<std::endl;
 }
 

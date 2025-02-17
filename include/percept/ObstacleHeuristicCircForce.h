@@ -6,9 +6,11 @@
 #include <vector>
 #include <vector_types.h>
 
-namespace heuristic_kernel{
+#include "percept/cuda_vector_ops.cuh"
 
-double3 launch_ObstacleHeuristic_circForce_kernel(
+namespace obstacle_heuristic_kernel{
+
+double3 launch_kernel(
     double3* gpu_points_, 
     size_t gpu_num_points_,
     double3 agent_position,
