@@ -91,24 +91,22 @@ __global__ void kernel(
 
     // implement VELOCITY HEURISTIC
     // calculate rotation vector, current vector, and force vector
-    if(dist_to_mass < detect_shell_rad){ 
+    if(dist_to_mass < detect_shell_rad && norm(mass_rvel_vec) > 1e-10){ 
 
         // create rotation vector
         rot_vec = make_double3(0.0, 0.0, 1.0); // velocity heuristic does not use rotation vector to calculate current vector or force vector
 
-        if(norm(mass_rvel_vec) != 0.0){
-            // calculate current vector
-            mass_rvel_vec_normalized = normalized(mass_rvel_vec);
-            current_vec = calculate_current_vec(mass_rvel_vec_normalized, mass_dist_vec_normalized);
+        // calculate current vector
+        mass_rvel_vec_normalized = normalized(mass_rvel_vec);
+        current_vec = calculate_current_vec(mass_rvel_vec_normalized, mass_dist_vec_normalized);
 
-            // calculate force vector
-            // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
-            //  A×(B×C) = B(A·C) - C(A·B)
-            force_vec = (current_vec * dot(mass_rvel_vec_normalized, mass_rvel_vec_normalized)) - 
-                (mass_rvel_vec_normalized * dot(mass_rvel_vec_normalized, current_vec));
+        // calculate force vector
+        // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
+        //  A×(B×C) = B(A·C) - C(A·B)
+        force_vec = (current_vec * dot(mass_rvel_vec_normalized, mass_rvel_vec_normalized)) - 
+            (mass_rvel_vec_normalized * dot(mass_rvel_vec_normalized, current_vec));
 
-            force_vec = force_vec * (k_circ / pow(dist_to_mass, 2));      
-        }
+        force_vec = force_vec * (k_circ / pow(dist_to_mass, 2));      
     }
 
     sdata[tid] = force_vec;
