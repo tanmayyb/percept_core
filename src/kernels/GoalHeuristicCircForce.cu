@@ -179,6 +179,14 @@ __host__ double3 launch_kernel(
         return make_double3(0.0, 0.0, 0.0);
     }
 
+    // Add synchronization check after kernel launch
+    err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "Failed to synchronize: %s\n", cudaGetErrorString(err));
+        cudaFree(d_net_force);
+        return make_double3(0.0, 0.0, 0.0);
+    }
+
     // Copy result back to host
     double3 net_force;
     err = cudaMemcpy(&net_force, d_net_force, sizeof(double3), cudaMemcpyDeviceToHost);
