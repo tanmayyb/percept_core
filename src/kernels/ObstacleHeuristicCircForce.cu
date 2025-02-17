@@ -25,8 +25,7 @@ __device__ double3 calculate_rotation_vector(
     double3* d_masses,
     int num_masses,
     double3 mass_position,
-    double3 mass_dist_vec_normalized,
-    double3 current_vec
+    double3 mass_dist_vec_normalized
 ){
 
     double nn_distance = 1000.0;
@@ -34,6 +33,7 @@ __device__ double3 calculate_rotation_vector(
     int nn_mass_idx = -1;
     double3 nn_mass_position;
     double3 obstacle_vec;
+    double3 current_vec;
 
     // find nearest neighbor using brute force :/
     for(int k=0; k<num_masses; k++){
@@ -118,7 +118,7 @@ __global__ void kernel(
     if(dist_to_mass < detect_shell_rad && norm(mass_rvel_vec) > 1e-10){ 
 
 
-        rot_vec =  calculate_rotation_vector(i, d_masses, num_masses, mass_position, mass_dist_vec_normalized,  mass_rvel_vec);
+        rot_vec =  calculate_rotation_vector(i, d_masses, num_masses, mass_position, mass_dist_vec_normalized);
 
         // calculate current vector
         mass_rvel_vec_normalized = normalized(mass_rvel_vec);
