@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include <vector_types.h>
 
@@ -34,7 +36,9 @@ __host__ __device__ inline double squared_distance(const double3 a, const double
 }
 
 __device__ inline double fma(double a, double b, double c) {
-    return __fma_rn(a, b, c); // computes a * b + c in one instruction
+    // __fma_rn not working :()
+    // return __fma_rn(a, b, c); // computes a * b + c in one instruction
+    return a * b + c;
 }
 
 __host__ __device__ inline double dot(const double3 &a, const double3 &b) {
