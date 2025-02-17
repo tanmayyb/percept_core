@@ -56,7 +56,7 @@ FieldsComputer::FieldsComputer()
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/primitives", 10,
         std::bind(&FieldsComputer::pointcloud_callback, this, std::placeholders::_1));
-    obstacle_heuristic_kernel::hello_cuda_world();
+    obstacle_heuristic::hello_cuda_world();
     velocity_heuristic::hello_cuda_world();
 
 
@@ -198,7 +198,7 @@ void FieldsComputer::handle_agent_state_to_circ_force(
         detect_shell_rad = request->detect_shell_rad;
     }
 
-    double3 net_force = obstacle_heuristic_kernel::launch_kernel(           
+    double3 net_force = obstacle_heuristic::launch_kernel(           
         gpu_points_buffer, // on device
         gpu_num_points_,
         agent_position,

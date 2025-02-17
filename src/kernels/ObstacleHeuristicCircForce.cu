@@ -16,7 +16,7 @@
 
 #define threads 256
 
-namespace obstacle_heuristic_kernel{
+namespace obstacle_heuristic{
 using namespace cuda_vector_ops;
 
 
