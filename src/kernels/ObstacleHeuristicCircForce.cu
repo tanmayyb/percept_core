@@ -119,10 +119,10 @@ __global__ void kernel(
 
 
         rot_vec =  calculate_rotation_vector(i, d_masses, num_masses, mass_position, mass_dist_vec_normalized,  mass_rvel_vec);
-        
+
         // calculate current vector
-        current_vec = normalized(cross(mass_dist_vec_normalized, rot_vec)); // same variable name, different context
         mass_rvel_vec_normalized = normalized(mass_rvel_vec);
+        current_vec = normalized(cross(mass_dist_vec_normalized, rot_vec)); // same variable name, different context
 
         // calculate force vector
         // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
