@@ -1,11 +1,15 @@
 #include "percept/fields_computer.hpp"
+
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/point.hpp>
-#include <cuda_runtime.h>
-#include <thread>
-#include "percept/ObstacleHeuristicCircForce.h"
 #include <visualization_msgs/msg/marker.hpp>
+
+#include <thread>
+
+#include <cuda_runtime.h>
+#include "percept/ObstacleHeuristicCircForce.h"
+#include "percept/VelocityHeuristicCircForce.h"
 
 FieldsComputer::FieldsComputer()
     : Node("fields_computer")
@@ -52,7 +56,9 @@ FieldsComputer::FieldsComputer()
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/primitives", 10,
         std::bind(&FieldsComputer::pointcloud_callback, this, std::placeholders::_1));
-    heuristic_kernel::hello_cuda_world();
+    obstacle_heuristic_kernel::hello_cuda_world();
+    velocity_heuristic::hello_cuda_world();
+
 
     service_ = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
         "/get_heuristic_circforce",
@@ -192,7 +198,7 @@ void FieldsComputer::handle_agent_state_to_circ_force(
         detect_shell_rad = request->detect_shell_rad;
     }
 
-    double3 net_force = heuristic_kernel::launch_ObstacleHeuristic_circForce_kernel(           
+    double3 net_force = obstacle_heuristic_kernel::launch_kernel(           
         gpu_points_buffer, // on device
         gpu_num_points_,
         agent_position,
