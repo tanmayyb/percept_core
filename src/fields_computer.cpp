@@ -53,6 +53,12 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
     marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("force_vector", 10);
   }
 
+  this->declare_parameter("show_netforce_output", false);
+  this->get_parameter("show_netforce_output", show_netforce_output);
+
+  this->declare_parameter("show_processing_delay", false);
+  this->get_parameter("show_processing_delay", show_processing_delay);
+
   // Heuristic enable/disable parameters.
   this->declare_parameter("disable_obstacle_heuristic", false);
   this->get_parameter("disable_obstacle_heuristic", disable_obstacle_heuristic);
@@ -238,8 +244,10 @@ void FieldsComputer::process_response(const double3& net_force,
                                         const geometry_msgs::msg::Pose& agent_pose,
                                         std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
-  RCLCPP_INFO(this->get_logger(), "Net force: x=%.10f, y=%.10f, z=%.10f, num_points=%zu",
-              net_force.x, net_force.y, net_force.z, gpu_num_points_);
+  if (show_netforce_output) {
+    RCLCPP_INFO(this->get_logger(), "Net force: x=%.10f, y=%.10f, z=%.10f, num_points=%zu",
+                net_force.x, net_force.y, net_force.z, gpu_num_points_);
+  }
 
   response->circ_force.x = net_force.x;
   response->circ_force.y = net_force.y;
@@ -314,7 +322,7 @@ void FieldsComputer::handle_obstacle_heuristic(
       detect_shell_rad,
       k_circular_force,
       max_allowable_force,
-      false);
+      show_processing_delay);
 
   process_response(net_force, request->agent_pose, response);
 }
@@ -344,7 +352,7 @@ void FieldsComputer::handle_velocity_heuristic(
       detect_shell_rad,
       k_circular_force,
       max_allowable_force,
-      false);
+      show_processing_delay);
 
   process_response(net_force, request->agent_pose, response);
 }
@@ -374,7 +382,7 @@ void FieldsComputer::handle_goal_heuristic(
       detect_shell_rad,
       k_circular_force,
       max_allowable_force,
-      false);
+      show_processing_delay);
 
   process_response(net_force, request->agent_pose, response);
 }
@@ -405,7 +413,7 @@ void FieldsComputer::handle_goalobstacle_heuristic(
       detect_shell_rad,
       k_circular_force,
       max_allowable_force,
-      false);
+      show_processing_delay);
 
   process_response(net_force, request->agent_pose, response);
 }

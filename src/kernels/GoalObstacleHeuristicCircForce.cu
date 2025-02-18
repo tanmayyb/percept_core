@@ -13,6 +13,7 @@
 
 // time keeper
 #include <chrono>
+#include <iomanip>
 
 #define threads 256
 
@@ -182,6 +183,9 @@ __host__ double3 launch_kernel(
     double max_allowable_force,
     bool debug
 ){
+    // Start timing if debug is enabled
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     // Allocate device memory for net force
     double3* d_net_force;
     cudaError_t err = cudaMalloc(&d_net_force, sizeof(double3));
@@ -241,6 +245,16 @@ __host__ double3 launch_kernel(
             double scale = max_allowable_force / force_magnitude;
             net_force = net_force * scale;
         }
+    }
+
+    // Print timing information if debug is enabled
+    if (debug) {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end_time - start_time;
+        std::cout << std::left << std::setw(45) << "GoalObstacleHeuristicCircForce"
+                  << "kernel execution time: " 
+                  << std::fixed << std::setprecision(9) 
+                  << elapsed.count() << " seconds" << std::endl;
     }
 
     return net_force;

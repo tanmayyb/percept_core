@@ -45,14 +45,18 @@ private:
   double detect_shell_rad{0.0};
   double max_allowable_force{0.0};
   bool override_detect_shell_rad{false};
-  // experimental
-  double force_viz_scale_{1.0};
-  bool publish_force_vector{false};
   // heuristics parameters
   bool disable_obstacle_heuristic{false};
   bool disable_velocity_heuristic{false};
   bool disable_goal_heuristic{false};
   bool disable_goalobstacle_heuristic{false};
+  // debug parameters
+  bool show_netforce_output{false};
+  bool show_processing_delay{false};
+  // experimental
+  double force_viz_scale_{1.0};
+  bool publish_force_vector{false};
+
 
   // pointcloud buffer
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
