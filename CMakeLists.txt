@@ -91,6 +91,8 @@ install(PROGRAMS
 install(DIRECTORY
   launch
   config
+  assets
+  rviz2
   DESTINATION share/${PROJECT_NAME}
 )
 
