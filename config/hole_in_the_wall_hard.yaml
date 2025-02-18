@@ -352,6 +352,16 @@ obstacles:
     radius: 0.25
   - position: [-0.20, 1.00, 0.70]
     radius: 0.25
+  - position: [-0.20, 1.00, 0.80]
+    radius: 0.25
+  - position: [-0.20, 1.00, 0.90]
+    radius: 0.25
+  - position: [-0.20, 1.00, 1.00]
+    radius: 0.25
+  - position: [-0.20, 1.00, 1.10]
+    radius: 0.25
+  - position: [-0.20, 1.00, 1.20]
+    radius: 0.25
   - position: [-0.20, 1.00, 1.30]
     radius: 0.25
   - position: [-0.20, 1.00, 1.40]
@@ -383,6 +393,16 @@ obstacles:
   - position: [-0.10, 1.00, 0.60]
     radius: 0.25
   - position: [-0.10, 1.00, 0.70]
+    radius: 0.25
+  - position: [-0.10, 1.00, 0.80]
+    radius: 0.25
+  - position: [-0.10, 1.00, 0.90]
+    radius: 0.25
+  - position: [-0.10, 1.00, 1.00]
+    radius: 0.25
+  - position: [-0.10, 1.00, 1.10]
+    radius: 0.25
+  - position: [-0.10, 1.00, 1.20]
     radius: 0.25
   - position: [-0.10, 1.00, 1.30]
     radius: 0.25
@@ -416,6 +436,16 @@ obstacles:
     radius: 0.25
   - position: [0.00, 1.00, 0.70]
     radius: 0.25
+  - position: [0.00, 1.00, 0.80]
+    radius: 0.25
+  - position: [0.00, 1.00, 0.90]
+    radius: 0.25
+  - position: [0.00, 1.00, 1.00]
+    radius: 0.25
+  - position: [0.00, 1.00, 1.10]
+    radius: 0.25
+  - position: [0.00, 1.00, 1.20]
+    radius: 0.25
   - position: [0.00, 1.00, 1.30]
     radius: 0.25
   - position: [0.00, 1.00, 1.40]
@@ -447,6 +477,16 @@ obstacles:
   - position: [0.10, 1.00, 0.60]
     radius: 0.25
   - position: [0.10, 1.00, 0.70]
+    radius: 0.25
+  - position: [0.10, 1.00, 0.80]
+    radius: 0.25
+  - position: [0.10, 1.00, 0.90]
+    radius: 0.25
+  - position: [0.10, 1.00, 1.00]
+    radius: 0.25
+  - position: [0.10, 1.00, 1.10]
+    radius: 0.25
+  - position: [0.10, 1.00, 1.20]
     radius: 0.25
   - position: [0.10, 1.00, 1.30]
     radius: 0.25
@@ -480,6 +520,16 @@ obstacles:
     radius: 0.25
   - position: [0.20, 1.00, 0.70]
     radius: 0.25
+  - position: [0.20, 1.00, 0.80]
+    radius: 0.25
+  - position: [0.20, 1.00, 0.90]
+    radius: 0.25
+  - position: [0.20, 1.00, 1.00]
+    radius: 0.25
+  - position: [0.20, 1.00, 1.10]
+    radius: 0.25
+  - position: [0.20, 1.00, 1.20]
+    radius: 0.25
   - position: [0.20, 1.00, 1.30]
     radius: 0.25
   - position: [0.20, 1.00, 1.40]
@@ -512,16 +562,6 @@ obstacles:
     radius: 0.25
   - position: [0.30, 1.00, 0.70]
     radius: 0.25
-  - position: [0.30, 1.00, 0.80]
-    radius: 0.25
-  - position: [0.30, 1.00, 0.90]
-    radius: 0.25
-  - position: [0.30, 1.00, 1.00]
-    radius: 0.25
-  - position: [0.30, 1.00, 1.10]
-    radius: 0.25
-  - position: [0.30, 1.00, 1.20]
-    radius: 0.25
   - position: [0.30, 1.00, 1.30]
     radius: 0.25
   - position: [0.30, 1.00, 1.40]
@@ -553,16 +593,6 @@ obstacles:
   - position: [0.40, 1.00, 0.60]
     radius: 0.25
   - position: [0.40, 1.00, 0.70]
-    radius: 0.25
-  - position: [0.40, 1.00, 0.80]
-    radius: 0.25
-  - position: [0.40, 1.00, 0.90]
-    radius: 0.25
-  - position: [0.40, 1.00, 1.00]
-    radius: 0.25
-  - position: [0.40, 1.00, 1.10]
-    radius: 0.25
-  - position: [0.40, 1.00, 1.20]
     radius: 0.25
   - position: [0.40, 1.00, 1.30]
     radius: 0.25
