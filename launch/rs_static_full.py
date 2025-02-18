@@ -96,12 +96,20 @@ def create_fields_computer_group(pkg_share:str):
             name='fields_computer',
             output='screen',
             parameters=[{
-                'k_circular_force': 0.00050,
-                'agent_radius': 0.02,
-                'mass_radius': 0.02,
+                'k_circular_force': 0.0010,
+                'agent_radius': 0.05,
+                'mass_radius': 0.025,
+                'max_allowable_force': 50.0,
+                'detect_shell_rad': 1.0,
+                'publish_force_vector': False,
+                'show_processing_delay': False,
+
             }],
             remappings=[
-                ('/get_heuristic_circforce', '/oriented_pointmass/get_obstacle_force'),
+                ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
+                ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
+                ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
+                ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
             ]
         )
     ]
