@@ -10,6 +10,16 @@
 #include <cuda_runtime.h>
 #include "percept/ObstacleHeuristicCircForce.h"
 #include "percept/VelocityHeuristicCircForce.h"
+#include "percept/GoalHeuristicCircForce.h"
+#include "percept/GoalObstacleHeuristicCircForce.h"
+
+
+struct GPUGuard {
+    std::atomic<bool>& flag;
+    GPUGuard(std::atomic<bool>& f) : flag(f) {}
+    ~GPUGuard() { flag.store(false); }
+};
+
 
 FieldsComputer::FieldsComputer()
     : Node("fields_computer")
@@ -33,37 +43,93 @@ FieldsComputer::FieldsComputer()
         override_detect_shell_rad = true;
     }
 
-    // experimental
+    this->declare_parameter("publish_force_vector", false);
+    this->get_parameter("publish_force_vector", publish_force_vector);
+
     this->declare_parameter("force_viz_scale", 1.0);
     this->get_parameter("force_viz_scale", force_viz_scale_);
     
-    
-    marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
-        "force_vector", 10);
+    if (publish_force_vector) {
+        marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>(
+            "force_vector", 10);
+    }
 
-    double force_viz_scale_;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+    this->declare_parameter("disable_obstacle_heuristic", false);
+    this->get_parameter("disable_obstacle_heuristic", disable_obstacle_heuristic);
 
+    this->declare_parameter("disable_velocity_heuristic", false);
+    this->get_parameter("disable_velocity_heuristic", disable_velocity_heuristic);
+
+    this->declare_parameter("disable_goal_heuristic", false);
+    this->get_parameter("disable_goal_heuristic", disable_goal_heuristic);
+
+    this->declare_parameter("disable_goalobstacle_heuristic", false);
+    this->get_parameter("disable_goalobstacle_heuristic", disable_goalobstacle_heuristic);
+       
     RCLCPP_INFO(this->get_logger(), "Parameters:");
     RCLCPP_INFO(this->get_logger(), "  k_circular_force: %.2f", k_circular_force);
     RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius); 
     RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
     RCLCPP_INFO(this->get_logger(), "  max_allowable_force: %.2f", max_allowable_force);
     RCLCPP_INFO(this->get_logger(), "  detect_shell_rad: %.2f", detect_shell_rad);
-    RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
+    RCLCPP_INFO(this->get_logger(), "  publishing force vectors: %s", publish_force_vector ? "true" : "false");
+    if (publish_force_vector) {
+        RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
+    }
+    // heuristics
+    RCLCPP_INFO(this->get_logger(), "Heuristics:");
+    RCLCPP_INFO(this->get_logger(), "  disable_obstacle_heuristic: %s", disable_obstacle_heuristic ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "  disable_velocity_heuristic: %s", disable_velocity_heuristic ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "  disable_goal_heuristic: %s", disable_goal_heuristic ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "  disable_goalobstacle_heuristic: %s", disable_goalobstacle_heuristic ? "true" : "false");
 
 
+    // pointcloud subscription
     subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
         "/primitives", 10,
         std::bind(&FieldsComputer::pointcloud_callback, this, std::placeholders::_1));
+
+    // test kernels
     obstacle_heuristic::hello_cuda_world();
     velocity_heuristic::hello_cuda_world();
+    goal_heuristic::hello_cuda_world();
+    goalobstacle_heuristic::hello_cuda_world();
+
+    // service_ = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+    //     "/get_heuristic_circforce",
+    //     std::bind(&FieldsComputer::handle_agent_state_to_circ_force, this,
+    //              std::placeholders::_1, std::placeholders::_2));
+
+    // heuristics services
+    if (!disable_obstacle_heuristic) {
+        service_obstacle_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+            "/get_obstacle_heuristic_circforce",
+            std::bind(&FieldsComputer::handle_obstacle_heuristic, this,
+                     std::placeholders::_1, std::placeholders::_2));
+    }
+
+    if (!disable_velocity_heuristic) {
+        service_velocity_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+            "/get_velocity_heuristic_circforce",
+            std::bind(&FieldsComputer::handle_velocity_heuristic, this,
+                     std::placeholders::_1, std::placeholders::_2));
+    }
+
+    if (!disable_goal_heuristic) {
+        service_goal_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+            "/get_goal_heuristic_circforce",
+            std::bind(&FieldsComputer::handle_goal_heuristic, this,
+                     std::placeholders::_1, std::placeholders::_2));
+    }
+
+    if (!disable_goalobstacle_heuristic) {
+        service_goalobstacle_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+            "/get_goalobstacle_heuristic_circforce",
+            std::bind(&FieldsComputer::handle_goalobstacle_heuristic, this,
+                     std::placeholders::_1, std::placeholders::_2));
+    }
 
 
-    service_ = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
-        "/get_heuristic_circforce",
-        std::bind(&FieldsComputer::handle_agent_state_to_circ_force, this,
-                 std::placeholders::_1, std::placeholders::_2));
 }
 
 FieldsComputer::~FieldsComputer()
@@ -143,39 +209,129 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
     gpu_num_points_ = num_points;
 }
 
-void FieldsComputer::handle_agent_state_to_circ_force(
+void FieldsComputer::handle_obstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
     std::lock_guard<std::mutex> lock(gpu_points_mutex_);
+    if (!validate_request(response)) return;
     
+    GPUGuard guard(is_gpu_points_in_use_);
+    auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
 
-    if (k_circular_force == 0.0) {
-        response->circ_force.x = 0.0;
-        response->circ_force.y = 0.0;
-        response->circ_force.z = 0.0;
-        response->not_null = false;
-        return;
-    }
+    double3 net_force = obstacle_heuristic::launch_kernel(           
+        gpu_points_buffer,
+        gpu_num_points_,
+        agent_position,
+        agent_velocity,
+        goal_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        k_circular_force,
+        max_allowable_force,
+        false
+    );
 
-    if (gpu_points_buffer == nullptr) {
+    process_response(net_force, request->agent_pose, response);
+}
+
+
+void FieldsComputer::handle_velocity_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
+{
+    std::lock_guard<std::mutex> lock(gpu_points_mutex_);
+    if (!validate_request(response)) return;
+    
+    GPUGuard guard(is_gpu_points_in_use_);
+    auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
+
+    double3 net_force = velocity_heuristic::launch_kernel(           
+        gpu_points_buffer,
+        gpu_num_points_,
+        agent_position,
+        agent_velocity,
+        goal_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        k_circular_force,
+        max_allowable_force,
+        false
+    );
+
+    process_response(net_force, request->agent_pose, response);
+
+}
+
+
+void FieldsComputer::handle_goal_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
+{
+    std::lock_guard<std::mutex> lock(gpu_points_mutex_);
+    if (!validate_request(response)) return;
+    
+    GPUGuard guard(is_gpu_points_in_use_);
+    auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
+
+    double3 net_force = goal_heuristic::launch_kernel(           
+        gpu_points_buffer,
+        gpu_num_points_,
+        agent_position,
+        agent_velocity,
+        goal_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        k_circular_force,
+        max_allowable_force,
+        false
+    );
+
+    process_response(net_force, request->agent_pose, response);
+    
+}
+
+void FieldsComputer::handle_goalobstacle_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
+{
+    std::lock_guard<std::mutex> lock(gpu_points_mutex_);
+    if (!validate_request(response)) return;
+    
+    GPUGuard guard(is_gpu_points_in_use_);
+    auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
+
+    double3 net_force = goalobstacle_heuristic::launch_kernel(           
+        gpu_points_buffer,
+        gpu_num_points_,
+        agent_position,
+        agent_velocity,
+        goal_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        k_circular_force,
+        max_allowable_force,
+        false
+    );
+
+    process_response(net_force, request->agent_pose, response);
+}
+
+bool FieldsComputer::validate_request (std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response) {
+    if (k_circular_force == 0.0 || gpu_points_buffer == nullptr) {
         response->not_null = false;
-        return;
+        return false;
     }
-    
-    bool expected = false;
-    if (!is_gpu_points_in_use_.compare_exchange_strong(expected, true)) {
-        response->not_null = false;
-        return;
-    }
-    
-    // Use RAII to ensure is_gpu_points_in_use_ is always reset
-    struct GPUGuard {
-        std::atomic<bool>& flag;
-        GPUGuard(std::atomic<bool>& f) : flag(f) {}
-        ~GPUGuard() { flag.store(false); }
-    } guard(is_gpu_points_in_use_);
-    
+    return true;
+}
+
+
+std::tuple<double3, double3, double3> FieldsComputer::extract_request_data(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request) {
     double3 agent_position = make_double3(
         request->agent_pose.position.x,
         request->agent_pose.position.y,
@@ -198,28 +354,30 @@ void FieldsComputer::handle_agent_state_to_circ_force(
         detect_shell_rad = request->detect_shell_rad;
     }
 
-    double3 net_force = obstacle_heuristic::launch_kernel(           
-        gpu_points_buffer, // on device
-        gpu_num_points_,
-        agent_position,
-        agent_velocity,
-        goal_position,
-        agent_radius,
-        mass_radius,
-        detect_shell_rad,
-        k_circular_force,  // k_circ
-        max_allowable_force,
-        false // debug
-    );
+    return {agent_position, agent_velocity, goal_position};
+}
 
-    RCLCPP_INFO(this->get_logger(), "Net force: x=%.10f, y=%.10f, z=%.10f, num_points=%d", net_force.x, net_force.y, net_force.z, gpu_num_points_);
+void FieldsComputer::process_response(const double3& net_force, 
+    const geometry_msgs::msg::Pose& agent_pose,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response) {
+    
+    RCLCPP_INFO(this->get_logger(), "Net force: x=%.10f, y=%.10f, z=%.10f, num_points=%d", 
+                net_force.x, net_force.y, net_force.z, gpu_num_points_);
     
     response->circ_force.x = net_force.x;
     response->circ_force.y = net_force.y;
     response->circ_force.z = net_force.z;
     response->not_null = true;
 
-    // experimental
+    if (publish_force_vector) {
+        force_vector_publisher(net_force, agent_pose, marker_pub_);
+    }
+}
+
+
+
+void FieldsComputer::force_vector_publisher(const double3& net_force, const geometry_msgs::msg::Pose& agent_pose, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub)
+{
     // Publish force vector as marker
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = "world";  // Adjust frame_id as needed
@@ -231,14 +389,14 @@ void FieldsComputer::handle_agent_state_to_circ_force(
     
     // Set start point (agent position)
     marker.points.resize(2);
-    marker.points[0].x = request->agent_pose.position.x;
-    marker.points[0].y = request->agent_pose.position.y;
-    marker.points[0].z = request->agent_pose.position.z;
+    marker.points[0].x = agent_pose.position.x;
+    marker.points[0].y = agent_pose.position.y;
+    marker.points[0].z = agent_pose.position.z;
     
     // Set end point (agent position + scaled force)
-    marker.points[1].x = request->agent_pose.position.x + net_force.x * force_viz_scale_;
-    marker.points[1].y = request->agent_pose.position.y + net_force.y * force_viz_scale_;
-    marker.points[1].z = request->agent_pose.position.z + net_force.z * force_viz_scale_;
+    marker.points[1].x = agent_pose.position.x + net_force.x * force_viz_scale_;
+    marker.points[1].y = agent_pose.position.y + net_force.y * force_viz_scale_;
+    marker.points[1].z = agent_pose.position.z + net_force.z * force_viz_scale_;
     
     // Set marker properties
     marker.scale.x = 0.1;  // shaft diameter
@@ -252,10 +410,8 @@ void FieldsComputer::handle_agent_state_to_circ_force(
     
     marker_pub_->publish(marker);
 
-
-    return;
-
 }
+
 
 int main(int argc, char **argv)
 {

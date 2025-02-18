@@ -20,13 +20,47 @@ public:
 
 private:
     bool check_cuda_error(cudaError_t err, const char* operation);
+
+    // pointcloud buffer
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
     void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-    void handle_agent_state_to_circ_force(
+
+    // heuristics
+    bool disable_obstacle_heuristic{false};
+    bool disable_velocity_heuristic{false};
+    bool disable_goal_heuristic{false};
+    bool disable_goalobstacle_heuristic{false};
+
+    rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_obstacle_heuristic;
+    rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_velocity_heuristic;
+    rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_goal_heuristic;
+    rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_goalobstacle_heuristic;
+
+    void handle_obstacle_heuristic(
+        const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+        std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+    void handle_velocity_heuristic(
+        const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+        std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+    void handle_goal_heuristic(
+        const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+        std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+    void handle_goalobstacle_heuristic(
         const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
         std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
 
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
-    rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_;
+    // helpers
+    bool validate_request(std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+
+    void process_response(const double3& net_force, 
+    const geometry_msgs::msg::Pose& agent_pose,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+
+    std::tuple<double3, double3, double3> extract_request_data(
+        const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request);
+    
+
+    // common parameters
     double3* gpu_points_buffer{nullptr};
     size_t gpu_num_points_{0};
     std::mutex gpu_points_mutex_;
@@ -38,9 +72,14 @@ private:
     double detect_shell_rad{0.0};
     bool override_detect_shell_rad{false};
 
+
     // experimental
     double force_viz_scale_{1.0};  // Initialize with default value
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+    bool publish_force_vector{false};
+    
+    void force_vector_publisher(const double3& net_force, const geometry_msgs::msg::Pose& agent_pose, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub);
+
 };
 
 #endif  // FIELDS_COMPUTER_HPP_
