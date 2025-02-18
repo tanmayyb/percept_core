@@ -57,7 +57,7 @@ def create_perception_group(pkg_share:str):
                 package='rviz2',
                 executable='rviz2',
                 name='perception_rviz',
-                arguments=['-d', get_path(pkg_share, 'config', 'perception.rviz')],
+                arguments=['-d', get_path(pkg_share, 'rviz2', 'perception.rviz')],
                 namespace='perception' 
             )
         ]

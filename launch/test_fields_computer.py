@@ -14,10 +14,11 @@ def generate_launch_description():
         'obstacles_config_path',
         default_value=os.path.join(
             pkg_share,
-            'config',
+            'assets/benchmark_scenes',
             # 'hole_in_the_wall_easy.yaml'
-            'hole_in_the_wall_hard.yaml'
-            # 'maze_2d.yaml'
+            # 'hole_in_the_wall_medium.yaml'
+            # 'hole_in_the_wall_hard.yaml'
+            'maze_2d.yaml'
             # 'random_points_3d.yaml'
         ),
         description='Path to the obstacles configuration file'
@@ -56,13 +57,13 @@ def generate_launch_description():
                 # 'show_processing_delay': False,
 
                 # # # hole in the wall example- Medium - Success
-                # 'k_circular_force': 0.0000001,
-                # 'agent_radius': 0.05,
-                # 'mass_radius': 0.025,
-                # 'max_allowable_force': 20.0,
-                # 'detect_shell_rad': 100000.0,
-                # 'publish_force_vector': False,
-                # 'show_processing_delay': False,
+                'k_circular_force': 0.0001,
+                'agent_radius': 0.05,
+                'mass_radius': 0.025,
+                'max_allowable_force': 20.0,
+                'detect_shell_rad': 100000.0,
+                'publish_force_vector': False,
+                'show_processing_delay': False,
             }],
             remappings=[
                 ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
@@ -70,15 +71,12 @@ def generate_launch_description():
                 ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
                 ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
             ]
-            # remappings=[
-            #     ('/get_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
-            # ]
         ),
         Node(
             package='rviz2',
             executable='rviz2',
             name='perception_rviz',
-            arguments=['-d', get_path(pkg_share, 'config', 'planning.rviz')],
+            arguments=['-d', get_path(pkg_share, 'rviz2', 'planning.rviz')],
             namespace='perception' 
         )
     ])

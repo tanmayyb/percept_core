@@ -57,7 +57,7 @@ def create_perception_group(pkg_share:str):
                 package='rviz2',
                 executable='rviz2',
                 name='perception_rviz',
-                arguments=['-d', get_path(pkg_share, 'config', 'perception_full.rviz')],
+                arguments=['-d', get_path(pkg_share, 'rviz2', 'perception_full.rviz')],
                 namespace='perception' 
             )
         ]
@@ -102,7 +102,7 @@ def create_fields_computer_group(pkg_share:str):
                 'max_allowable_force': 50.0,
                 'detect_shell_rad': 1.0,
                 'publish_force_vector': False,
-                'show_processing_delay': False,
+                'show_processing_delay': True,
 
             }],
             remappings=[

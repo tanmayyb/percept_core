@@ -15,7 +15,7 @@ class SceneCreator(Node):
     def __init__(self, node_name='scene_creator'):
         super().__init__(node_name)
 
-        default_config_path = 'src/percept/config/obstacles1.yaml'
+        default_config_path = 'src/percept/assets/benchmark_scenes/obstacles1.yaml'
         self.declare_parameter('obstacles_config_path', default_config_path)
         config_path = self.get_parameter('obstacles_config_path').value
 
