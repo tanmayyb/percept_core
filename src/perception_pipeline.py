@@ -201,7 +201,7 @@ class PerceptionPipeline():
         else:
             primitives_pos = None
 
-        log_performance = True
+        log_performance = False
         if log_performance:
             self.logger.info(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos
