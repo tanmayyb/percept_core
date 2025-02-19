@@ -20,6 +20,7 @@
 #include "percept/VelocityHeuristicCircForce.h"
 #include "percept/GoalHeuristicCircForce.h"
 #include "percept/GoalObstacleHeuristicCircForce.h"
+#include "percept/RandomHeuristicCircForce.h"
 
 
 FieldsComputer::FieldsComputer() : Node("fields_computer")
@@ -72,6 +73,9 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->declare_parameter("disable_goalobstacle_heuristic", false);
   this->get_parameter("disable_goalobstacle_heuristic", disable_goalobstacle_heuristic);
 
+  this->declare_parameter("disable_random_heuristic", false);
+  this->get_parameter("disable_random_heuristic", disable_random_heuristic);
+
   RCLCPP_INFO(this->get_logger(), "Parameters:");
   RCLCPP_INFO(this->get_logger(), "  k_circular_force: %.2f", k_circular_force);
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
@@ -87,6 +91,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   RCLCPP_INFO(this->get_logger(), "  disable_velocity_heuristic: %s", disable_velocity_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_goal_heuristic: %s", disable_goal_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_goalobstacle_heuristic: %s", disable_goalobstacle_heuristic ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "  disable_random_heuristic: %s", disable_random_heuristic ? "true" : "false");
 
   // Subscribe to pointcloud messages.
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -98,7 +103,8 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   velocity_heuristic::hello_cuda_world();
   goal_heuristic::hello_cuda_world();
   goalobstacle_heuristic::hello_cuda_world();
-
+  random_heuristic::hello_cuda_world();
+  
   // Create service servers for the heuristics that are not disabled.
   if (!disable_obstacle_heuristic) {
     service_obstacle_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
@@ -122,6 +128,12 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
     service_goalobstacle_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
         "/get_goalobstacle_heuristic_circforce",
         std::bind(&FieldsComputer::handle_goalobstacle_heuristic, this,
+                  std::placeholders::_1, std::placeholders::_2));
+  }
+  if (!disable_random_heuristic) {
+    service_random_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+        "/get_random_heuristic_circforce",
+        std::bind(&FieldsComputer::handle_random_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
   }
 }
@@ -418,6 +430,36 @@ void FieldsComputer::handle_goalobstacle_heuristic(
   process_response(net_force, request->agent_pose, response);
 }
 
+
+
+// Service handler for the random heuristic.
+void FieldsComputer::handle_random_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
+{
+  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
+  auto gpu_buffer = gpu_points_buffer_shared_;
+  if (!validate_request(response) || !gpu_buffer) {
+    response->not_null = false;
+    return;
+  }
+
+  auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
+  double3 net_force = random_heuristic::launch_kernel(
+      gpu_buffer.get(),
+      gpu_num_points_,
+      agent_position,
+      agent_velocity,
+      goal_position,
+      agent_radius,
+      mass_radius,
+      detect_shell_rad,
+      k_circular_force,
+      max_allowable_force,
+      show_processing_delay);
+
+  process_response(net_force, request->agent_pose, response);
+}
 
 
 

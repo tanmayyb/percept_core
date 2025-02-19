@@ -18,8 +18,8 @@ def generate_launch_description():
             # 'hole_in_the_wall_easy.yaml'
             # 'hole_in_the_wall_medium.yaml'
             # 'hole_in_the_wall_hard.yaml'
-            'maze_2d.yaml'
-            # 'random_points_3d.yaml'
+            # 'maze_2d.yaml'
+            'random_points_3d.yaml'
         ),
         description='Path to the obstacles configuration file'
     )
@@ -63,13 +63,20 @@ def generate_launch_description():
                 'max_allowable_force': 20.0,
                 'detect_shell_rad': 100000.0,
                 'publish_force_vector': False,
-                'show_processing_delay': False,
+                'show_processing_delay': True,
             }],
             remappings=[
-                ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
-                ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
-                ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
-                ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
+                # ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
+                # ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
+                # ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
+                # ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
+                # ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
+
+                ('/get_obstacle_heuristic_circforce', '/manipulator/get_obstacle_heuristic_force'),
+                ('/get_goal_heuristic_circforce', '/manipulator/get_goal_heuristic_force'),
+                ('/get_velocity_heuristic_circforce', '/manipulator/get_velocity_heuristic_force'),
+                ('/get_goalobstacle_heuristic_circforce', '/manipulator/get_goalobstacle_heuristic_force'),
+                ('/get_random_heuristic_circforce', '/manipulator/get_random_heuristic_force'),
             ]
         ),
         Node(

@@ -13,11 +13,12 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 
-// CUDA kernels
-#include "percept/ObstacleHeuristicCircForce.h"
-#include "percept/VelocityHeuristicCircForce.h"
-#include "percept/GoalHeuristicCircForce.h"
-#include "percept/GoalObstacleHeuristicCircForce.h"
+// // CUDA kernels
+// #include "percept/ObstacleHeuristicCircForce.h"
+// #include "percept/VelocityHeuristicCircForce.h"
+// #include "percept/GoalHeuristicCircForce.h"
+// #include "percept/GoalObstacleHeuristicCircForce.h"
+// #include "percept/RandomHeuristicCircForce.h"
 
 class FieldsComputer : public rclcpp::Node
 {
@@ -50,6 +51,7 @@ private:
   bool disable_velocity_heuristic{false};
   bool disable_goal_heuristic{false};
   bool disable_goalobstacle_heuristic{false};
+  bool disable_random_heuristic{false};
   // debug parameters
   bool show_netforce_output{false};
   bool show_processing_delay{false};
@@ -66,6 +68,7 @@ private:
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_velocity_heuristic;
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_goal_heuristic;
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_goalobstacle_heuristic;
+  rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_random_heuristic;
 
   // experimental
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
@@ -87,6 +90,8 @@ private:
   void handle_goal_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
   void handle_goalobstacle_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+  void handle_random_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
 
   // experimental
