@@ -83,7 +83,7 @@ install(PROGRAMS
   src/utils/static_tf_publisher.py
   src/service_tester.py
   src/sim_stream.py
-  src/scene_creator.py
+  src/scene_loader.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -12,7 +12,7 @@ import numpy as np
 import yaml
 
 class SceneCreator(Node):
-    def __init__(self, node_name='scene_creator'):
+    def __init__(self, node_name='scene_loader'):
         super().__init__(node_name)
 
         default_config_path = 'src/percept/assets/benchmark_scenes/obstacles1.yaml'

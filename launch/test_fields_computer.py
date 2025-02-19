@@ -28,8 +28,8 @@ def generate_launch_description():
         obstacles_config_arg,
         Node(
                 package='percept',
-                executable='scene_creator.py',
-                name='scene_creator',
+                executable='scene_loader.py',
+                name='scene_loader',
                 parameters=[{
                     'obstacles_config_path': LaunchConfiguration('obstacles_config_path')
                 }],
