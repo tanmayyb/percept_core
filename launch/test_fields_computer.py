@@ -57,7 +57,12 @@ def generate_launch_description():
                 # 'show_processing_delay': False,
 
                 # # # hole in the wall example- Medium - Success
-                'k_circular_force': 0.0001,
+                # 'k_circular_force': 0.0001,
+                'k_cf_velocity': 0.0001,
+                'k_cf_obstacle': 0.0001,
+                'k_cf_goal': 0.0001,
+                'k_cf_goalobstacle': 0.0001,
+                'k_cf_random': 0.0001,
                 'agent_radius': 0.05,
                 'mass_radius': 0.025,
                 'max_allowable_force': 20.0,
