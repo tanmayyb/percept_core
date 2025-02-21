@@ -25,9 +25,21 @@
 
 FieldsComputer::FieldsComputer() : Node("fields_computer")
 {
-  // Declare and retrieve parameters.
-  this->declare_parameter("k_circular_force", 0.1);
-  this->get_parameter("k_circular_force", k_circular_force);
+
+  this->declare_parameter("k_cf_velocity", 0.0);
+  this->get_parameter("k_cf_velocity", k_cf_velocity);
+
+  this->declare_parameter("k_cf_obstacle", 0.0);
+  this->get_parameter("k_cf_obstacle", k_cf_obstacle);
+
+  this->declare_parameter("k_cf_goal", 0.0);
+  this->get_parameter("k_cf_goal", k_cf_goal);
+
+  this->declare_parameter("k_cf_goalobstacle", 0.0);
+  this->get_parameter("k_cf_goalobstacle", k_cf_goalobstacle);
+
+  this->declare_parameter("k_cf_random", 0.0);
+  this->get_parameter("k_cf_random", k_cf_random);  
 
   this->declare_parameter("agent_radius", 0.1);
   this->get_parameter("agent_radius", agent_radius);
@@ -77,7 +89,11 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->get_parameter("disable_random_heuristic", disable_random_heuristic);
 
   RCLCPP_INFO(this->get_logger(), "Parameters:");
-  RCLCPP_INFO(this->get_logger(), "  k_circular_force: %.10f", k_circular_force);
+  RCLCPP_INFO(this->get_logger(), "  k_cf_velocity: %.10f", k_cf_velocity);
+  RCLCPP_INFO(this->get_logger(), "  k_cf_obstacle: %.10f", k_cf_obstacle);
+  RCLCPP_INFO(this->get_logger(), "  k_cf_goal: %.10f", k_cf_goal);
+  RCLCPP_INFO(this->get_logger(), "  k_cf_goalobstacle: %.10f", k_cf_goalobstacle);
+  RCLCPP_INFO(this->get_logger(), "  k_cf_random: %.10f", k_cf_random);
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
   RCLCPP_INFO(this->get_logger(), "  max_allowable_force: %.2f", max_allowable_force);
@@ -241,9 +257,9 @@ std::tuple<double3, double3, double3> FieldsComputer::extract_request_data(
 
 
 // Validates the request parameters.
-bool FieldsComputer::validate_request(std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
+bool FieldsComputer::validate_request(std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response, double k_cf)
 {
-  if (k_circular_force == 0.0) {
+  if (k_cf == 0.0) {
     response->not_null = false;
     return false;
   }
@@ -317,7 +333,7 @@ void FieldsComputer::handle_obstacle_heuristic(
   // Acquire a shared lock to safely read the current GPU buffer.
   std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
   auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response) || !gpu_buffer) {
+  if (!validate_request(response, k_cf_obstacle) || !gpu_buffer) {
     response->not_null = false;
     return;
   }
@@ -332,7 +348,7 @@ void FieldsComputer::handle_obstacle_heuristic(
       agent_radius,
       mass_radius,
       detect_shell_rad,
-      k_circular_force,
+      k_cf_obstacle,
       max_allowable_force,
       show_processing_delay);
 
@@ -347,7 +363,7 @@ void FieldsComputer::handle_velocity_heuristic(
 {
   std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
   auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response) || !gpu_buffer) {
+  if (!validate_request(response, k_cf_velocity) || !gpu_buffer) {
     response->not_null = false;
     return;
   }
@@ -362,7 +378,7 @@ void FieldsComputer::handle_velocity_heuristic(
       agent_radius,
       mass_radius,
       detect_shell_rad,
-      k_circular_force,
+      k_cf_velocity,
       max_allowable_force,
       show_processing_delay);
 
@@ -377,7 +393,7 @@ void FieldsComputer::handle_goal_heuristic(
 {
   std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
   auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response) || !gpu_buffer) {
+  if (!validate_request(response, k_cf_goal) || !gpu_buffer) {
     response->not_null = false;
     return;
   }
@@ -392,7 +408,7 @@ void FieldsComputer::handle_goal_heuristic(
       agent_radius,
       mass_radius,
       detect_shell_rad,
-      k_circular_force,
+      k_cf_goal,
       max_allowable_force,
       show_processing_delay);
 
@@ -408,7 +424,7 @@ void FieldsComputer::handle_goalobstacle_heuristic(
 {
   std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
   auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response) || !gpu_buffer) {
+  if (!validate_request(response, k_cf_goalobstacle) || !gpu_buffer) {
     response->not_null = false;
     return;
   }
@@ -423,7 +439,7 @@ void FieldsComputer::handle_goalobstacle_heuristic(
       agent_radius,
       mass_radius,
       detect_shell_rad,
-      k_circular_force,
+      k_cf_goalobstacle,
       max_allowable_force,
       show_processing_delay);
 
@@ -439,7 +455,7 @@ void FieldsComputer::handle_random_heuristic(
 {
   std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
   auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response) || !gpu_buffer) {
+  if (!validate_request(response, k_cf_random) || !gpu_buffer) {
     response->not_null = false;
     return;
   }
@@ -454,7 +470,7 @@ void FieldsComputer::handle_random_heuristic(
       agent_radius,
       mass_radius,
       detect_shell_rad,
-      k_circular_force,
+      k_cf_random,
       max_allowable_force,
       show_processing_delay);
 
