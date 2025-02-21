@@ -77,7 +77,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->get_parameter("disable_random_heuristic", disable_random_heuristic);
 
   RCLCPP_INFO(this->get_logger(), "Parameters:");
-  RCLCPP_INFO(this->get_logger(), "  k_circular_force: %.2f", k_circular_force);
+  RCLCPP_INFO(this->get_logger(), "  k_circular_force: %.10f", k_circular_force);
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
   RCLCPP_INFO(this->get_logger(), "  max_allowable_force: %.2f", max_allowable_force);
