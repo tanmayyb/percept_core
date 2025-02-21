@@ -66,17 +66,17 @@ def generate_launch_description():
                 'show_processing_delay': True,
             }],
             remappings=[
-                # ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
-                # ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
-                # ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
-                # ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
-                # ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
+                ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
+                ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
+                ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
+                ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
+                ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
 
-                ('/get_obstacle_heuristic_circforce', '/manipulator/get_obstacle_heuristic_force'),
-                ('/get_goal_heuristic_circforce', '/manipulator/get_goal_heuristic_force'),
-                ('/get_velocity_heuristic_circforce', '/manipulator/get_velocity_heuristic_force'),
-                ('/get_goalobstacle_heuristic_circforce', '/manipulator/get_goalobstacle_heuristic_force'),
-                ('/get_random_heuristic_circforce', '/manipulator/get_random_heuristic_force'),
+                # ('/get_obstacle_heuristic_circforce', '/manipulator/get_obstacle_heuristic_force'),
+                # ('/get_goal_heuristic_circforce', '/manipulator/get_goal_heuristic_force'),
+                # ('/get_velocity_heuristic_circforce', '/manipulator/get_velocity_heuristic_force'),
+                # ('/get_goalobstacle_heuristic_circforce', '/manipulator/get_goalobstacle_heuristic_force'),
+                # ('/get_random_heuristic_circforce', '/manipulator/get_random_heuristic_force'),
             ]
         ),
         Node(
