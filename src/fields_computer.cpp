@@ -102,6 +102,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   if (publish_force_vector) {
     RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
   }
+  RCLCPP_INFO(this->get_logger(), "  show_processing_delay: %s", show_processing_delay ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Heuristics:");
   RCLCPP_INFO(this->get_logger(), "  disable_obstacle_heuristic: %s", disable_obstacle_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_velocity_heuristic: %s", disable_velocity_heuristic ? "true" : "false");
