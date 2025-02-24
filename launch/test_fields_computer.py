@@ -19,7 +19,8 @@ def generate_launch_description():
             # 'hole_in_the_wall_medium.yaml'
             # 'hole_in_the_wall_hard.yaml'
             # 'maze_2d.yaml'
-            'random_points_3d.yaml'
+            # 'random_points_3d.yaml'
+            'auto_generated_scene.yaml'
         ),
         description='Path to the obstacles configuration file'
     )
