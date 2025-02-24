@@ -19,6 +19,9 @@ class SceneCreator(Node):
         self.declare_parameter('obstacles_config_path', default_config_path)
         config_path = self.get_parameter('obstacles_config_path').value
 
+        self.declare_parameter('publish_once', False)
+        publish_once = self.get_parameter('publish_once').value
+
         # Publisher for obstacle positions
         self.obstacles_publisher = self.create_publisher(
             PointCloud2,
@@ -31,7 +34,10 @@ class SceneCreator(Node):
             self.obstacles_config = yaml.load(f, Loader=yaml.SafeLoader)
         
         # Create timer for publishing
-        self.create_timer(0.1, self.publish_obstacles)  # 10Hz
+        if publish_once:
+            self.publish_obstacles()
+        else:
+            self.create_timer(0.1, self.publish_obstacles)  # 10Hz
 
     def publish_obstacles(self):
         try:

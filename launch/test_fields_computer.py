@@ -27,7 +27,8 @@ def generate_launch_description():
                 executable='scene_loader.py',
                 name='scene_loader',
                 parameters=[{
-                    'obstacles_config_path': LaunchConfiguration('obstacles_config_path')
+                    'obstacles_config_path': LaunchConfiguration('obstacles_config_path'),
+                    'publish_once': True
                 }],
                 output='screen'
             ),
