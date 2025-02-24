@@ -4,6 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include "percept_interfaces/srv/agent_state_to_circ_force.hpp"
+#include <percept_interfaces/srv/agent_pose_to_min_obstacle_dist.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
 // #include <mutex>
@@ -13,12 +14,6 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 
-// // CUDA kernels
-// #include "percept/ObstacleHeuristicCircForce.h"
-// #include "percept/VelocityHeuristicCircForce.h"
-// #include "percept/GoalHeuristicCircForce.h"
-// #include "percept/GoalObstacleHeuristicCircForce.h"
-// #include "percept/RandomHeuristicCircForce.h"
 
 class FieldsComputer : public rclcpp::Node
 {
@@ -54,6 +49,8 @@ private:
 
   double max_allowable_force{0.0};
   bool override_detect_shell_rad{false};
+  // helper services parameters
+  bool disable_nearest_obstacle_distance{false};
   // heuristics parameters
   bool disable_obstacle_heuristic{false};
   bool disable_velocity_heuristic{false};
@@ -70,6 +67,9 @@ private:
 
   // pointcloud buffer
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
+
+  // helper services
+  rclcpp::Service<percept_interfaces::srv::AgentPoseToMinObstacleDist>::SharedPtr service_nearest_obstacle_distance;
 
   // heuristic services
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_obstacle_heuristic;
@@ -89,8 +89,13 @@ private:
   std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
 
   // handlers
+  // pointcloud callback
   void pointcloud_callback(
     const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  // helper services handlers
+  void handle_nearest_obstacle_distance(
+    const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request, std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response);
+  // heuristics handlers
   void handle_obstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
   void handle_velocity_heuristic(

@@ -16,6 +16,9 @@
 #include <visualization_msgs/msg/marker.hpp>
 
 // CUDA kernels
+// helpers
+#include "percept/NearestObstacleDistance.h"
+// heuristics
 #include "percept/ObstacleHeuristicCircForce.h"
 #include "percept/VelocityHeuristicCircForce.h"
 #include "percept/GoalHeuristicCircForce.h"
@@ -73,6 +76,10 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->get_parameter("show_processing_delay", show_processing_delay);
 
   // Heuristic enable/disable parameters.
+  this->declare_parameter("disable_nearest_obstacle_distance", false);
+  this->get_parameter("disable_nearest_obstacle_distance", disable_nearest_obstacle_distance);
+
+  // Heuristic enable/disable parameters.
   this->declare_parameter("disable_obstacle_heuristic", false);
   this->get_parameter("disable_obstacle_heuristic", disable_obstacle_heuristic);
 
@@ -103,6 +110,8 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
     RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
   }
   RCLCPP_INFO(this->get_logger(), "  show_processing_delay: %s", show_processing_delay ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "Helper services:");
+  RCLCPP_INFO(this->get_logger(), "  disable_nearest_obstacle_distance: %s", disable_nearest_obstacle_distance ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Heuristics:");
   RCLCPP_INFO(this->get_logger(), "  disable_obstacle_heuristic: %s", disable_obstacle_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_velocity_heuristic: %s", disable_velocity_heuristic ? "true" : "false");
@@ -121,7 +130,16 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   goal_heuristic::hello_cuda_world();
   goalobstacle_heuristic::hello_cuda_world();
   random_heuristic::hello_cuda_world();
-  
+  nearest_obstacle_distance::hello_cuda_world();
+
+  // Create service servers for the helper services that are not disabled.
+  if (!disable_nearest_obstacle_distance) {
+    service_nearest_obstacle_distance = this->create_service<percept_interfaces::srv::AgentPoseToMinObstacleDist>(
+        "/get_min_obstacle_distance",
+        std::bind(&FieldsComputer::handle_nearest_obstacle_distance, this,
+                  std::placeholders::_1, std::placeholders::_2));
+  }
+
   // Create service servers for the heuristics that are not disabled.
   if (!disable_obstacle_heuristic) {
     service_obstacle_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
@@ -221,7 +239,7 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
 
   // Acquire an exclusive lock (with a timeout) to update the global GPU buffer.
   std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_, std::defer_lock);
-  if (!lock.try_lock_for(std::chrono::milliseconds(100))) {
+  if (!lock.try_lock_for(std::chrono::milliseconds(1000))) {
     // If the lock isn’t immediately available, force lock acquisition.
     lock.lock();
   }
@@ -324,6 +342,38 @@ void FieldsComputer::force_vector_publisher(const double3& net_force,
   marker_pub->publish(marker);
 }
 
+
+// Service handler for the nearest obstacle distance.
+void FieldsComputer::handle_nearest_obstacle_distance(
+    const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response)
+{
+  // Acquire a shared lock to safely read the current GPU buffer.
+  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
+  auto gpu_buffer = gpu_points_buffer_shared_;
+  if (!gpu_buffer) {
+    response->distance = 0.0;
+    return;
+  }
+
+  double3 agent_position = make_double3(
+      request->agent_pose.position.x,
+      request->agent_pose.position.y,
+      request->agent_pose.position.z);
+
+  double min_dist = nearest_obstacle_distance::launch_kernel(
+      gpu_buffer.get(),       // Raw pointer from shared_ptr.
+      gpu_num_points_,
+      agent_position,
+      agent_radius,
+      mass_radius,
+      detect_shell_rad,
+      // show_processing_delay
+      true
+      );
+
+  response->distance = min_dist;
+}
 
 
 // Service handler for the obstacle heuristic.
