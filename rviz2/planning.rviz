@@ -6,7 +6,7 @@ Panels:
       Expanded:
         - /Pose1/Topic1
       Splitter Ratio: 0.49760764837265015
-    Tree Height: 1079
+    Tree Height: 363
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -229,10 +229,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3447980284690857
+      Pitch: 0.9647976160049438
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.161797523498535
+      Yaw: 3.881789445877075
     Saved: ~
 Window Geometry:
   Displays:
