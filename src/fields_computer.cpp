@@ -194,6 +194,22 @@ bool FieldsComputer::check_cuda_error(cudaError_t err, const char* operation)
   return true;
 }
 
+// bool FieldsComputer::waitForGpuBuffer() {
+//     int elapsedTime = 0;
+//     while (!gpu_buffer && elapsedTime < TIMEOUT_MS) {
+//         std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
+//         elapsedTime += POLL_INTERVAL_MS;
+
+//         // Optionally, update or check the status of gpu_buffer here:
+//         // gpu_buffer = checkAndRetrieveGpuBuffer();
+//     }
+//     if (!gpu_buffer) {
+//         std::cerr << "Error: GPU buffer not available after " << TIMEOUT_MS << " ms." << std::endl;
+//         return false;
+//     }
+//     return true;
+// }
+
 
 // Callback for processing incoming point cloud messages.
 void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -240,7 +256,7 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
   // Acquire an exclusive lock (with a timeout) to update the global GPU buffer.
   std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_, std::defer_lock);
   if (!lock.try_lock_for(std::chrono::milliseconds(1000))) {
-    // If the lock isn’t immediately available, force lock acquisition.
+    // If the lock isn't immediately available, force lock acquisition.
     lock.lock();
   }
   gpu_points_buffer_shared_ = new_gpu_buffer;
@@ -376,158 +392,74 @@ void FieldsComputer::handle_nearest_obstacle_distance(
 }
 
 
-// Service handler for the obstacle heuristic.
+// Add template implementation after the constructor/destructor
+
+template<typename HeuristicFunc>
+void FieldsComputer::handle_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
+    HeuristicFunc kernel_launcher,
+    double k_cf)
+{
+  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
+  auto gpu_buffer = gpu_points_buffer_shared_;
+  if (!validate_request(response, k_cf) || !gpu_buffer) {
+    response->not_null = false;
+    return;
+  }
+
+  auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
+  double3 net_force = kernel_launcher(
+      gpu_buffer.get(),
+      gpu_num_points_,
+      agent_position,
+      agent_velocity, 
+      goal_position,
+      agent_radius,
+      mass_radius,
+      detect_shell_rad,
+      k_cf,
+      max_allowable_force,
+      show_processing_delay);
+
+  process_response(net_force, request->agent_pose, response);
+}
+
+// Replace individual handlers with templated versions
 void FieldsComputer::handle_obstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
-  // Acquire a shared lock to safely read the current GPU buffer.
-  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-  auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response, k_cf_obstacle) || !gpu_buffer) {
-    response->not_null = false;
-    return;
-  }
-
-  auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
-  double3 net_force = obstacle_heuristic::launch_kernel(
-      gpu_buffer.get(),       // Raw pointer from shared_ptr.
-      gpu_num_points_,
-      agent_position,
-      agent_velocity,
-      goal_position,
-      agent_radius,
-      mass_radius,
-      detect_shell_rad,
-      k_cf_obstacle,
-      max_allowable_force,
-      show_processing_delay);
-
-  process_response(net_force, request->agent_pose, response);
+  handle_heuristic(request, response, obstacle_heuristic::launch_kernel, k_cf_obstacle);
 }
 
-
-// Service handler for the velocity heuristic.
 void FieldsComputer::handle_velocity_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
-  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-  auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response, k_cf_velocity) || !gpu_buffer) {
-    response->not_null = false;
-    return;
-  }
-
-  auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
-  double3 net_force = velocity_heuristic::launch_kernel(
-      gpu_buffer.get(),
-      gpu_num_points_,
-      agent_position,
-      agent_velocity,
-      goal_position,
-      agent_radius,
-      mass_radius,
-      detect_shell_rad,
-      k_cf_velocity,
-      max_allowable_force,
-      show_processing_delay);
-
-  process_response(net_force, request->agent_pose, response);
+  handle_heuristic(request, response, velocity_heuristic::launch_kernel, k_cf_velocity);
 }
 
-
-// Service handler for the goal heuristic.
 void FieldsComputer::handle_goal_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
-  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-  auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response, k_cf_goal) || !gpu_buffer) {
-    response->not_null = false;
-    return;
-  }
-
-  auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
-  double3 net_force = goal_heuristic::launch_kernel(
-      gpu_buffer.get(),
-      gpu_num_points_,
-      agent_position,
-      agent_velocity,
-      goal_position,
-      agent_radius,
-      mass_radius,
-      detect_shell_rad,
-      k_cf_goal,
-      max_allowable_force,
-      show_processing_delay);
-
-  process_response(net_force, request->agent_pose, response);
+  handle_heuristic(request, response, goal_heuristic::launch_kernel, k_cf_goal);
 }
 
-
-
-// Service handler for the goal-obstacle heuristic.
 void FieldsComputer::handle_goalobstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
-  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-  auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response, k_cf_goalobstacle) || !gpu_buffer) {
-    response->not_null = false;
-    return;
-  }
-
-  auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
-  double3 net_force = goalobstacle_heuristic::launch_kernel(
-      gpu_buffer.get(),
-      gpu_num_points_,
-      agent_position,
-      agent_velocity,
-      goal_position,
-      agent_radius,
-      mass_radius,
-      detect_shell_rad,
-      k_cf_goalobstacle,
-      max_allowable_force,
-      show_processing_delay);
-
-  process_response(net_force, request->agent_pose, response);
+  handle_heuristic(request, response, goalobstacle_heuristic::launch_kernel, k_cf_goalobstacle);
 }
 
-
-
-// Service handler for the random heuristic.
 void FieldsComputer::handle_random_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
-  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-  auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response, k_cf_random) || !gpu_buffer) {
-    response->not_null = false;
-    return;
-  }
-
-  auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
-  double3 net_force = random_heuristic::launch_kernel(
-      gpu_buffer.get(),
-      gpu_num_points_,
-      agent_position,
-      agent_velocity,
-      goal_position,
-      agent_radius,
-      mass_radius,
-      detect_shell_rad,
-      k_cf_random,
-      max_allowable_force,
-      show_processing_delay);
-
-  process_response(net_force, request->agent_pose, response);
+  handle_heuristic(request, response, random_heuristic::launch_kernel, k_cf_random);
 }
-
 
 
 int main(int argc, char **argv)
