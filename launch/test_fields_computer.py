@@ -20,8 +20,22 @@ def generate_launch_description():
         description='Path to the obstacles configuration file'
     )
 
+    show_processing_delay_arg = DeclareLaunchArgument(
+        'show_processing_delay',
+        default_value='False',
+        description='Show processing delay information'
+    )
+
+    show_requests_arg = DeclareLaunchArgument(
+        'show_requests',
+        default_value='False',
+        description='Show service request information'
+    )
+
     return LaunchDescription([
         obstacles_config_arg,
+        show_processing_delay_arg,
+        show_requests_arg,
         Node(
                 package='percept',
                 executable='scene_loader.py',
@@ -54,7 +68,8 @@ def generate_launch_description():
                 'max_allowable_force': 20.0,
                 'detect_shell_rad': 100000.0,
                 'publish_force_vector': False,
-                'show_processing_delay': False,
+                'show_processing_delay': LaunchConfiguration('show_processing_delay'),
+                'show_requests': LaunchConfiguration('show_requests'),
             }],
             remappings=[
                 ('/get_min_obstacle_distance', '/oriented_pointmass/get_min_obstacle_distance'),

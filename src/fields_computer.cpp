@@ -113,6 +113,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
     RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
   }
   RCLCPP_INFO(this->get_logger(), "  show_processing_delay: %s", show_processing_delay ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "  show_requests: %s", show_service_request_received ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Helper services:");
   RCLCPP_INFO(this->get_logger(), "  disable_nearest_obstacle_distance: %s", disable_nearest_obstacle_distance ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Heuristics:");
