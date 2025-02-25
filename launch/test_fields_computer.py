@@ -15,24 +15,34 @@ def generate_launch_description():
         default_value=os.path.join(
             pkg_share,
             'assets/benchmark_scenes',
-            # 'hole_in_the_wall_easy.yaml'
-            # 'hole_in_the_wall_medium.yaml'
-            # 'hole_in_the_wall_hard.yaml'
-            # 'maze_2d.yaml'
-            # 'random_points_3d.yaml'
             'auto_generated_scene.yaml'
         ),
         description='Path to the obstacles configuration file'
     )
 
+    show_processing_delay_arg = DeclareLaunchArgument(
+        'show_processing_delay',
+        default_value='False',
+        description='Show processing delay information'
+    )
+
+    show_requests_arg = DeclareLaunchArgument(
+        'show_requests',
+        default_value='False',
+        description='Show service request information'
+    )
+
     return LaunchDescription([
         obstacles_config_arg,
+        show_processing_delay_arg,
+        show_requests_arg,
         Node(
                 package='percept',
                 executable='scene_loader.py',
                 name='scene_loader',
                 parameters=[{
-                    'obstacles_config_path': LaunchConfiguration('obstacles_config_path')
+                    'obstacles_config_path': LaunchConfiguration('obstacles_config_path'),
+                    'publish_once': True
                 }],
                 output='screen'
             ),
@@ -48,17 +58,6 @@ def generate_launch_description():
             name='fields_computer',
             output='screen',
             parameters=[{
-                # # # hole in the wall example- EASY - Success
-                # 'k_circular_force': 0.00001,
-                # 'agent_radius': 0.05,
-                # 'mass_radius': 0.025,
-                # 'max_allowable_force': 15.0,
-                # 'detect_shell_rad': 100000.0,
-                # 'publish_force_vector': False,
-                # 'show_processing_delay': False,
-
-                # # # hole in the wall example- Medium - Success
-                # 'k_circular_force': 0.0001,
                 'k_cf_velocity': 0.0001,
                 'k_cf_obstacle': 0.0001,
                 'k_cf_goal': 0.0001,
@@ -69,9 +68,12 @@ def generate_launch_description():
                 'max_allowable_force': 20.0,
                 'detect_shell_rad': 100000.0,
                 'publish_force_vector': False,
-                'show_processing_delay': True,
+                'show_processing_delay': LaunchConfiguration('show_processing_delay'),
+                'show_requests': LaunchConfiguration('show_requests'),
             }],
             remappings=[
+                ('/get_min_obstacle_distance', '/oriented_pointmass/get_min_obstacle_distance'),
+                ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
                 ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
                 ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
                 ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),

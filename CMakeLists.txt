@@ -99,6 +99,7 @@ install(DIRECTORY
 # cpp executable
 add_executable(fields_computer 
   src/fields_computer.cpp 
+  src/kernels/NearestObstacleDistance.cu
   src/kernels/ObstacleHeuristicCircForce.cu
   src/kernels/VelocityHeuristicCircForce.cu
   src/kernels/GoalObstacleHeuristicCircForce.cu
