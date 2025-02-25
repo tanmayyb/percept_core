@@ -75,6 +75,9 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->declare_parameter("show_processing_delay", false);
   this->get_parameter("show_processing_delay", show_processing_delay);
 
+  this->declare_parameter("show_requests", false);
+  this->get_parameter("show_requests", show_service_request_received);
+
   // Heuristic enable/disable parameters.
   this->declare_parameter("disable_nearest_obstacle_distance", false);
   this->get_parameter("disable_nearest_obstacle_distance", disable_nearest_obstacle_distance);
@@ -119,18 +122,14 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   RCLCPP_INFO(this->get_logger(), "  disable_goalobstacle_heuristic: %s", disable_goalobstacle_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_random_heuristic: %s", disable_random_heuristic ? "true" : "false");
 
+  // Start the queue processor thread
+  queue_processor_ = std::thread(&FieldsComputer::process_queue, this);
+
+
   // Subscribe to pointcloud messages.
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "/primitives", 10,
       std::bind(&FieldsComputer::pointcloud_callback, this, std::placeholders::_1));
-
-  // Test the CUDA kernels (if desired).
-  obstacle_heuristic::hello_cuda_world();
-  velocity_heuristic::hello_cuda_world();
-  goal_heuristic::hello_cuda_world();
-  goalobstacle_heuristic::hello_cuda_world();
-  random_heuristic::hello_cuda_world();
-  nearest_obstacle_distance::hello_cuda_world();
 
   // Create service servers for the helper services that are not disabled.
   if (!disable_nearest_obstacle_distance) {
@@ -138,38 +137,43 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
         "/get_min_obstacle_distance",
         std::bind(&FieldsComputer::handle_nearest_obstacle_distance, this,
                   std::placeholders::_1, std::placeholders::_2));
+    nearest_obstacle_distance::hello_cuda_world();
   }
-
   // Create service servers for the heuristics that are not disabled.
   if (!disable_obstacle_heuristic) {
     service_obstacle_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
         "/get_obstacle_heuristic_circforce",
         std::bind(&FieldsComputer::handle_obstacle_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
+    obstacle_heuristic::hello_cuda_world();
   }
   if (!disable_velocity_heuristic) {
     service_velocity_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
         "/get_velocity_heuristic_circforce",
         std::bind(&FieldsComputer::handle_velocity_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
+    velocity_heuristic::hello_cuda_world();
   }
   if (!disable_goal_heuristic) {
     service_goal_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
         "/get_goal_heuristic_circforce",
         std::bind(&FieldsComputer::handle_goal_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
+    goal_heuristic::hello_cuda_world();
   }
   if (!disable_goalobstacle_heuristic) {
     service_goalobstacle_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
         "/get_goalobstacle_heuristic_circforce",
         std::bind(&FieldsComputer::handle_goalobstacle_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
+    goalobstacle_heuristic::hello_cuda_world();
   }
   if (!disable_random_heuristic) {
     service_random_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
         "/get_random_heuristic_circforce",
         std::bind(&FieldsComputer::handle_random_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
+    random_heuristic::hello_cuda_world();
   }
 }
 
@@ -177,6 +181,10 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
 // Destructor
 FieldsComputer::~FieldsComputer()
 {
+  stop_queue();
+  if (queue_processor_.joinable()) {
+    queue_processor_.join();
+  }
   // Reset the shared pointer. Any ongoing service calls (that copied the pointer)
   // will keep the GPU memory alive until they finish.
   std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
@@ -194,73 +202,59 @@ bool FieldsComputer::check_cuda_error(cudaError_t err, const char* operation)
   return true;
 }
 
-// bool FieldsComputer::waitForGpuBuffer() {
-//     int elapsedTime = 0;
-//     while (!gpu_buffer && elapsedTime < TIMEOUT_MS) {
-//         std::this_thread::sleep_for(std::chrono::milliseconds(POLL_INTERVAL_MS));
-//         elapsedTime += POLL_INTERVAL_MS;
-
-//         // Optionally, update or check the status of gpu_buffer here:
-//         // gpu_buffer = checkAndRetrieveGpuBuffer();
-//     }
-//     if (!gpu_buffer) {
-//         std::cerr << "Error: GPU buffer not available after " << TIMEOUT_MS << " ms." << std::endl;
-//         return false;
-//     }
-//     return true;
-// }
 
 
 // Callback for processing incoming point cloud messages.
 void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
-  // Compute number of points.
-  size_t num_points = msg->width * msg->height;
+  // Create a copy of the message since we'll process it asynchronously
+  auto msg_copy = std::make_shared<sensor_msgs::msg::PointCloud2>(*msg);
+  
+  enqueue_operation(OperationType::WRITE, [this, msg_copy]() {
+    // Compute number of points
+    size_t num_points = msg_copy->width * msg_copy->height;
 
-  // Create iterators for the x, y, and z fields.
-  sensor_msgs::PointCloud2Iterator<float> iter_x(*msg, "x");
-  sensor_msgs::PointCloud2Iterator<float> iter_y(*msg, "y");
-  sensor_msgs::PointCloud2Iterator<float> iter_z(*msg, "z");
+    // Create iterators for the x, y, and z fields.
+    sensor_msgs::PointCloud2Iterator<float> iter_x(*msg_copy, "x");
+    sensor_msgs::PointCloud2Iterator<float> iter_y(*msg_copy, "y");
+    sensor_msgs::PointCloud2Iterator<float> iter_z(*msg_copy, "z");
 
-  // Copy point cloud into a temporary host array.
-  std::vector<double3> points_double3(num_points);
-  for (size_t i = 0; i < num_points; ++i, ++iter_x, ++iter_y, ++iter_z) {
-    points_double3[i] = make_double3(
-        static_cast<double>(*iter_x),
-        static_cast<double>(*iter_y),
-        static_cast<double>(*iter_z));
-  }
-
-  // Allocate GPU memory.
-  double3* gpu_buffer_ptr = nullptr;
-  cudaError_t err = cudaMalloc(&gpu_buffer_ptr, num_points * sizeof(double3));
-  if (!check_cuda_error(err, "cudaMalloc")) {
-    return;
-  }
-
-  // Copy data from host to GPU.
-  err = cudaMemcpy(gpu_buffer_ptr, points_double3.data(),
-                   num_points * sizeof(double3), cudaMemcpyHostToDevice);
-  if (!check_cuda_error(err, "cudaMemcpy")) {
-    cudaFree(gpu_buffer_ptr);
-    return;
-  }
-
-  // Wrap the raw GPU pointer in a shared_ptr with a custom deleter.
-  auto new_gpu_buffer = std::shared_ptr<double3>(gpu_buffer_ptr, [](double3* ptr) {
-    if (ptr) {
-      cudaFree(ptr);
+    // Copy point cloud into a temporary host array.
+    std::vector<double3> points_double3(num_points);
+    for (size_t i = 0; i < num_points; ++i, ++iter_x, ++iter_y, ++iter_z) {
+      points_double3[i] = make_double3(
+          static_cast<double>(*iter_x),
+          static_cast<double>(*iter_y),
+          static_cast<double>(*iter_z));
     }
-  });
 
-  // Acquire an exclusive lock (with a timeout) to update the global GPU buffer.
-  std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_, std::defer_lock);
-  if (!lock.try_lock_for(std::chrono::milliseconds(1000))) {
-    // If the lock isn't immediately available, force lock acquisition.
-    lock.lock();
-  }
-  gpu_points_buffer_shared_ = new_gpu_buffer;
-  gpu_num_points_ = num_points;
+    // Allocate GPU memory.
+    double3* gpu_buffer_ptr = nullptr;
+    cudaError_t err = cudaMalloc(&gpu_buffer_ptr, num_points * sizeof(double3));
+    if (!check_cuda_error(err, "cudaMalloc")) {
+      return;
+    }
+
+    // Copy data from host to GPU.
+    err = cudaMemcpy(gpu_buffer_ptr, points_double3.data(),
+                     num_points * sizeof(double3), cudaMemcpyHostToDevice);
+    if (!check_cuda_error(err, "cudaMemcpy")) {
+      cudaFree(gpu_buffer_ptr);
+      return;
+    }
+
+    // Wrap the raw GPU pointer in a shared_ptr with a custom deleter.
+    auto new_gpu_buffer = std::shared_ptr<double3>(gpu_buffer_ptr, [](double3* ptr) {
+      if (ptr) {
+        cudaFree(ptr);
+      }
+    });
+
+    // Update the GPU buffer with exclusive access
+    std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
+    gpu_points_buffer_shared_ = new_gpu_buffer;
+    gpu_num_points_ = num_points;
+  });
 }
 
 
@@ -288,17 +282,6 @@ std::tuple<double3, double3, double3> FieldsComputer::extract_request_data(
   }
 
   return std::make_tuple(agent_position, agent_velocity, goal_position);
-}
-
-
-// Validates the request parameters.
-bool FieldsComputer::validate_request(std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response, double k_cf)
-{
-  if (k_cf == 0.0) {
-    response->not_null = false;
-    return false;
-  }
-  return true;
 }
 
 
@@ -364,31 +347,34 @@ void FieldsComputer::handle_nearest_obstacle_distance(
     const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response)
 {
-  // Acquire a shared lock to safely read the current GPU buffer.
-  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-  auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!gpu_buffer) {
-    response->distance = 0.0;
-    return;
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "Nearest obstacle distance service request received");
   }
+  
+  enqueue_operation(OperationType::READ, [this, request, response]() {
+    std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
+    auto gpu_buffer = gpu_points_buffer_shared_;
+    if (!gpu_buffer) {
+      response->distance = 0.0;
+      return;
+    }
 
-  double3 agent_position = make_double3(
-      request->agent_pose.position.x,
-      request->agent_pose.position.y,
-      request->agent_pose.position.z);
+    double3 agent_position = make_double3(
+        request->agent_pose.position.x,
+        request->agent_pose.position.y,
+        request->agent_pose.position.z);
 
-  double min_dist = nearest_obstacle_distance::launch_kernel(
-      gpu_buffer.get(),       // Raw pointer from shared_ptr.
-      gpu_num_points_,
-      agent_position,
-      agent_radius,
-      mass_radius,
-      detect_shell_rad,
-      // show_processing_delay
-      true
-      );
+    double min_dist = nearest_obstacle_distance::launch_kernel(
+        gpu_buffer.get(),
+        gpu_num_points_,
+        agent_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        show_processing_delay);
 
-  response->distance = min_dist;
+    response->distance = min_dist;
+  });
 }
 
 
@@ -401,28 +387,30 @@ void FieldsComputer::handle_heuristic(
     HeuristicFunc kernel_launcher,
     double k_cf)
 {
-  std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-  auto gpu_buffer = gpu_points_buffer_shared_;
-  if (!validate_request(response, k_cf) || !gpu_buffer) {
-    response->not_null = false;
-    return;
-  }
+  enqueue_operation(OperationType::READ, [this, request, response, kernel_launcher, k_cf]() {
+    std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
+    auto gpu_buffer = gpu_points_buffer_shared_;
+    if (!gpu_buffer) {
+      response->not_null = false;
+      return;
+    }
 
-  auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
-  double3 net_force = kernel_launcher(
-      gpu_buffer.get(),
-      gpu_num_points_,
-      agent_position,
-      agent_velocity, 
-      goal_position,
-      agent_radius,
-      mass_radius,
-      detect_shell_rad,
-      k_cf,
-      max_allowable_force,
-      show_processing_delay);
+    auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
+    double3 net_force = kernel_launcher(
+        gpu_buffer.get(),
+        gpu_num_points_,
+        agent_position,
+        agent_velocity, 
+        goal_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        k_cf,
+        max_allowable_force,
+        show_processing_delay);
 
-  process_response(net_force, request->agent_pose, response);
+    process_response(net_force, request->agent_pose, response);
+  });
 }
 
 // Replace individual handlers with templated versions
@@ -430,6 +418,9 @@ void FieldsComputer::handle_obstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "Obstacle heuristic service request received");
+  }
   handle_heuristic(request, response, obstacle_heuristic::launch_kernel, k_cf_obstacle);
 }
 
@@ -437,6 +428,9 @@ void FieldsComputer::handle_velocity_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "Velocity heuristic service request received");
+  }
   handle_heuristic(request, response, velocity_heuristic::launch_kernel, k_cf_velocity);
 }
 
@@ -444,6 +438,9 @@ void FieldsComputer::handle_goal_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "Goal heuristic service request received");
+  }
   handle_heuristic(request, response, goal_heuristic::launch_kernel, k_cf_goal);
 }
 
@@ -451,6 +448,9 @@ void FieldsComputer::handle_goalobstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "Goal obstacle heuristic service request received");
+  }
   handle_heuristic(request, response, goalobstacle_heuristic::launch_kernel, k_cf_goalobstacle);
 }
 
@@ -458,9 +458,56 @@ void FieldsComputer::handle_random_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "Random heuristic service request received");
+  }
   handle_heuristic(request, response, random_heuristic::launch_kernel, k_cf_random);
 }
 
+// Add new queue processing methods
+void FieldsComputer::process_queue()
+{
+  while (queue_running_) {
+    std::shared_ptr<Operation> op;
+    {
+      std::unique_lock<std::mutex> lock(queue_mutex_);
+      queue_cv_.wait(lock, [this] {
+        return !operation_queue_.empty() || !queue_running_;
+      });
+
+      if (!queue_running_) break;
+
+      op = operation_queue_.front();
+      operation_queue_.pop();
+    }
+
+    // Execute the operation
+    op->task();
+    op->completion.set_value();
+  }
+}
+
+void FieldsComputer::enqueue_operation(OperationType type, std::function<void()> task)
+{
+  auto op = std::make_shared<Operation>();
+  op->type = type;
+  op->task = task;
+
+  {
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+    operation_queue_.push(op);
+  }
+  queue_cv_.notify_one();
+
+  // Wait for completion
+  op->completion.get_future().wait();
+}
+
+void FieldsComputer::stop_queue()
+{
+  queue_running_ = false;
+  queue_cv_.notify_all();
+}
 
 int main(int argc, char **argv)
 {

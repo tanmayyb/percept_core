@@ -14,6 +14,10 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 
+#include <queue>
+#include <condition_variable>
+#include <functional>
+
 
 class FieldsComputer : public rclcpp::Node
 {
@@ -60,6 +64,7 @@ private:
   // debug parameters
   bool show_netforce_output{false};
   bool show_processing_delay{false};
+  bool show_service_request_received{false};
   // experimental
   double force_viz_scale_{1.0};
   bool publish_force_vector{false};
@@ -81,10 +86,31 @@ private:
   // experimental
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
 
+  // Operation queue structures
+  enum class OperationType {
+    WRITE,  // Pointcloud callback
+    READ    // Service handlers
+  };
+
+  struct Operation {
+    OperationType type;
+    std::function<void()> task;
+    std::promise<void> completion;
+  };
+
+  std::queue<std::shared_ptr<Operation>> operation_queue_;
+  std::mutex queue_mutex_;
+  std::condition_variable queue_cv_;
+  std::atomic<bool> queue_running_{true};
+  std::thread queue_processor_;
+
+  // Queue processing methods
+  void process_queue();
+  void enqueue_operation(OperationType type, std::function<void()> task);
+  void stop_queue();
+
   // helpers
   bool check_cuda_error(cudaError_t err, const char* operation);
-  bool waitForGpuBuffer();
-  bool validate_request(std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response, double k_cf);
   std::tuple<double3, double3, double3> extract_request_data( const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request);
   void process_response(const double3& net_force, const geometry_msgs::msg::Pose& agent_pose,
   std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
