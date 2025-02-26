@@ -4,6 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include "percept_interfaces/srv/agent_state_to_circ_force.hpp"
+#include <percept_interfaces/srv/agent_pose_to_min_obstacle_dist.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
 // #include <mutex>
@@ -13,12 +14,10 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 
-// // CUDA kernels
-// #include "percept/ObstacleHeuristicCircForce.h"
-// #include "percept/VelocityHeuristicCircForce.h"
-// #include "percept/GoalHeuristicCircForce.h"
-// #include "percept/GoalObstacleHeuristicCircForce.h"
-// #include "percept/RandomHeuristicCircForce.h"
+#include <queue>
+#include <condition_variable>
+#include <functional>
+
 
 class FieldsComputer : public rclcpp::Node
 {
@@ -54,6 +53,8 @@ private:
 
   double max_allowable_force{0.0};
   bool override_detect_shell_rad{false};
+  // helper services parameters
+  bool disable_nearest_obstacle_distance{false};
   // heuristics parameters
   bool disable_obstacle_heuristic{false};
   bool disable_velocity_heuristic{false};
@@ -63,6 +64,7 @@ private:
   // debug parameters
   bool show_netforce_output{false};
   bool show_processing_delay{false};
+  bool show_service_request_received{false};
   // experimental
   double force_viz_scale_{1.0};
   bool publish_force_vector{false};
@@ -70,6 +72,9 @@ private:
 
   // pointcloud buffer
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
+
+  // helper services
+  rclcpp::Service<percept_interfaces::srv::AgentPoseToMinObstacleDist>::SharedPtr service_nearest_obstacle_distance;
 
   // heuristic services
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_obstacle_heuristic;
@@ -81,26 +86,60 @@ private:
   // experimental
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
 
+  // Operation queue structures
+  enum class OperationType {
+    WRITE,  // Pointcloud callback
+    READ    // Service handlers
+  };
+
+  struct Operation {
+    OperationType type;
+    std::function<void()> task;
+    std::promise<void> completion;
+  };
+
+  std::queue<std::shared_ptr<Operation>> operation_queue_;
+  std::mutex queue_mutex_;
+  std::condition_variable queue_cv_;
+  std::atomic<bool> queue_running_{true};
+  std::thread queue_processor_;
+
+  // Queue processing methods
+  void process_queue();
+  void enqueue_operation(OperationType type, std::function<void()> task);
+  void stop_queue();
+
   // helpers
   bool check_cuda_error(cudaError_t err, const char* operation);
-  bool validate_request(std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response, double k_cf);
   std::tuple<double3, double3, double3> extract_request_data( const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request);
   void process_response(const double3& net_force, const geometry_msgs::msg::Pose& agent_pose,
   std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
 
   // handlers
+  // pointcloud callback
   void pointcloud_callback(
     const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-  void handle_obstacle_heuristic(
+  // helper services handlers
+  void handle_nearest_obstacle_distance(
+    const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request, std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response);
+  // heuristics handlers
+  void handle_goalobstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
   void handle_velocity_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
   void handle_goal_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
-  void handle_goalobstacle_heuristic(
-    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
   void handle_random_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response); 
+  void handle_obstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+
+  template<typename HeuristicFunc>
+  void handle_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
+    HeuristicFunc kernel_launcher,
+    double k_cf);
 
   // experimental
   void force_vector_publisher(const double3& net_force, const geometry_msgs::msg::Pose& agent_pose, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub);
