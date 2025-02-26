@@ -18,8 +18,10 @@ from rcl_interfaces.msg import ParameterDescriptor
 
 
 class RealPerceptionPipeline(PerceptionPipeline):
-    def __init__(self, node, load_static_scene_config=False):
+    def __init__(self, node, load_static_scene_config=False, show_pipeline_delays=False, show_total_pipeline_delay=False):
         super().__init__(node)
+        self.show_pipeline_delays = show_pipeline_delays
+        self.show_total_pipeline_delay = show_total_pipeline_delay
 
         # load configs
         self.load_and_setup_pipeline_configs()
@@ -47,7 +49,7 @@ class RealPerceptionPipeline(PerceptionPipeline):
             self.tfs = dict()
             for camera_name in self.camera_names:
                 self.tfs[camera_name] = create_tf_matrix_from_euler(static_camera_config[camera_name]['pose'])
-            self.node.get_logger().info(f"static camera '{camera_name}' setup complete")
+                self.node.get_logger().info(f"static camera '{camera_name}' setup complete")
         
         setup_static_cameras(self.static_camera_config)
 
@@ -72,11 +74,21 @@ class RealPerceptionNode(PerceptionNode):
         self.declare_parameter('static_camera_config', 
             Parameter.Type.STRING,
             ParameterDescriptor(description='Path to camera configuration file'))
+        self.declare_parameter('show_pipeline_delays', 
+            False,
+            ParameterDescriptor(description='Show pipeline delays'))
+        show_pipeline_delays = self.get_parameter('show_pipeline_delays').get_parameter_value().bool_value
+        self.declare_parameter('show_total_pipeline_delay', 
+            False,
+            ParameterDescriptor(description='Show total pipeline delay'))
+        show_total_pipeline_delay = self.get_parameter('show_total_pipeline_delay').get_parameter_value().bool_value
 
         # Initialize pipeline
         self.pipeline = RealPerceptionPipeline(
             self,
             load_static_scene_config=self.get_parameter('static_scene').get_parameter_value().bool_value,
+            show_pipeline_delays=show_pipeline_delays,
+            show_total_pipeline_delay=show_total_pipeline_delay
         )
 
         # load static agent config if specified
@@ -90,8 +102,6 @@ class RealPerceptionNode(PerceptionNode):
 
 
     def setup_ros_subscribers(self):
-        # Set up subscribers for each camera
-        # right now we only have static camera callback
         self.subscribers = {}
         for camera_name in self.pipeline.camera_names:
             topic = f'/cameras/{camera_name}/depth/color/points'
@@ -100,6 +110,7 @@ class RealPerceptionNode(PerceptionNode):
                 topic,
                 lambda msg, cn=camera_name: self.static_camera_callback(msg, cn),
                 10)
+            self.get_logger().info(f"subscribed to {camera_name} topic")
 
     def static_camera_callback(self, msg, camera_name):
         with self.buffer_lock:
@@ -119,10 +130,9 @@ def main():
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        node.get_logger().info("Keyboard interrupt, shutting down...")
+    except Exception as e:
+        node.get_logger().error(troubleshoot.get_error_text(e))
 
 if __name__ == "__main__":
     main()

@@ -12,6 +12,9 @@ import percept.utils.troubleshoot as troubleshoot
 
 class PerceptionPipeline():
     def __init__(self, node):
+        self.show_pipeline_delays = False
+        self.show_total_pipeline_delay = False
+
         self.node = node
         self.logger = node.get_logger().get_child('perception_pipeline')
         self.check_cuda()
@@ -46,68 +49,74 @@ class PerceptionPipeline():
 
     def _process_single_pointcloud(self, camera_name:str, msg, tf_matrix=None, downsample=False):
         try:
-            # load pointcloud from ROS msg
-            pcd = cph.geometry.PointCloud()
-            msg_bytes = bytes(msg.data)
-            temp = cph.io.create_from_pointcloud2_msg(
-                msg_bytes, cph.io.PointCloud2MsgInfo.default_dense(
-                    msg.width, msg.height, msg.point_step)
-            )       
-            pcd.points = temp.points
-            
-            # if tf_matrix available, transform to world-frame
-            if tf_matrix is not None:
-                pcd = pcd.transform(tf_matrix)
+            # Create CUDA stream for parallel GPU operations
+            stream = cp.cuda.Stream()
+            with stream:
+                # load pointcloud from ROS msg
+                pcd = cph.geometry.PointCloud()
+                msg_bytes = bytes(msg.data)
+                temp = cph.io.create_from_pointcloud2_msg(
+                    msg_bytes, cph.io.PointCloud2MsgInfo.default_dense(
+                        msg.width, msg.height, msg.point_step)
+                )       
+                pcd.points = temp.points
+                
+                # More aggressive downsampling if enabled
+                if downsample:
+                    every_n_points = 5  # Increased from 3 to 5
+                    pcd = pcd.uniform_down_sample(every_n_points)
+                
+                # Transform after downsampling to reduce computation
+                if tf_matrix is not None:
+                    pcd = pcd.transform(tf_matrix)
 
-            # crop pointcloud according to scene bounds
-            pcd = pcd.crop(self.scene_bbox)
-            
-            if downsample:
-                every_n_points = 3
-                pcd = pcd.uniform_down_sample(every_n_points)
+                # Crop pointcloud according to scene bounds
+                pcd = pcd.crop(self.scene_bbox)
 
             return pcd
         except Exception as e:
             self.logger.error(troubleshoot.get_error_text(e))
 
-
-    def parse_pointclouds(self, pointclouds:dict, tfs:dict, use_sim=False, downsample:bool=False, log_performance:bool=False):
-        # loop to read and process pcds (to be parallelized)
+    def parse_pointclouds(self, pointclouds:dict, tfs:dict, use_sim=False, downsample:bool=False):
         start = time.time()
 
-        # pointcloud assertion check
-        try:
-            assert pointclouds is not None
-        except Exception as e:
-            self.logger.error(troubleshoot.get_error_text(e))
+        # Early return if pointclouds is None
+        if pointclouds is None:
+            self.logger.error("Received None pointclouds")
+            return None
 
-        # Process point clouds in parallel using threads
-        futures = list()
-        for camera_name in self.camera_names:
-            futures.append(
-                self.thread_pool.submit(
-                    self._process_single_pointcloud,
-                    camera_name,
-                    pointclouds[camera_name],
-                    None if use_sim else tfs.get(camera_name),
-                    downsample
+        # Process point clouds in parallel using threads with batching
+        batch_size = 3  # Process 3 cameras at once
+        processed_pointclouds = {}
+        
+        for i in range(0, len(self.camera_names), batch_size):
+            batch_cameras = self.camera_names[i:i + batch_size]
+            futures = []
+            
+            for camera_name in batch_cameras:
+                futures.append(
+                    self.thread_pool.submit(
+                        self._process_single_pointcloud,
+                        camera_name,
+                        pointclouds[camera_name],
+                        None if use_sim else tfs.get(camera_name),
+                        downsample
+                    )
                 )
-            )
-        
-        # Collect results
-        processed_pointclouds = dict()
-        for camera_name, future in zip(self.camera_names, futures):
-            try:
-                processed_pointclouds[camera_name] = future.result()
-            except Exception as e:
-                self.logger.error(f"Error processing {camera_name}: {troubleshoot.get_error_text(e)}")
-        
-        if log_performance:
+            
+            # Wait for batch to complete before starting next batch
+            for camera_name, future in zip(batch_cameras, futures):
+                try:
+                    processed_pointclouds[camera_name] = future.result()
+                except Exception as e:
+                    self.logger.error(f"Error processing {camera_name}: {troubleshoot.get_error_text(e)}")
+
+        if self.show_pipeline_delays:
             self.logger.info(f"PCD Processing (CPU+GPU) [sec]: {time.time()-start}")
 
         return processed_pointclouds
     
-    def merge_pointclouds(self, pointclouds:dict, log_performance:bool=False):
+    def merge_pointclouds(self, pointclouds:dict):
         # merge pointclouds
         start = time.time()
 
@@ -127,7 +136,7 @@ class PerceptionPipeline():
                 target_gpu = pointclouds[camera_name]
                 merged_gpu = direct_merge(merged_gpu, target_gpu)
 
-        if log_performance:
+        if self.show_pipeline_delays:
             self.logger.info(f"Registration (GPU) [sec]: {time.time()-start}")
         return merged_gpu
 
@@ -135,7 +144,7 @@ class PerceptionPipeline():
         pass
 
 
-    def perform_voxelization(self, pcd:cph.geometry.PointCloud, log_performance:bool=False):
+    def perform_voxelization(self, pcd:cph.geometry.PointCloud):
         start = time.time()
         voxel_grid = cph.geometry.VoxelGrid.create_from_point_cloud_within_bounds(
             pcd,
@@ -143,13 +152,13 @@ class PerceptionPipeline():
             min_bound=self.voxel_min_bound,
             max_bound=self.voxel_max_bound,
         )
-        if log_performance:
+        if self.show_pipeline_delays:
             self.logger.info(f"Voxelization (GPU) [sec]: {time.time()-start}")
 
         return voxel_grid
 
     
-    def convert_voxels_to_primitives(self, voxel_grid:cph.geometry.VoxelGrid, log_performance:bool=False):
+    def convert_voxels_to_primitives(self, voxel_grid:cph.geometry.VoxelGrid):
         start = time.time()
         voxels = voxel_grid.voxels.cpu()
         primitives_pos = np.array(list(voxels.keys()))
@@ -177,18 +186,18 @@ class PerceptionPipeline():
         # Transfer result back to CPU
         primitives_pos = cp.asnumpy(primitives_pos_gpu)
 
-        if log_performance:
+        if self.show_pipeline_delays:
             self.logger.info(f"Voxel2Primitives (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos
 
-    def run_pipeline(self, pointclouds:dict, tfs:dict, agent_pos:np.ndarray, use_sim=False, log_performance:bool=False):
+    def run_pipeline(self, pointclouds:dict, tfs:dict, agent_pos:np.ndarray, use_sim=False):
+        # self.logger.info(f"Running perception pipeline...")
         # streamer/realsense gives pointclouds and tfs
-        log_performance = False
         start = time.time()
 
         try:
-            pointclouds = self.parse_pointclouds(pointclouds, tfs, use_sim=use_sim, downsample=True, log_performance=log_performance) # downsample increases performance
-            merged_pointclouds = self.merge_pointclouds(pointclouds, log_performance=log_performance)
+            pointclouds = self.parse_pointclouds(pointclouds, tfs, use_sim=use_sim, downsample=True) # downsample increases performance
+            merged_pointclouds = self.merge_pointclouds(pointclouds)
         except Exception as e:
             self.logger.error(troubleshoot.get_error_text(e))
             return None, None
@@ -196,12 +205,11 @@ class PerceptionPipeline():
         # pointclouds = self.perform_robot_body_subtraction()
         
         if merged_pointclouds is not None:
-            voxel_grid = self.perform_voxelization(merged_pointclouds, log_performance=log_performance)
-            primitives_pos = self.convert_voxels_to_primitives(voxel_grid, log_performance=log_performance)
+            voxel_grid = self.perform_voxelization(merged_pointclouds)
+            primitives_pos = self.convert_voxels_to_primitives(voxel_grid)
         else:
             primitives_pos = None
 
-        log_performance = False
-        if log_performance:
+        if self.show_total_pipeline_delay:
             self.logger.info(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos

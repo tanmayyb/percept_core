@@ -19,13 +19,15 @@ def yaml_to_dict(path_to_yaml):
 def get_path(pkg_share:str, *paths):
     return os.path.join(pkg_share, *paths)
 
-def create_perception_group(pkg_share:str):
+def create_perception_group(pkg_share:str, show_pipeline_delays, show_total_pipeline_delay):
     real_pipeline_params = {
         'static_camera_config': get_path(pkg_share, 'config', 'rs_static_cams.yaml'),
         'real_pipeline_config': get_path(pkg_share, 'config', 'rs_pipeline_conf.yaml'), 
         'agent_config': get_path(pkg_share, 'config', 'agent_conf.yaml'),
         'static_scene': True,
-        'static_agent': True
+        'static_agent': True,
+        'show_pipeline_delays': show_pipeline_delays,
+        'show_total_pipeline_delay': show_total_pipeline_delay,
     }
     
     static_tf_publisher_params = {
@@ -70,6 +72,7 @@ def create_realsense_group(pkg_share:str):
     static_cams = yaml_to_dict(get_path(pkg_share, 'config', 'rs_static_cams.yaml'))
     global_params = yaml_to_dict(get_path(pkg_share, 'config', 'rs_cameras.yaml'))
     namespace = 'cameras'
+
     for camera_id, camera_info in static_cams.items():  
         params = deepcopy(global_params)
         # params['camera_name'] = camera_id
@@ -90,12 +93,29 @@ def create_realsense_group(pkg_share:str):
 
 
 def generate_launch_description():
+    show_pipeline_delays_arg = DeclareLaunchArgument(
+        'show_pipeline_delays',
+        default_value='false',
+        description='Show pipeline delays'
+    )
+    show_total_pipeline_delay_arg = DeclareLaunchArgument(
+        'show_total_pipeline_delay',
+        default_value='false',
+        description='Show total pipeline delay'
+    )
+
     pkg_share = get_package_share_directory('percept')
-    perception_group = create_perception_group(pkg_share)
+    perception_group = create_perception_group(
+        pkg_share, 
+        LaunchConfiguration('show_pipeline_delays'), 
+        LaunchConfiguration('show_total_pipeline_delay')
+    )
     realsense_group = create_realsense_group(pkg_share)
     
     # Combine all nodes into the launch description
     return LaunchDescription([
+        show_pipeline_delays_arg,
+        show_total_pipeline_delay_arg,
         perception_group,
         realsense_group,
     ])

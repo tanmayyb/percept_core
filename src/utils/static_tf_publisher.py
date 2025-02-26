@@ -18,9 +18,6 @@ def load_configs(node):
 
 def load_static_tf_frames(node): # using config file
     static_camera_config, agent_config = load_configs(node)
-    print(static_camera_config)
-    print(agent_config)
-
 
     # create tf messages
     static_tf_frames = list()
@@ -78,13 +75,12 @@ def main():
 
     node.get_logger().info("Static transforms published successfully.")
 
-    # spin
-    rclpy.spin(node)
+    return node
+
 
 if __name__ == '__main__':
     try:
-        main()
+        node = main()
+        rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
-    finally:
-        rclpy.shutdown()
+        node.get_logger().info("Keyboard interrupt, shutting down...")
