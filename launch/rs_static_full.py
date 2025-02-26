@@ -1,6 +1,6 @@
 import launch
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction
+from launch.actions import DeclareLaunchArgument, GroupAction, OpaqueFunction
 
 from launch_ros.actions import Node
 
@@ -19,13 +19,15 @@ def yaml_to_dict(path_to_yaml):
 def get_path(pkg_share:str, *paths):
     return os.path.join(pkg_share, *paths)
 
-def create_perception_group(pkg_share:str):
+def create_perception_group(pkg_share:str, show_pipeline_delays, show_total_pipeline_delay):
     real_pipeline_params = {
         'static_camera_config': get_path(pkg_share, 'config', 'rs_static_cams.yaml'),
         'real_pipeline_config': get_path(pkg_share, 'config', 'rs_pipeline_conf.yaml'), 
         'agent_config': get_path(pkg_share, 'config', 'agent_conf.yaml'),
         'static_scene': True,
-        'static_agent': True
+        'static_agent': True,
+        'show_pipeline_delays': show_pipeline_delays,
+        'show_total_pipeline_delay': show_total_pipeline_delay,
     }
     
     static_tf_publisher_params = {
@@ -41,7 +43,7 @@ def create_perception_group(pkg_share:str):
                 package='percept',
                 executable='real_pipeline.py',
                 name='real_perception_node',
-                # output='screen',
+                output='screen',
                 parameters=[real_pipeline_params], # load all configs
                 namespace=namespace
             ),
@@ -88,42 +90,103 @@ def create_realsense_group(pkg_share:str):
         realsense_group.append(node)
     return GroupAction(realsense_group)
 
-def create_fields_computer_group(pkg_share:str):
-    fields_computer_group = [
-        Node(
+
+def setup_fields_computer(context):
+    try:
+        planner_mode = LaunchConfiguration('planner_mode').perform(context)
+    except Exception:
+        planner_mode = 'oriented_pointmass'
+
+    remappings = []
+    if planner_mode == 'manipulator':
+        remappings = [
+            ('/get_min_obstacle_distance', '/manipulator/get_min_obstacle_distance'),
+            ('/get_random_heuristic_circforce', '/manipulator/get_random_heuristic_force'),
+            ('/get_obstacle_heuristic_circforce', '/manipulator/get_obstacle_heuristic_force'),
+            ('/get_goal_heuristic_circforce', '/manipulator/get_goal_heuristic_force'),
+            ('/get_velocity_heuristic_circforce', '/manipulator/get_velocity_heuristic_force'),
+            ('/get_goalobstacle_heuristic_circforce', '/manipulator/get_goalobstacle_heuristic_force'),
+            ('/get_random_heuristic_circforce', '/manipulator/get_random_heuristic_force'),
+        ]
+    else:
+        remappings = [
+            ('/get_min_obstacle_distance', '/oriented_pointmass/get_min_obstacle_distance'),
+            ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
+            ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
+            ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
+            ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
+            ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
+            ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
+        ]
+    return [Node(
             package='percept',
             executable='fields_computer',
             name='fields_computer',
             output='screen',
             parameters=[{
-                'k_circular_force': 0.0010,
-                'agent_radius': 0.05,
-                'mass_radius': 0.025,
-                'max_allowable_force': 50.0,
-                'detect_shell_rad': 1.0,
+                'k_cf_velocity': 0.01,
+                'k_cf_obstacle': 0.01,
+                'k_cf_goal': 0.001,
+                'k_cf_goalobstacle': 0.001,
+                'k_cf_random': 0.001,
+                'agent_radius': 0.050,
+                'mass_radius': 0.050,
+                'max_allowable_force': 20.0,
+                'detect_shell_rad': 100000.0,
                 'publish_force_vector': False,
-                'show_processing_delay': True,
-
+                'show_processing_delay': LaunchConfiguration('show_processing_delay'),
+                'show_requests': LaunchConfiguration('show_requests'),
             }],
-            remappings=[
-                ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
-                ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
-                ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
-                ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
-            ]
-        )
+            remappings=remappings,
+        ),
     ]
-    return GroupAction(fields_computer_group)
+
 
 def generate_launch_description():
+    show_processing_delay_arg = DeclareLaunchArgument(
+        'show_processing_delay',
+        default_value='False',
+        description='Show processing delay information'
+    )
+
+    show_requests_arg = DeclareLaunchArgument(
+        'show_requests',
+        default_value='False',
+        description='Show service request information'
+    )
+
+    planner_mode_arg = DeclareLaunchArgument(
+        'planner_mode',
+        default_value='oriented_pointmass',
+        description='Planner Mode'
+    )    
+
+    show_pipeline_delays_arg = DeclareLaunchArgument(
+        'show_pipeline_delays',
+        default_value='false',
+        description='Show pipeline delays'
+    )
+    show_total_pipeline_delay_arg = DeclareLaunchArgument(
+        'show_total_pipeline_delay',
+        default_value='false',
+        description='Show total pipeline delay'
+    )
     pkg_share = get_package_share_directory('percept')
-    perception_group = create_perception_group(pkg_share)
+    perception_group = create_perception_group(
+        pkg_share, 
+        LaunchConfiguration('show_pipeline_delays'), 
+        LaunchConfiguration('show_total_pipeline_delay')
+    )
     realsense_group = create_realsense_group(pkg_share)
-    fields_computer = create_fields_computer_group(pkg_share)
+    opaque_fields_computer_setup = OpaqueFunction(function=setup_fields_computer)
     
     # Combine all nodes into the launch description
     return LaunchDescription([
+        show_processing_delay_arg,
+        show_requests_arg,
+        show_pipeline_delays_arg,
+        show_total_pipeline_delay_arg,
         perception_group,
         realsense_group,
-        fields_computer
+        opaque_fields_computer_setup,
     ])

@@ -1,12 +1,63 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.substitutions import LaunchConfiguration
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from ament_index_python.packages import get_package_share_directory
 import os
 
 def get_path(pkg_share:str, *paths):
     return os.path.join(pkg_share, *paths)
+
+def setup_fields_computer(context):
+    try:
+        planner_mode = LaunchConfiguration('planner_mode').perform(context)
+    except Exception:
+        planner_mode = 'oriented_pointmass'
+
+    remappings = []
+    if planner_mode == 'manipulator':
+        remappings = [
+            ('/get_min_obstacle_distance', '/manipulator/get_min_obstacle_distance'),
+            ('/get_random_heuristic_circforce', '/manipulator/get_random_heuristic_force'),
+            ('/get_obstacle_heuristic_circforce', '/manipulator/get_obstacle_heuristic_force'),
+            ('/get_goal_heuristic_circforce', '/manipulator/get_goal_heuristic_force'),
+            ('/get_velocity_heuristic_circforce', '/manipulator/get_velocity_heuristic_force'),
+            ('/get_goalobstacle_heuristic_circforce', '/manipulator/get_goalobstacle_heuristic_force'),
+            ('/get_random_heuristic_circforce', '/manipulator/get_random_heuristic_force'),
+        ]
+    else:
+        remappings = [
+            ('/get_min_obstacle_distance', '/oriented_pointmass/get_min_obstacle_distance'),
+            ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
+            ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
+            ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
+            ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
+            ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
+            ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
+        ]
+    return [Node(
+            package='percept',
+            executable='fields_computer',
+            name='fields_computer',
+            output='screen',
+            parameters=[{
+                'k_cf_velocity': 0.0001,
+                'k_cf_obstacle': 0.0001,
+                'k_cf_goal': 0.0001,
+                'k_cf_goalobstacle': 0.0001,
+                'k_cf_random': 0.0001,
+                'agent_radius': 0.050,
+                'mass_radius': 0.050,
+                'max_allowable_force': 20.0,
+                'detect_shell_rad': 100000.0,
+                'publish_force_vector': False,
+                'show_processing_delay': LaunchConfiguration('show_processing_delay'),
+                'show_requests': LaunchConfiguration('show_requests'),
+            }],
+            remappings=remappings,
+        ),
+    ]
+
 
 def generate_launch_description():
     pkg_share = get_package_share_directory('percept')
@@ -32,17 +83,28 @@ def generate_launch_description():
         description='Show service request information'
     )
 
+    planner_mode_arg = DeclareLaunchArgument(
+        'planner_mode',
+        default_value='oriented_pointmass',
+        description='Planner Mode'
+    )    
+
+    opaque_fields_computer_setup = OpaqueFunction(
+        function=setup_fields_computer
+    )
+ 
     return LaunchDescription([
         obstacles_config_arg,
         show_processing_delay_arg,
         show_requests_arg,
+        planner_mode_arg,
         Node(
                 package='percept',
                 executable='scene_loader.py',
                 name='scene_loader',
                 parameters=[{
                     'obstacles_config_path': LaunchConfiguration('obstacles_config_path'),
-                    'publish_once': True
+                    'publish_once': False
                 }],
                 output='screen'
             ),
@@ -52,41 +114,7 @@ def generate_launch_description():
         #     name='service_tester',
         #     output='screen'
         # ),
-        Node(
-            package='percept',
-            executable='fields_computer',
-            name='fields_computer',
-            output='screen',
-            parameters=[{
-                'k_cf_velocity': 0.0001,
-                'k_cf_obstacle': 0.0001,
-                'k_cf_goal': 0.0001,
-                'k_cf_goalobstacle': 0.0001,
-                'k_cf_random': 0.0001,
-                'agent_radius': 0.05,
-                'mass_radius': 0.025,
-                'max_allowable_force': 20.0,
-                'detect_shell_rad': 100000.0,
-                'publish_force_vector': False,
-                'show_processing_delay': LaunchConfiguration('show_processing_delay'),
-                'show_requests': LaunchConfiguration('show_requests'),
-            }],
-            remappings=[
-                ('/get_min_obstacle_distance', '/oriented_pointmass/get_min_obstacle_distance'),
-                ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
-                ('/get_obstacle_heuristic_circforce', '/oriented_pointmass/get_obstacle_heuristic_force'),
-                ('/get_goal_heuristic_circforce', '/oriented_pointmass/get_goal_heuristic_force'),
-                ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
-                ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
-                ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
-
-                # ('/get_obstacle_heuristic_circforce', '/manipulator/get_obstacle_heuristic_force'),
-                # ('/get_goal_heuristic_circforce', '/manipulator/get_goal_heuristic_force'),
-                # ('/get_velocity_heuristic_circforce', '/manipulator/get_velocity_heuristic_force'),
-                # ('/get_goalobstacle_heuristic_circforce', '/manipulator/get_goalobstacle_heuristic_force'),
-                # ('/get_random_heuristic_circforce', '/manipulator/get_random_heuristic_force'),
-            ]
-        ),
+        opaque_fields_computer_setup,
         Node(
             package='rviz2',
             executable='rviz2',
