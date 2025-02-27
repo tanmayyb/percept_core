@@ -41,21 +41,10 @@ private:
   // common parameters
   double agent_radius{0.0};
   double mass_radius{0.0};
-  // double k_circular_force{0.0}; // deprecated
+  double nn_detect_shell_rad{0.0};
 
-  double k_cf_velocity{0.0};
-  double k_cf_obstacle{0.0};
-  double k_cf_goal{0.0};
-  double k_cf_goalobstacle{0.0};
-  double k_cf_random{0.0};
-
-  double detect_shell_rad{0.0};
-
-  double max_allowable_force{0.0};
-  bool override_detect_shell_rad{false};
   // helper services parameters
-  bool disable_nearest_obstacle_distance{false};
-  // heuristics parameters
+  bool disable_nearest_obstacle_distance{false};  
   bool disable_obstacle_heuristic{false};
   bool disable_velocity_heuristic{false};
   bool disable_goal_heuristic{false};
@@ -111,7 +100,7 @@ private:
 
   // helpers
   bool check_cuda_error(cudaError_t err, const char* operation);
-  std::tuple<double3, double3, double3> extract_request_data( const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request);
+  std::tuple<double3, double3, double3, double, double, double> extract_request_data( const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request);
   void process_response(const double3& net_force, const geometry_msgs::msg::Pose& agent_pose,
   std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
 
@@ -138,8 +127,7 @@ private:
   void handle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
-    HeuristicFunc kernel_launcher,
-    double k_cf);
+    HeuristicFunc kernel_launcher);
 
   // experimental
   void force_vector_publisher(const double3& net_force, const geometry_msgs::msg::Pose& agent_pose, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub);

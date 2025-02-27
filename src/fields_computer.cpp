@@ -29,35 +29,14 @@
 FieldsComputer::FieldsComputer() : Node("fields_computer")
 {
 
-  this->declare_parameter("k_cf_velocity", 0.0);
-  this->get_parameter("k_cf_velocity", k_cf_velocity);
-
-  this->declare_parameter("k_cf_obstacle", 0.0);
-  this->get_parameter("k_cf_obstacle", k_cf_obstacle);
-
-  this->declare_parameter("k_cf_goal", 0.0);
-  this->get_parameter("k_cf_goal", k_cf_goal);
-
-  this->declare_parameter("k_cf_goalobstacle", 0.0);
-  this->get_parameter("k_cf_goalobstacle", k_cf_goalobstacle);
-
-  this->declare_parameter("k_cf_random", 0.0);
-  this->get_parameter("k_cf_random", k_cf_random);  
-
-  this->declare_parameter("agent_radius", 0.1);
+  this->declare_parameter("agent_radius", 0.050);
   this->get_parameter("agent_radius", agent_radius);
 
-  this->declare_parameter("mass_radius", 0.1);
+  this->declare_parameter("mass_radius", 0.050);
   this->get_parameter("mass_radius", mass_radius);
 
-  this->declare_parameter("max_allowable_force", 0.0);
-  this->get_parameter("max_allowable_force", max_allowable_force);
-
-  this->declare_parameter("detect_shell_rad", 0.0);
-  this->get_parameter("detect_shell_rad", detect_shell_rad);
-  if (detect_shell_rad > 0.0) {
-    override_detect_shell_rad = true;
-  }
+  this->declare_parameter("nn_detect_shell_rad", 2.0);
+  this->get_parameter("nn_detect_shell_rad", nn_detect_shell_rad);
 
   this->declare_parameter("publish_force_vector", false);
   this->get_parameter("publish_force_vector", publish_force_vector);
@@ -99,15 +78,9 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->get_parameter("disable_random_heuristic", disable_random_heuristic);
 
   RCLCPP_INFO(this->get_logger(), "Parameters:");
-  RCLCPP_INFO(this->get_logger(), "  k_cf_velocity: %.10f", k_cf_velocity);
-  RCLCPP_INFO(this->get_logger(), "  k_cf_obstacle: %.10f", k_cf_obstacle);
-  RCLCPP_INFO(this->get_logger(), "  k_cf_goal: %.10f", k_cf_goal);
-  RCLCPP_INFO(this->get_logger(), "  k_cf_goalobstacle: %.10f", k_cf_goalobstacle);
-  RCLCPP_INFO(this->get_logger(), "  k_cf_random: %.10f", k_cf_random);
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
-  RCLCPP_INFO(this->get_logger(), "  max_allowable_force: %.2f", max_allowable_force);
-  RCLCPP_INFO(this->get_logger(), "  detect_shell_rad: %.2f", detect_shell_rad);
+  RCLCPP_INFO(this->get_logger(), "  nn_detect_shell_rad: %.2f", nn_detect_shell_rad);
   RCLCPP_INFO(this->get_logger(), "  publishing force vectors: %s", publish_force_vector ? "true" : "false");
   if (publish_force_vector) {
     RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
@@ -260,7 +233,7 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
 
 
 // Extracts agent, velocity, and goal data from the service request.
-std::tuple<double3, double3, double3> FieldsComputer::extract_request_data(
+std::tuple<double3, double3, double3, double, double, double> FieldsComputer::extract_request_data(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request)
 {
   double3 agent_position = make_double3(
@@ -278,11 +251,12 @@ std::tuple<double3, double3, double3> FieldsComputer::extract_request_data(
       request->target_pose.position.y,
       request->target_pose.position.z);
 
-  if (!override_detect_shell_rad) {
-    detect_shell_rad = request->detect_shell_rad;
-  }
+  double detect_shell_rad = request->detect_shell_rad;
+  double k_force = request->k_force;
+  double max_allowable_force = request->max_allowable_force;
 
-  return std::make_tuple(agent_position, agent_velocity, goal_position);
+
+  return std::make_tuple(agent_position, agent_velocity, goal_position, detect_shell_rad, k_force, max_allowable_force);
 }
 
 
@@ -371,7 +345,7 @@ void FieldsComputer::handle_nearest_obstacle_distance(
         agent_position,
         agent_radius,
         mass_radius,
-        detect_shell_rad,
+        nn_detect_shell_rad,
         show_processing_delay);
 
     response->distance = min_dist;
@@ -385,10 +359,9 @@ template<typename HeuristicFunc>
 void FieldsComputer::handle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
-    HeuristicFunc kernel_launcher,
-    double k_cf)
+    HeuristicFunc kernel_launcher)
 {
-  enqueue_operation(OperationType::READ, [this, request, response, kernel_launcher, k_cf]() {
+  enqueue_operation(OperationType::READ, [this, request, response, kernel_launcher]() {
     std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
     auto gpu_buffer = gpu_points_buffer_shared_;
     if (!gpu_buffer) {
@@ -396,7 +369,7 @@ void FieldsComputer::handle_heuristic(
       return;
     }
 
-    auto [agent_position, agent_velocity, goal_position] = extract_request_data(request);
+    auto [agent_position, agent_velocity, goal_position, detect_shell_rad, k_force, max_allowable_force] = extract_request_data(request);
     double3 net_force = kernel_launcher(
         gpu_buffer.get(),
         gpu_num_points_,
@@ -406,7 +379,7 @@ void FieldsComputer::handle_heuristic(
         agent_radius,
         mass_radius,
         detect_shell_rad,
-        k_cf,
+        k_force,
         max_allowable_force,
         show_processing_delay);
 
@@ -422,7 +395,7 @@ void FieldsComputer::handle_obstacle_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Obstacle heuristic service request received");
   }
-  handle_heuristic(request, response, obstacle_heuristic::launch_kernel, k_cf_obstacle);
+  handle_heuristic(request, response, obstacle_heuristic::launch_kernel);
 }
 
 void FieldsComputer::handle_velocity_heuristic(
@@ -432,7 +405,7 @@ void FieldsComputer::handle_velocity_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Velocity heuristic service request received");
   }
-  handle_heuristic(request, response, velocity_heuristic::launch_kernel, k_cf_velocity);
+  handle_heuristic(request, response, velocity_heuristic::launch_kernel);
 }
 
 void FieldsComputer::handle_goal_heuristic(
@@ -442,7 +415,7 @@ void FieldsComputer::handle_goal_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Goal heuristic service request received");
   }
-  handle_heuristic(request, response, goal_heuristic::launch_kernel, k_cf_goal);
+  handle_heuristic(request, response, goal_heuristic::launch_kernel);
 }
 
 void FieldsComputer::handle_goalobstacle_heuristic(
@@ -452,7 +425,7 @@ void FieldsComputer::handle_goalobstacle_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Goal obstacle heuristic service request received");
   }
-  handle_heuristic(request, response, goalobstacle_heuristic::launch_kernel, k_cf_goalobstacle);
+  handle_heuristic(request, response, goalobstacle_heuristic::launch_kernel);
 }
 
 void FieldsComputer::handle_random_heuristic(
@@ -462,7 +435,7 @@ void FieldsComputer::handle_random_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Random heuristic service request received");
   }
-  handle_heuristic(request, response, random_heuristic::launch_kernel, k_cf_random);
+  handle_heuristic(request, response, random_heuristic::launch_kernel);
 }
 
 // Add new queue processing methods
