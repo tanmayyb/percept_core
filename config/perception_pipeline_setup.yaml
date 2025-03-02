@@ -1,8 +1,6 @@
 perception_pipeline_config:
   scene_bounds: 
-    # min: [-1.0, -1.0, -1.0]
-    # max: [1.0, 1.0, 1.0]
-    min: [-2.0, -2.0, -2.0]
-    max: [2.0, 2.0, 2.0]
+    min: [-1.0, -1.0, -1.0]
+    max: [1.0, 1.0, 1.0]
   graphics_settings:
     voxel_size: 0.040 # 2*mass_radius
