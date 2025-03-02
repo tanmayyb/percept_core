@@ -81,6 +81,8 @@ ament_python_install_package(${PROJECT_NAME}
 install(PROGRAMS
   src/real_pipeline.py
   src/utils/static_tf_publisher.py
+  src/utils/fake_panda.py
+  src/utils/fake_realsense.py
   src/service_tester.py
   src/sim_stream.py
   src/scene_loader.py
