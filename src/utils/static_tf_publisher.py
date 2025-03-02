@@ -36,8 +36,9 @@ def load_static_tf_frames(node): # using config file
 
     # agent frame
     agent_frames=list()
-    for agent_name, agent_config in static_agent_config.items():
-        agent_frame = f'{agent_name}_frame'
+    agent_configs = static_agent_config['agents']
+    for agent_name, agent_config in agent_configs.items():
+        agent_frame = f'{agent_name}_link0'
         agent_pose = agent_config['pose']
         msg = create_tf_msg_from_xyzrpy(agent_frame, 
             agent_pose['position']['x'], agent_pose['position']['y'], agent_pose['position']['z'],

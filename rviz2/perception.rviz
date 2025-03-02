@@ -1,12 +1,12 @@
 Panels:
   - Class: rviz_common/Displays
-    Help Height: 78
+    Help Height: 329
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /PointCloud21/Topic1
+        - /RobotModel1
       Splitter Ratio: 0.5
-    Tree Height: 1079
+    Tree Height: 828
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -50,14 +50,14 @@ Visualization Manager:
       Enabled: true
       Length: 0.5
       Name: Axes
-      Radius: 0.05000000074505806
+      Radius: 0.02500000037252903
       Reference Frame: world
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 0.9799999594688416
-        Min Value: 0.5399999618530273
+        Max Value: 1.459999918937683
+        Min Value: -0.9000000953674316
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -89,31 +89,31 @@ Visualization Manager:
       Value: true
     - Class: rviz_default_plugins/Axes
       Enabled: true
-      Length: 0.5
+      Length: 0.10000000149011612
       Name: Axes
-      Radius: 0.05000000074505806
+      Radius: 0.02500000037252903
       Reference Frame: camera_1_link
       Value: true
     - Class: rviz_default_plugins/Axes
       Enabled: true
-      Length: 0.5
+      Length: 0.10000000149011612
       Name: Axes
-      Radius: 0.05000000074505806
+      Radius: 0.02500000037252903
       Reference Frame: camera_2_link
       Value: true
     - Class: rviz_default_plugins/Axes
       Enabled: true
-      Length: 0.5
+      Length: 0.10000000149011612
       Name: Axes
-      Radius: 0.05000000074505806
+      Radius: 0.02500000037252903
       Reference Frame: camera_3_link
       Value: true
     - Class: rviz_default_plugins/Axes
       Enabled: true
-      Length: 0.5
+      Length: 0.10000000149011612
       Name: Axes
-      Radius: 0.05000000074505806
-      Reference Frame: agent_frame
+      Radius: 0.02500000037252903
+      Reference Frame: panda_link0
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
@@ -128,6 +128,95 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /circ_force_markers
       Value: true
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Collision Enabled: true
+      Description File: ""
+      Description Source: Topic
+      Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_description
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        panda_grasptarget:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        panda_hand:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_leftfinger:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_link0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_link1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_link2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_link3:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_link4:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_link5:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_link6:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_link7:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        panda_link8:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        panda_rightfinger:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+      Mass Properties:
+        Inertia: false
+        Mass: false
+      Name: RobotModel
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: false
   Enabled: true
   Global Options:
     Background Color: 255; 255; 255
@@ -174,25 +263,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 4.591403484344482
+      Distance: 3.6404635906219482
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.16494670510292053
-        Y: 0.08250005543231964
-        Z: 0.7074412703514099
+        X: -0.4038732051849365
+        Y: 0.2669714689254761
+        Z: 0.5064383745193481
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4903995394706726
+      Pitch: 0.24539972841739655
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.63855504989624
+      Yaw: 3.981738567352295
     Saved: ~
 Window Geometry:
   Displays:
