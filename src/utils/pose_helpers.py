@@ -1,6 +1,7 @@
 import numpy as np
 from transforms3d.euler import euler2quat, quat2mat
 from geometry_msgs.msg import TransformStamped
+import cupy as cp
 
 def create_tf_msg_from_xyzrpy(
         child_frame:str, 
@@ -89,6 +90,39 @@ def create_tf_matrix_from_euler(pose_config):
     extrinsic_matrix[:3,3] = position
     return extrinsic_matrix
 
+    # x, y, z = pose_config['position']['x'], \
+    #     pose_config['position']['y'], \
+    #     pose_config['position']['z']
+    # roll, pitch, yaw = pose_config['orientation']['roll'], \
+    #     pose_config['orientation']['pitch'], \
+    #     pose_config['orientation']['yaw']
+    # x, y, z = [cp.asarray(pose_config['position'][k]) for k in ['x', 'y', 'z']]
+    # roll, pitch, yaw = [cp.asarray(pose_config['orientation'][k]) for k in ['roll', 'pitch', 'yaw']]
+
+    # extrinsic_matrix = cp.eye(4)  # Create a 4x4 identity matrix
+    
+    # # Create rotation matrices
+    # Rx = cp.array([[1, 0, 0],
+    #                 [0, cp.cos(roll), -cp.sin(roll)],
+    #                 [0, cp.sin(roll), cp.cos(roll)]])
+    
+    # Ry = cp.array([[cp.cos(pitch), 0, cp.sin(pitch)],
+    #                 [0, 1, 0],
+    #                 [-cp.sin(pitch), 0, cp.cos(pitch)]])
+    
+    # Rz = cp.array([[cp.cos(yaw), -cp.sin(yaw), 0],
+    #                 [cp.sin(yaw), cp.cos(yaw), 0],
+    #                 [0, 0, 1]])
+    
+    # # Combine rotations
+    # R = Rz @ Ry @ Rx
+    
+    # extrinsic_matrix[:3, :3] = R
+    # extrinsic_matrix[:3, 3] = cp.array([x, y, z])
+
+    # return extrinsic_matrix.get()
+
+
 
 def create_intrinsic_matrix(intrinsics_config):
     fx = intrinsics_config['fx']
@@ -104,76 +138,3 @@ def create_intrinsic_matrix(intrinsics_config):
     ])
     return intrinsic_matrix
 
-
-
-# import cupoch as cph
-# def create_observation(msg, static_configs:dict, log_and_kill:bool=False) -> dict:
-#     # https://ksimek.github.io/2012/08/22/extrinsic/
-#     # read message and create oveservation
-
-#     width = msg.width
-#     height = msg.height
-
-#     # read depth image
-#     def get_numpy_dtype(encoding):
-#         """Map ROS encoding to numpy dtype."""
-#         if encoding in ['mono8', '8UC1']:
-#             return np.uint8
-#         elif encoding in ['mono16', '16UC1']:
-#             return np.uint16
-#         elif encoding in ['rgb8', 'bgr8', '8UC3']:
-#             return np.uint8
-#         elif encoding in ['16UC3']:
-#             return np.uint16
-#         else:
-#             raise ValueError(f"Unsupported encoding: {encoding}")
-#     np_img = np.frombuffer(msg.data, get_numpy_dtype(msg.encoding)).reshape(height, width)
-#     depth_image = cph.geometry.Image(np_img.astype(np.float32))
-
-
-#     intrinsics = cph.camera.PinholeCameraIntrinsic()
-#     intrinsics.set_intrinsics(
-#         msg.width,
-#         msg.height,
-#         static_configs['intrinsics']['fx'],
-#         static_configs['intrinsics']['fy'],
-#         static_configs['intrinsics']['cx'],
-#         static_configs['intrinsics']['cy']
-#     )
-
-#     # create extrinsics_matrix
-#     extrinsics = create_extrinsic_matrix(static_configs['pose'])
-
-#     obs = dict(
-#         depth_image = depth_image,
-#         intrinsics = intrinsics,
-#         extrinsics = extrinsics
-#     )
-
-
-#     if log_and_kill:
-#         # Save observation dictionary to file
-#         import pickle
-#         import sys
-#         import rclpy
-        
-#         rclpy.get_logger('camera_helpers').info('logging and killing...')
-#         try:
-#             # Save data to pickle file
-#             data_to_save = {
-#                 'depth_image': np_img,
-#                 'width': msg.width,
-#                 'height': msg.height,
-#                 'static_configs': static_configs,
-#                 'extrinsics': extrinsics
-#             }
-            
-#             with open('/tmp/camera_data.pickle', 'wb') as f:
-#                 pickle.dump(data_to_save, f)
-#         except Exception as e:
-#             rclpy.get_logger('camera_helpers').error(f'{e}')
-
-#         rclpy.shutdown()
-#         sys.exit(0)
-
-#     return obs

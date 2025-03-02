@@ -9,11 +9,20 @@ import numpy as np
 import cupy as cp
 import numba.cuda as cuda
 import percept.utils.troubleshoot as troubleshoot
+from percept.utils.pose_helpers import create_tf_matrix_from_euler
 
 class PerceptionPipeline():
     def __init__(self, node):
         self.show_pipeline_delays = False
         self.show_total_pipeline_delay = False
+        self.enable_robot_body_subtraction = False
+        self.robot_description_path = None
+        self.camera_names = None
+        self.camera_tfs = None
+        self.agent_names = None
+        self.agent_tfs = None
+        self.downsample = 5
+        self.outlier_neighbours = 0
 
         self.node = node
         self.logger = node.get_logger().get_child('perception_pipeline')
@@ -33,21 +42,27 @@ class PerceptionPipeline():
             self.logger.error("CUDA is not available - nvidia-smi command failed")
             raise RuntimeError("CUDA is required for this pipeline")
 
+    def load_robot_urdf(self, robot_urdf_filepath:str):
+        self.robot_description_path = robot_urdf_filepath
+        self.robot_kinematics_chain = cph.kinematics.KinematicChain(self.robot_description_path)
+
     def setup(self):
-        # set scene props
-        min_bound, max_bound = np.array(self.scene_bounds['min']), np.array(self.scene_bounds['max'])
+        # set scene geometry properties
+        min_bound = np.array(self.scene_bounds['min'])
+        max_bound = np.array(self.scene_bounds['max'])
+        self.voxel_min_bound = tuple(min_bound)
+        self.voxel_max_bound = tuple(max_bound)
+        
+        if not np.all(np.abs(max_bound - min_bound) - (max_bound[0] - min_bound[0]) < 1e-6):
+            raise ValueError("The min_bound and max_bound do not define a cube. Make it a cube!")
+
         self.scene_bbox = cph.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+        self.voxel_size = np.abs(max_bound[0] - min_bound[0]) / self.voxel_resolution
 
-        # set voxel props
-        cubic_size = self.cubic_size
-        voxel_resolution = self.voxel_resolution
-        self.voxel_size = cubic_size/voxel_resolution
-        self.voxel_min_bound = (-cubic_size/2.0, -cubic_size/2.0, -cubic_size/2.0)
-        self.voxel_max_bound = (cubic_size/2.0, cubic_size/2.0, cubic_size/2.0)
-
+        # set data buffers
         self.primitives_pos_gpu = None
 
-    def _process_single_pointcloud(self, camera_name:str, msg, tf_matrix=None, downsample=False):
+    def _process_single_pointcloud(self, camera_name:str, msg, camera_tf=None, downsample=0):
         try:
             # Create CUDA stream for parallel GPU operations
             stream = cp.cuda.Stream()
@@ -63,12 +78,12 @@ class PerceptionPipeline():
                 
                 # More aggressive downsampling if enabled
                 if downsample:
-                    every_n_points = 5  # Increased from 3 to 5
+                    every_n_points = downsample
                     pcd = pcd.uniform_down_sample(every_n_points)
                 
                 # Transform after downsampling to reduce computation
-                if tf_matrix is not None:
-                    pcd = pcd.transform(tf_matrix)
+                if camera_tf is not None:
+                    pcd = pcd.transform(camera_tf)
 
                 # Crop pointcloud according to scene bounds
                 pcd = pcd.crop(self.scene_bbox)
@@ -77,7 +92,7 @@ class PerceptionPipeline():
         except Exception as e:
             self.logger.error(troubleshoot.get_error_text(e))
 
-    def parse_pointclouds(self, pointclouds:dict, tfs:dict, use_sim=False, downsample:bool=False):
+    def _parse_pointclouds(self, pointclouds:dict, camera_tfs:dict, downsample:int=0):
         start = time.time()
 
         # Early return if pointclouds is None
@@ -99,7 +114,7 @@ class PerceptionPipeline():
                         self._process_single_pointcloud,
                         camera_name,
                         pointclouds[camera_name],
-                        None if use_sim else tfs.get(camera_name),
+                        camera_tfs.get(camera_name),
                         downsample
                     )
                 )
@@ -116,7 +131,7 @@ class PerceptionPipeline():
 
         return processed_pointclouds
     
-    def merge_pointclouds(self, pointclouds:dict):
+    def _merge_pointclouds(self, pointclouds:dict):
         # merge pointclouds
         start = time.time()
 
@@ -140,11 +155,45 @@ class PerceptionPipeline():
             self.logger.info(f"Registration (GPU) [sec]: {time.time()-start}")
         return merged_gpu
 
-    def perform_robot_body_subtraction(self):
+    def _perform_robot_body_subtraction(self, pointclouds:dict, agent_pos:np.ndarray, joint_state:dict):
+
+        def get_mesh_from_joint_state(agent_pos, joint_state:dict):
+            joint_state = joint_state['position']
+            
+            mesh = self.robot_kinematics_chain.forward_kinematics(joint_state)
+        
+            
+
+            return mesh
+
+        # header:
+        # seq: 58448
+        # stamp:
+        #     secs: 1740563297
+        #     nsecs: 741921186
+        # frame_id: ''
+        # name:
+        # - panda_joint1
+        # - panda_joint2
+        # - panda_joint3
+        # - panda_joint4
+        # - panda_joint5
+        # - panda_joint6
+        # - panda_joint7
+        # - panda_finger_joint1
+        # - panda_finger_joint2
+        # position: [-0.01639333324892479, -0.2962552043524374, -0.021682949399173913, -1.9661479419484074, -0.051427240368392836, 1.6395320340216735, 0.6855043043063745, 0.03948273882269859, 0.03948273882269859]
+        # velocity: [-0.00012541587041589654, -0.0005273575465614755, 0.0001572497684467771, 0.0004776579476729115, 0.0004162800392557667, 0.00040168241189413083, -0.0006871699583625779, 0.0, 0.0]
+        # effort: [-0.06105424463748932, -20.465009689331055, -0.20073528587818146, 22.3988094329834, 0.7813851237297058, 2.3834891319274902, 0.11294838786125183, 0.0, 0.0]
         pass
 
+    def _remove_outliers(self, pcd:cph.geometry.PointCloud):
+        outlier_neighbours = self.outlier_neighbours
+        outlier_std_ratio = 2.0
+        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=outlier_neighbours, std_ratio=outlier_std_ratio)
+        return pcd
 
-    def perform_voxelization(self, pcd:cph.geometry.PointCloud):
+    def _perform_voxelization(self, pcd:cph.geometry.PointCloud):
         start = time.time()
         voxel_grid = cph.geometry.VoxelGrid.create_from_point_cloud_within_bounds(
             pcd,
@@ -158,7 +207,7 @@ class PerceptionPipeline():
         return voxel_grid
 
     
-    def convert_voxels_to_primitives(self, voxel_grid:cph.geometry.VoxelGrid):
+    def _convert_voxels_to_primitives(self, voxel_grid:cph.geometry.VoxelGrid):
         start = time.time()
         voxels = voxel_grid.voxels.cpu()
         primitives_pos = np.array(list(voxels.keys()))
@@ -190,26 +239,35 @@ class PerceptionPipeline():
             self.logger.info(f"Voxel2Primitives (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos
 
-    def run_pipeline(self, pointclouds:dict, tfs:dict, agent_pos:np.ndarray, use_sim=False):
-        # self.logger.info(f"Running perception pipeline...")
+    def run_pipeline(self, pointclouds:dict, camera_tfs:dict, agent_tfs:dict, joint_states:dict):
         # streamer/realsense gives pointclouds and tfs
+        outlier_neighbours = self.outlier_neighbours
+        downsample = self.downsample
+        enable_robot_body_subtraction = self.enable_robot_body_subtraction
+        show_pipeline_delays = self.show_pipeline_delays
+        show_total_pipeline_delay = self.show_total_pipeline_delay
+
         start = time.time()
 
         try:
-            pointclouds = self.parse_pointclouds(pointclouds, tfs, use_sim=use_sim, downsample=True) # downsample increases performance
-            merged_pointclouds = self.merge_pointclouds(pointclouds)
+            pointclouds = self._parse_pointclouds(pointclouds, camera_tfs, downsample=downsample) # downsample increases performance
+            pointclouds = self._merge_pointclouds(pointclouds)
         except Exception as e:
             self.logger.error(troubleshoot.get_error_text(e))
             return None, None
         
-        # pointclouds = self.perform_robot_body_subtraction()
-        
-        if merged_pointclouds is not None:
-            voxel_grid = self.perform_voxelization(merged_pointclouds)
-            primitives_pos = self.convert_voxels_to_primitives(voxel_grid)
+        if enable_robot_body_subtraction:
+            pointclouds = self._perform_robot_body_subtraction(pointclouds, agent_tfs, joint_states)
+
+        if outlier_neighbours > 0:
+            pointclouds = self._remove_outliers(pointclouds)
+
+        if pointclouds is not None:
+            voxel_grid = self._perform_voxelization(pointclouds)
+            primitives_pos = self._convert_voxels_to_primitives(voxel_grid)
         else:
             primitives_pos = None
 
-        if self.show_total_pipeline_delay:
+        if show_total_pipeline_delay:
             self.logger.info(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
         return primitives_pos

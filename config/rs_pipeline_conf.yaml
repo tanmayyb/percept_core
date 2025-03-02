@@ -1,8 +1,0 @@
-perception_pipeline_config:
-  scene_bounds: 
-    min: [-2.0, -2.0, -2.0]
-    max: [2.0, 2.0, 2.0]
-  voxel_props:
-    cubic_size: 4.0 # in metres
-    voxel_resolution: 40.0 # voxels in 'cubic_size' # 10 voxels per meter
-    primitive_sphere_radius: 0.10 # voxels in 'cubic_size', not really used in perception pipeline

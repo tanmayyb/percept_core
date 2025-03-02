@@ -56,8 +56,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 1.9500000476837158
-        Min Value: -0.1499999314546585
+        Max Value: 0.9799999594688416
+        Min Value: 0.5399999618530273
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -75,7 +75,7 @@ Visualization Manager:
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.10000000149011612
+      Size (m): 0.03999999910593033
       Style: Spheres
       Topic:
         Depth: 5
@@ -181,18 +181,18 @@ Visualization Manager:
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.25465691089630127
-        Y: 0.34729698300361633
-        Z: 0.9135410785675049
+        X: -0.16494670510292053
+        Y: 0.08250005543231964
+        Z: 0.7074412703514099
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4153994023799896
+      Pitch: 0.4903995394706726
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.408552169799805
+      Yaw: 4.63855504989624
     Saved: ~
 Window Geometry:
   Displays:

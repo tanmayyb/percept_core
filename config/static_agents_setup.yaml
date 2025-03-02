@@ -1,0 +1,11 @@
+agent_1:
+  namespace: 'agent_1'
+  pose:
+    position:
+      x: 0.0
+      y: 0.0
+      z: 1.0
+    orientation:
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0

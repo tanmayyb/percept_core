@@ -21,18 +21,16 @@ def get_path(pkg_share:str, *paths):
 
 def create_perception_group(pkg_share:str, show_pipeline_delays, show_total_pipeline_delay):
     real_pipeline_params = {
-        'static_camera_config': get_path(pkg_share, 'config', 'rs_static_cams.yaml'),
-        'real_pipeline_config': get_path(pkg_share, 'config', 'rs_pipeline_conf.yaml'), 
-        'agent_config': get_path(pkg_share, 'config', 'agent_conf.yaml'),
-        'static_scene': True,
-        'static_agent': True,
+        'enable_dynamic_cameras': False,
+        'enable_dynamic_agents': False,
+        'enable_robot_body_subtraction': False,
         'show_pipeline_delays': show_pipeline_delays,
         'show_total_pipeline_delay': show_total_pipeline_delay,
     }
     
     static_tf_publisher_params = {
-        'static_camera_config': get_path(pkg_share, 'config', 'rs_static_cams.yaml'),
-        'agent_config': get_path(pkg_share, 'config', 'agent_conf.yaml')
+        'static_camera_config': get_path(pkg_share, 'config', 'static_cameras_setup.yaml'),
+        'static_agent_config': get_path(pkg_share, 'config', 'static_agents_setup.yaml')
     }
 
     namespace = 'perception'
@@ -69,8 +67,8 @@ def create_perception_group(pkg_share:str, show_pipeline_delays, show_total_pipe
 
 def create_realsense_group(pkg_share:str):
     realsense_group = []
-    static_cams = yaml_to_dict(get_path(pkg_share, 'config', 'rs_static_cams.yaml'))
-    global_params = yaml_to_dict(get_path(pkg_share, 'config', 'rs_cameras.yaml'))
+    static_cams = yaml_to_dict(get_path(pkg_share, 'config', 'static_cameras_setup.yaml'))
+    global_params = yaml_to_dict(get_path(pkg_share, 'config', 'rs_settings.yaml'))
     namespace = 'cameras'
 
     for camera_id, camera_info in static_cams.items():  

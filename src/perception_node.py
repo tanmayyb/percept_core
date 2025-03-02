@@ -6,7 +6,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import percept.utils.troubleshoot as troubleshoot
-from percept.utils.config_helpers import load_yaml_as_dict
 
 from sensor_msgs.msg import PointCloud2, PointField
 from geometry_msgs.msg import Point, Pose
@@ -38,14 +37,14 @@ class PerceptionNode(Node):
         self.processing = False
 
 
-    def run_pipeline(self, pointcloud_buffer, tfs, agent_pos, use_sim):
+    def run_pipeline(self, pointcloud_buffer, camera_tfs, agent_tfs, joint_states):
         try:
             if self.processing:
                 return
             self.processing = True
 
             primitives_pos_result = self.pipeline.run_pipeline(
-                pointcloud_buffer, tfs, agent_pos, use_sim=use_sim)                    
+                pointcloud_buffer, camera_tfs, agent_tfs, joint_states)                    
 
             # if primitives_pos_result is not None and primitives_distance_vectors is not None:
             if primitives_pos_result is not None:
@@ -110,9 +109,3 @@ class PerceptionNode(Node):
     def shutdown(self):
         self.thread_pool.shutdown(wait=True)
         self.get_logger().info("Shutting down node.")
-
-    def load_and_setup_static_agent_config(self, config_path):
-        self.agent_config = load_yaml_as_dict(self, config_path)
-        agent_pose = self.agent_config['agent_pose']
-        self.agent_pos = np.array([agent_pose['x'], agent_pose['y'], agent_pose['z']])
-        self.get_logger().info(f"static agent config loaded: {self.agent_pos}")
