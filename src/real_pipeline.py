@@ -51,7 +51,7 @@ class RealPerceptionPipeline(PerceptionPipeline):
         robot_urdf_filepath = self.configs['robot_urdf_filepath']
         
         self.scene_bounds = pipeline_config['scene_bounds']
-        self.voxel_resolution = pipeline_config['voxel_props']['voxel_resolution']
+        self.voxel_size = pipeline_config['graphics_settings']['voxel_size']
         
         if self.enable_robot_body_subtraction:
             self.load_robot_urdf(robot_urdf_filepath)

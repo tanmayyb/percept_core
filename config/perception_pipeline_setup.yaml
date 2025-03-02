@@ -4,7 +4,5 @@ perception_pipeline_config:
     # max: [1.0, 1.0, 1.0]
     min: [-2.0, -2.0, -2.0]
     max: [2.0, 2.0, 2.0]
-  voxel_props:
-    # voxel_resolution: 50.0
-    voxel_resolution: 100.0
-    # mass radius = 0.020
+  graphics_settings:
+    voxel_size: 0.040 # 2*mass_radius

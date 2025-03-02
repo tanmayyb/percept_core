@@ -16,11 +16,13 @@ class PerceptionPipeline():
         self.show_pipeline_delays = False
         self.show_total_pipeline_delay = False
         self.enable_robot_body_subtraction = False
-        self.robot_description_path = None
-        self.camera_names = None
-        self.camera_tfs = None
-        self.agent_names = None
-        self.agent_tfs = None
+        
+        # self.robot_description_path = None
+        # self.camera_names = None
+        # self.camera_tfs = None
+        # self.agent_names = None
+        # self.agent_tfs = None
+
         self.downsample = 5
         self.outlier_neighbours = 0
 
@@ -57,12 +59,13 @@ class PerceptionPipeline():
             raise ValueError("The min_bound and max_bound do not define a cube. Make it a cube!")
 
         self.scene_bbox = cph.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
-        self.voxel_size = np.abs(max_bound[0] - min_bound[0]) / self.voxel_resolution
 
         # set data buffers
         self.primitives_pos_gpu = None
 
-    def _process_single_pointcloud(self, camera_name:str, msg, camera_tf=None, downsample=0):
+    def _process_single_pointcloud(self, camera_name:str, msg, camera_tf=None):
+        downsample = self.downsample
+        scene_bbox = self.scene_bbox
         try:
             # Create CUDA stream for parallel GPU operations
             stream = cp.cuda.Stream()
@@ -76,23 +79,22 @@ class PerceptionPipeline():
                 )       
                 pcd.points = temp.points
                 
-                # More aggressive downsampling if enabled
-                if downsample:
-                    every_n_points = downsample
-                    pcd = pcd.uniform_down_sample(every_n_points)
+                # downsample increases performance
+                if downsample>0:
+                    pcd = pcd.uniform_down_sample(downsample)
                 
                 # Transform after downsampling to reduce computation
                 if camera_tf is not None:
                     pcd = pcd.transform(camera_tf)
 
                 # Crop pointcloud according to scene bounds
-                pcd = pcd.crop(self.scene_bbox)
+                pcd = pcd.crop(scene_bbox)
 
             return pcd
         except Exception as e:
             self.logger.error(troubleshoot.get_error_text(e))
 
-    def _parse_pointclouds(self, pointclouds:dict, camera_tfs:dict, downsample:int=0):
+    def _parse_pointclouds(self, pointclouds:dict, camera_tfs:dict):
         start = time.time()
 
         # Early return if pointclouds is None
@@ -114,8 +116,7 @@ class PerceptionPipeline():
                         self._process_single_pointcloud,
                         camera_name,
                         pointclouds[camera_name],
-                        camera_tfs.get(camera_name),
-                        downsample
+                        camera_tfs.get(camera_name)
                     )
                 )
             
@@ -155,13 +156,13 @@ class PerceptionPipeline():
             self.logger.info(f"Registration (GPU) [sec]: {time.time()-start}")
         return merged_gpu
 
-    def _perform_robot_body_subtraction(self, pointclouds:dict, agent_pos:np.ndarray, joint_state:dict):
+    def _perform_robot_body_subtraction(self, pointclouds:dict, agent_tfs:dict, joint_states:dict):
 
-        def get_mesh_from_joint_state(agent_pos, joint_state:dict):
+        def get_mesh_from_joint_state(agent_tf, joint_state:dict):
             joint_state = joint_state['position']
             
             mesh = self.robot_kinematics_chain.forward_kinematics(joint_state)
-        
+            mesh = mesh.transform(agent_tf)
             
 
             return mesh
@@ -242,7 +243,6 @@ class PerceptionPipeline():
     def run_pipeline(self, pointclouds:dict, camera_tfs:dict, agent_tfs:dict, joint_states:dict):
         # streamer/realsense gives pointclouds and tfs
         outlier_neighbours = self.outlier_neighbours
-        downsample = self.downsample
         enable_robot_body_subtraction = self.enable_robot_body_subtraction
         show_pipeline_delays = self.show_pipeline_delays
         show_total_pipeline_delay = self.show_total_pipeline_delay
@@ -250,7 +250,7 @@ class PerceptionPipeline():
         start = time.time()
 
         try:
-            pointclouds = self._parse_pointclouds(pointclouds, camera_tfs, downsample=downsample) # downsample increases performance
+            pointclouds = self._parse_pointclouds(pointclouds, camera_tfs)
             pointclouds = self._merge_pointclouds(pointclouds)
         except Exception as e:
             self.logger.error(troubleshoot.get_error_text(e))
