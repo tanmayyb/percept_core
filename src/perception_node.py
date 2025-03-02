@@ -25,7 +25,12 @@ class PerceptionNode(Node):
 
         # Buffer to store latest pointclouds
         self.pointcloud_buffer = {}
-        self.buffer_lock = threading.Lock()
+        self.pointcloud_buffer_lock = threading.Lock()
+
+        # Buffer to store latest joint states
+        self.joint_state_buffer = {}
+        self.joint_state_buffer_lock = threading.Lock()
+        self.num_joint_states = 0
 
         # Publisher for results
         self.primitives_publisher = self.create_publisher(
@@ -43,6 +48,7 @@ class PerceptionNode(Node):
                 return
             self.processing = True
 
+
             primitives_pos_result = self.pipeline.run_pipeline(
                 pointcloud_buffer, camera_tfs, agent_tfs, joint_states)                    
 
@@ -58,7 +64,7 @@ class PerceptionNode(Node):
             self.processing = False
 
         except Exception as e:
-            self.get_logger().error(troubleshoot.get_error_text(e))
+            self.get_logger().error(troubleshoot.get_error_text(e), exc_info=True)
 
 
     def make_pointcloud_msg(self, points_array):

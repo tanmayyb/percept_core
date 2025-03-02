@@ -23,7 +23,7 @@ def create_perception_group(pkg_share:str, show_pipeline_delays, show_total_pipe
     real_pipeline_params = {
         'enable_dynamic_cameras': False,
         'enable_dynamic_agents': False,
-        'enable_robot_body_subtraction': False,
+        'enable_robot_body_subtraction': True,
         'show_pipeline_delays': show_pipeline_delays,
         'show_total_pipeline_delay': show_total_pipeline_delay,
     }
@@ -87,6 +87,25 @@ def create_realsense_group(pkg_share:str):
             # emulate_tty=True,
         )
         realsense_group.append(node)
+
+    # camera_id, camera_info = list(static_cams.items())[0]   
+    # params = deepcopy(global_params)
+    # # params['camera_name'] = camera_id
+    # # params['camera_namespace'] = namespace
+    # params['serial_no'] = camera_info['serial_no']
+    # node = Node(
+    #     package='realsense2_camera',
+    #     namespace=namespace,
+    #     name=camera_id,
+    #     executable='realsense2_camera_node',
+    #     parameters=[params],
+    #     # output=_output,
+    #     # arguments=['--ros-args', '--log-level', 'debug'],
+    #     # emulate_tty=True,
+    # )
+    # realsense_group.append(node)
+
+
     return GroupAction(realsense_group)
 
 

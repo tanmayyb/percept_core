@@ -14,10 +14,10 @@ from sensor_msgs.msg import PointCloud2, JointState
 
 from rclpy.parameter import Parameter
 from rcl_interfaces.msg import ParameterDescriptor
-
 from ament_index_python.packages import get_package_share_directory
-from pathlib import Path
 
+from pathlib import Path
+from copy import deepcopy
 import yaml
 
 class RealPerceptionPipeline(PerceptionPipeline):
@@ -45,16 +45,17 @@ class RealPerceptionPipeline(PerceptionPipeline):
         super().setup()
 
     def _load_and_setup_pipeline_configs(self):        
+        package_share_dir = self.configs['package_share_dir']
         pipeline_config = self.configs['pipeline_config']['perception_pipeline_config']
         camera_configs = self.configs['camera_configs']
         agent_configs = self.configs['agent_configs']
-        robot_urdf_filepath = self.configs['robot_urdf_filepath']
+        robot_id = self.configs['robot_id']
         
         self.scene_bounds = pipeline_config['scene_bounds']
         self.voxel_size = pipeline_config['graphics_settings']['voxel_size']
         
         if self.enable_robot_body_subtraction:
-            self.load_robot_urdf(robot_urdf_filepath)
+            self.load_robot_description(package_share_dir, robot_id)
         
         self._load_camera_configs(camera_configs)
         self._load_agent_configs(agent_configs)
@@ -70,13 +71,16 @@ class RealPerceptionPipeline(PerceptionPipeline):
                 self.node.get_logger().info(f"static camera '{camera_name}' setup complete")
 
     def _load_agent_configs(self, agent_configs):
+        agents = agent_configs['agents']
+        configurations = agent_configs['configurations']
         if self.enable_dynamic_agents:
-            self.agent_names = list(agent_configs.keys())
+            self.agent_names = list(agents.keys())
         else:
-            self.agent_names = list(agent_configs.keys())
+            self.agent_names = list(agents.keys())
             self.agent_tfs = dict()
             for agent_name in self.agent_names:
-                self.agent_tfs[agent_name] = create_tf_matrix_from_euler(agent_configs[agent_name]['pose'])
+                self.agent_tfs[agent_name] = create_tf_matrix_from_euler(agents[agent_name]['pose'])
+        self.joint_names = configurations['joints']
 
 class RealPerceptionNode(PerceptionNode):
     def __init__(self):
@@ -100,6 +104,14 @@ class RealPerceptionNode(PerceptionNode):
         show_pipeline_delays = self.get_parameter('show_pipeline_delays').get_parameter_value().bool_value
         show_total_pipeline_delay = self.get_parameter('show_total_pipeline_delay').get_parameter_value().bool_value
 
+        # Log all parameters
+        self.get_logger().info("Real Perception Pipeline Parameters:")
+        self.get_logger().info(f"\t enable_dynamic_cameras: {self.enable_dynamic_cameras}")
+        self.get_logger().info(f"\t enable_dynamic_agents: {self.enable_dynamic_agents}")
+        self.get_logger().info(f"\t enable_robot_body_subtraction: {self.enable_robot_body_subtraction}")
+        self.get_logger().info(f"\t show_pipeline_delays: {show_pipeline_delays}")
+        self.get_logger().info(f"\t show_total_pipeline_delay: {show_total_pipeline_delay}")
+
         pipeline_configs = self._create_pipeline_configs()
 
         # Initialize pipeline
@@ -112,7 +124,7 @@ class RealPerceptionNode(PerceptionNode):
             show_pipeline_delays,
             show_total_pipeline_delay
         )
-
+        
         # setup subscribers
         self.setup_ros_subscribers()
 
@@ -124,8 +136,6 @@ class RealPerceptionNode(PerceptionNode):
         def load(filepath):
             with open(filepath, "r") as f:
                 return yaml.load(f, Loader=yaml.SafeLoader)
-
-        configs = {}
 
         package_share_dir = Path(get_package_share_directory('percept'))
 
@@ -140,17 +150,19 @@ class RealPerceptionNode(PerceptionNode):
             agent_configs_filepath = package_share_dir / 'config' / 'static_agents_setup.yaml'
 
         if enable_robot_body_subtraction:
-            robot_urdf_filepath = package_share_dir / 'assets'/ 'robots' / 'panda.urdf'
+            robot_id = 'panda'
         else:
-            robot_urdf_filepath = None
+            robot_id = None
 
         pipeline_config_filepath = package_share_dir / 'config' / 'perception_pipeline_setup.yaml'
 
-        configs['camera_configs'] = load(camera_configs_filepath)
-        configs['agent_configs'] = load(agent_configs_filepath)
-        configs['pipeline_config'] = load(pipeline_config_filepath)
-        configs['robot_urdf_filepath'] = robot_urdf_filepath
-        return configs
+        return {
+            'package_share_dir': package_share_dir,
+            'camera_configs': load(camera_configs_filepath),
+            'agent_configs': load(agent_configs_filepath),
+            'pipeline_config': load(pipeline_config_filepath),
+            'robot_id': robot_id
+        }
 
 
     def setup_ros_subscribers(self):
@@ -161,33 +173,63 @@ class RealPerceptionNode(PerceptionNode):
                 self.subscribers[camera_name] = self.create_subscription(
                     PointCloud2, 
                     topic,
-                    lambda msg, cn=camera_name: self.static_camera_callback(msg, cn),
+                    lambda msg, cn=camera_name: self._camera_callback(msg, cn),
                     10)
                 self.get_logger().info(f"subscribed to {camera_name} topic")
-        # if self.pipeline.agent_names:
-        #     for agent_name in self.pipeline.agent_names:
-        #         topic = f'/agents/{agent_name}/pose'
-        #         self.subscribers[agent_name] = self.create_subscription(
-        #             Pose,
-        #             topic,
-        #             lambda msg, cn=agent_name: self.static_agent_callback(msg, cn),
-        #             10)
 
-    def static_camera_callback(self, msg, camera_name):
-        with self.buffer_lock:
+        if self.enable_robot_body_subtraction:
+            if self.pipeline.agent_names:
+                self.subscribers['joint_states'] = self.create_subscription(
+                    JointState,
+                    '/joint_states',
+                    lambda msg: self._joint_state_callback(msg),
+                    10
+                )
+            self.num_joint_states = len(self.pipeline.agent_names)*len(self.pipeline.joint_names)
+
+    def _joint_state_callback(self, msg):
+        with self.joint_state_buffer_lock:
+            for name, position in zip(msg.name, msg.position):
+                self.joint_state_buffer[name] = position
+            # self.get_logger().info(f"joint_state_buffer: {self.joint_state_buffer}")
+            self._try_run_pipeline()
+
+    def _camera_callback(self, msg, camera_name):
+        with self.pointcloud_buffer_lock:
             self.pointcloud_buffer[camera_name] = msg
-            if len(self.pointcloud_buffer) == len(self.pipeline.camera_names):
-                buffer_copy = self.pointcloud_buffer.copy()
-                if not self.enable_dynamic_cameras:
-                    camera_tfs = self.pipeline.camera_tfs
-                if not self.enable_dynamic_agents:
-                    agent_tfs = self.pipeline.agent_tfs
-                if not self.enable_robot_body_subtraction:
-                    joint_state = None
-                else: 
-                    joint_state = None
-                future = self.thread_pool.submit(self.run_pipeline, buffer_copy, camera_tfs, agent_tfs, joint_state)
-                self.pointcloud_buffer.clear()
+            self._try_run_pipeline()
+            
+    def _try_run_pipeline(self):
+        # Check if we have all necessary data to run the pipeline
+        all_cameras_ready = len(self.pointcloud_buffer) == len(self.pipeline.camera_names)
+        joint_state_ready = len(self.joint_state_buffer) == self.num_joint_states
+        
+        if all_cameras_ready and joint_state_ready:
+            pointcloud_buffer = self.pointcloud_buffer.copy()
+            joint_state_buffer = deepcopy(self.joint_state_buffer)
+
+            if not self.enable_dynamic_cameras:
+                camera_tfs = self.pipeline.camera_tfs
+            else:
+                camera_tfs = None  # Dynamic camera case would need to obtain TFs differently
+                
+            if not self.enable_dynamic_agents:
+                agent_tfs = self.pipeline.agent_tfs
+            else:
+                agent_tfs = None  # Dynamic agent case would need to obtain TFs differently
+                
+            # Run the pipeline with the gathered data
+            future = self.thread_pool.submit(
+                self.run_pipeline, 
+                pointcloud_buffer, 
+                camera_tfs, 
+                agent_tfs, 
+                joint_state_buffer
+            )
+            
+            # Clear buffers after launching the pipeline
+            self.pointcloud_buffer.clear()
+            self.joint_state_buffer.clear()
 
 def main():
     rclpy.init()
@@ -197,7 +239,7 @@ def main():
     except KeyboardInterrupt:
         node.get_logger().info("Keyboard interrupt, shutting down...")
     except Exception as e:
-        node.get_logger().error(troubleshoot.get_error_text(e))
+        node.get_logger().error(troubleshoot.get_error_text(e, print_stack_trace=True))
 
 if __name__ == "__main__":
     main()
