@@ -168,102 +168,29 @@ class PerceptionPipeline():
         if self.show_pipeline_delays:
             self.logger.info(f"Registration (GPU) [sec]: {time.time()-start}")
         return merged_gpu
-
-    def _get_mesh_from_joint_state(self, agent_tf, joint_mapping:dict):
-                poses = self.robot_kinematics_chain.forward_kinematics(joint_mapping, agent_tf)
-                meshes = self.robot_kinematics_chain.get_transformed_visual_geometry_map(poses)
-                return list(meshes.values())
     
     def _perform_robot_body_subtraction(self, pointcloud:dict, agent_tfs:dict, joint_states:dict):
-        num_points = len(pointcloud.points)
-        masks = []
         start = time.time()
-        try:        
-            mesh_list = []
-
-            # Get meshes for all agents
-            for agent_name, tf in agent_tfs.items():
-                try:
-                    joint_mapping = {f'{self.robot_id}_{joint_name}': \
-                            joint_states[f'{agent_name}_{joint_name}'] for joint_name in self.joint_names}
-                    meshes = self._get_mesh_from_joint_state(tf, joint_mapping)
-                    mesh_list.extend(meshes)
-                    # self.logger.info(f"Got {len(meshes)} meshes for agent {agent_name}")
-                except Exception as e:
-                    self.logger.error(f"Failed to get meshes for agent {agent_name}: {troubleshoot.get_error_text(e)}")
-                    continue
-            
-            # Process each mesh
-            for i, mesh in enumerate(mesh_list):
-                try:
-                    bb = mesh.get_axis_aligned_bounding_box()
-                    if bb.is_empty():
-                        # self.logger.debug(f"Empty bounding box for mesh {i}")
-                        continue
-                    # self.logger.info(f"Processing mesh {i}")
-                        
-                    mask = np.zeros(num_points, dtype=bool)
-                    indices_within_bb = bb.get_point_indices_within_bounding_box(pointcloud.points)
-                    
-                    if indices_within_bb is None:
-                        # self.logger.debug(f"No points within bounding box for mesh {i}")
-                        continue
-                        
-                    indices_within_bb = np.asarray(indices_within_bb.cpu())
-                    
-                    if len(indices_within_bb) > 0:
-                        mask[indices_within_bb] = True
-                        masks.append(mask)
-                        # self.logger.debug(f"Found {len(indices_within_bb)} points within mesh {i}")
-                    else:
-                        # self.logger.debug(f"No points within bounding box for mesh {i}")
-                        pass
-
-                except Exception as e:
-                    self.logger.error(f"Failed to process mesh {i}: {troubleshoot.get_error_text(e)}")
-                    continue
-            # Combine masks and filter pointcloud
-            if len(masks) > 0:
-                # self.logger.info(f"Combining {len(masks)} masks")
-                # Convert masks to numpy array and combine
-                mask = np.column_stack(tuple(masks)).any(axis=1)
-                # self.logger.info(f"Mask shape: {mask.shape}")
+        filtered_points = pointcloud
+        for agent_name, agent_tf in agent_tfs.items():
+            try:
+                joint_mappings = {f'{self.robot_id}_{joint_name}': \
+                        joint_states[f'{agent_name}_{joint_name}'] for joint_name in self.joint_names}
                 
-                # Safely convert pointcloud points to numpy array
-                try:
-                    points_np = np.asarray(pointcloud.points.cpu())
-                    if len(points_np) != len(mask):
-                        self.logger.error(f"Mismatch between points ({len(points_np)}) and mask ({len(mask)}) lengths")
-                        return pointcloud
-                        
-                    filtered_points = points_np[~mask]
-                    # if len(filtered_points) == 0:
-                    #     self.logger.warn("All points were masked - returning original pointcloud")
-                    #     return pointcloud
-                        
-                    filtered_pcd = cph.geometry.PointCloud(
-                        cph.utility.HostVector3fVector(filtered_points)
-                    )
-                    # if self.show_pipeline_delays:
-                    #     self.logger.info(f"Robot body subtraction (GPU) [sec]: {time.time()-start}")
-                    if self.show_pipeline_delays:
-                        self.logger.info(f"Robot body subtraction (GPU) [sec]: {time.time()-start}")
-                    # self.logger.info(f"Removed {np.sum(mask)} points from pointcloud")
-                    return filtered_pcd
+                poses = self.robot_kinematics_chain.forward_kinematics(joint_mappings, agent_tf)
+                body_meshes = self.robot_kinematics_chain.get_transformed_visual_geometry_map(poses)
 
+                for mesh in body_meshes.values():
+                    aabb = mesh.get_axis_aligned_bounding_box()
+                    indices = aabb.get_point_indices_within_bounding_box(filtered_points.points)
+                    filtered_points = filtered_points.select_by_index(indices, invert=True)
+            except Exception as e:
+                self.logger.error(f"Failed to get meshes for agent {agent_name}: {troubleshoot.get_error_text(e, print_stack_trace=False)}")
+                continue
 
-
-                except Exception as e:
-                    self.logger.error(f"Error during point cloud filtering: {troubleshoot.get_error_text(e)}")
-                    return pointcloud
-            else:
-                # self.logger.warn("No valid masks created - returning original pointcloud")
-                return pointcloud
-
-        except Exception as e:
-            self.logger.error(f"Robot body subtraction failed: {troubleshoot.get_error_text(e)}", print_stack_trace=True)
-            return pointcloud
-        
+        if self.show_pipeline_delays:
+            self.logger.info(f"Robot body subtraction (GPU) [sec]: {time.time()-start}")
+        return filtered_points
 
     def _remove_outliers(self, pcd:cph.geometry.PointCloud):
         outlier_neighbours = self.outlier_neighbours
