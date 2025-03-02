@@ -19,11 +19,11 @@ def yaml_to_dict(path_to_yaml):
 def get_path(pkg_share:str, *paths):
     return os.path.join(pkg_share, *paths)
 
-def create_perception_group(pkg_share:str, show_pipeline_delays, show_total_pipeline_delay):
+def create_perception_group(pkg_share:str, enable_robot_body_subtraction, show_pipeline_delays, show_total_pipeline_delay):
     real_pipeline_params = {
         'enable_dynamic_cameras': False,
         'enable_dynamic_agents': False,
-        'enable_robot_body_subtraction': True,
+        'enable_robot_body_subtraction': enable_robot_body_subtraction,
         'show_pipeline_delays': show_pipeline_delays,
         'show_total_pipeline_delay': show_total_pipeline_delay,
     }
@@ -120,10 +120,16 @@ def generate_launch_description():
         default_value='false',
         description='Show total pipeline delay'
     )
+    enable_robot_body_subtraction_arg = DeclareLaunchArgument(
+        'enable_robot_body_subtraction',
+        default_value='false',
+        description='Enable robot body subtraction'
+    )
 
     pkg_share = get_package_share_directory('percept')
     perception_group = create_perception_group(
         pkg_share, 
+        LaunchConfiguration('enable_robot_body_subtraction'), 
         LaunchConfiguration('show_pipeline_delays'), 
         LaunchConfiguration('show_total_pipeline_delay')
     )
@@ -133,6 +139,7 @@ def generate_launch_description():
     return LaunchDescription([
         show_pipeline_delays_arg,
         show_total_pipeline_delay_arg,
+        enable_robot_body_subtraction_arg,
         perception_group,
         realsense_group,
     ])

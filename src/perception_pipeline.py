@@ -222,7 +222,6 @@ class PerceptionPipeline():
                 except Exception as e:
                     self.logger.error(f"Failed to process mesh {i}: {troubleshoot.get_error_text(e)}")
                     continue
-
             # Combine masks and filter pointcloud
             if len(masks) > 0:
                 # self.logger.info(f"Combining {len(masks)} masks")
@@ -245,6 +244,8 @@ class PerceptionPipeline():
                     filtered_pcd = cph.geometry.PointCloud(
                         cph.utility.HostVector3fVector(filtered_points)
                     )
+                    # if self.show_pipeline_delays:
+                    #     self.logger.info(f"Robot body subtraction (GPU) [sec]: {time.time()-start}")
                     if self.show_pipeline_delays:
                         self.logger.info(f"Robot body subtraction (GPU) [sec]: {time.time()-start}")
                     # self.logger.info(f"Removed {np.sum(mask)} points from pointcloud")

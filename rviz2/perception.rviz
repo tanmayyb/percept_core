@@ -4,7 +4,7 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /RobotModel1
+        - /RobotModel1/Status1
       Splitter Ratio: 0.5
     Tree Height: 828
   - Class: rviz_common/Selection
@@ -47,16 +47,16 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz_default_plugins/Axes
-      Enabled: true
+      Enabled: false
       Length: 0.5
       Name: Axes
       Radius: 0.02500000037252903
       Reference Frame: world
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 1.459999918937683
+        Max Value: 1.4999998807907104
         Min Value: -0.9000000953674316
         Value: true
       Axis: Z
@@ -128,7 +128,7 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /circ_force_markers
       Value: true
-    - Alpha: 1
+    - Alpha: 0.5
       Class: rviz_default_plugins/RobotModel
       Collision Enabled: true
       Description File: ""
@@ -263,25 +263,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 3.6404635906219482
+      Distance: 3.288982629776001
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.4038732051849365
-        Y: 0.2669714689254761
-        Z: 0.5064383745193481
+        X: -0.1964987814426422
+        Y: 0.26476630568504333
+        Z: 0.2985856533050537
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.24539972841739655
+      Pitch: 0.4053995609283447
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.981738567352295
+      Yaw: 4.026744842529297
     Saved: ~
 Window Geometry:
   Displays:
