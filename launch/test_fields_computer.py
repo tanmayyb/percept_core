@@ -14,6 +14,12 @@ def setup_fields_computer(context):
     except Exception:
         planner_mode = 'oriented_pointmass'
 
+    use_cpu = LaunchConfiguration('use_cpu').perform(context)
+    if use_cpu:
+        node_executable = 'fields_computer_cpu'
+    else:
+        node_executable = 'fields_computer'
+
     remappings = []
     if planner_mode == 'manipulator':
         remappings = [
@@ -37,8 +43,8 @@ def setup_fields_computer(context):
         ]
     return [Node(
             package='percept',
-            executable='fields_computer',
-            name='fields_computer',
+            executable=node_executable,
+            name=node_executable,
             output='screen',
             parameters=[{
                 'publish_force_vector': False,
@@ -60,6 +66,12 @@ def generate_launch_description():
             'auto_generated_scene.yaml'
         ),
         description='Path to the obstacles configuration file'
+    )
+
+    use_cpu_arg = DeclareLaunchArgument(
+        'use_cpu',
+        default_value='False',
+        description='Use CPU implementation'
     )
 
     show_processing_delay_arg = DeclareLaunchArgument(
@@ -86,6 +98,7 @@ def generate_launch_description():
  
     return LaunchDescription([
         obstacles_config_arg,
+        use_cpu_arg,
         show_processing_delay_arg,
         show_requests_arg,
         planner_mode_arg,

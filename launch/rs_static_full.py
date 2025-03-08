@@ -94,6 +94,11 @@ def setup_fields_computer(context):
         planner_mode = LaunchConfiguration('planner_mode').perform(context)
     except Exception:
         planner_mode = 'oriented_pointmass'
+    use_cpu = LaunchConfiguration('use_cpu').perform(context)
+    if use_cpu:
+        node_executable = 'fields_computer_cpu'
+    else:
+        node_executable = 'fields_computer'
 
     remappings = []
     if planner_mode == 'manipulator':
@@ -118,8 +123,8 @@ def setup_fields_computer(context):
         ]
     return [Node(
             package='percept',
-            executable='fields_computer',
-            name='fields_computer',
+            executable=node_executable,
+            name=node_executable,
             output='screen',
             parameters=[{
                 'publish_force_vector': False,
@@ -165,6 +170,11 @@ def generate_launch_description():
         default_value='false',
         description='Enable robot body subtraction'
     )
+    use_cpu_arg = DeclareLaunchArgument(
+        'use_cpu',
+        default_value='False',
+        description='Use CPU implementation'
+    )
     pkg_share = get_package_share_directory('percept')
     perception_group = create_perception_group(
         pkg_share, 
@@ -179,6 +189,7 @@ def generate_launch_description():
     return LaunchDescription([
         show_processing_delay_arg,
         show_requests_arg,
+        use_cpu_arg,
         show_pipeline_delays_arg,
         show_total_pipeline_delay_arg,
         enable_robot_body_subtraction_arg,
