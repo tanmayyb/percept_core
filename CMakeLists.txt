@@ -108,10 +108,26 @@ add_executable(fields_computer
   src/kernels/GoalHeuristicCircForce.cu
   src/kernels/RandomHeuristicCircForce.cu
 )
+
+add_executable(fields_computer_cpu 
+  src/fields_computer_cpu.cpp
+)
+
 target_include_directories(fields_computer 
   PRIVATE include
 )
+target_include_directories(fields_computer_cpu 
+  PRIVATE include
+)
 ament_target_dependencies(fields_computer 
+  rclcpp 
+  std_msgs 
+  sensor_msgs
+  geometry_msgs
+  visualization_msgs
+  percept_interfaces
+)
+ament_target_dependencies(fields_computer_cpu 
   rclcpp 
   std_msgs 
   sensor_msgs
@@ -124,6 +140,7 @@ target_link_libraries(fields_computer
 )
 install(TARGETS 
   fields_computer 
+  fields_computer_cpu
   DESTINATION lib/${PROJECT_NAME}
 )
 
