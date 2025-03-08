@@ -27,9 +27,7 @@
 #include "percept/cuda_vector_ops.cuh"
 #include "percept/NearestObstacleDistance.h"
 
-
-
-#define threads 256
+#define threads 1024
 
 
 namespace nearest_obstacle_distance{

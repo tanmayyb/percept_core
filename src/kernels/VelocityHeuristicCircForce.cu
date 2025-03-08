@@ -15,7 +15,7 @@
 #include <chrono>
 #include <iomanip>
 
-#define threads 256
+#define threads 1024
 
 namespace velocity_heuristic{
 using namespace cuda_vector_ops;
