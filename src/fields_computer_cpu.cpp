@@ -62,7 +62,36 @@ namespace nearest_obstacle_distance {
 // CPU implementation for obstacle heuristic
 namespace obstacle_heuristic {
 
-    
+    Point3D calculate_rotation_vector(
+      int i, 
+      const Point3D* points, 
+      int num_points, 
+      Point3D mass_position, 
+      Point3D mass_dist_vec_normalized
+    ){
+      double nn_distance = 1000.0;
+      double nn_mass_dist_k;
+      int nn_mass_idx = -1;
+      Point3D nn_mass_position;
+      Point3D obstacle_vec;
+      Point3D current_vec;
+
+      for(int k=0; k<num_points; k++){
+        if(k != i){
+          nn_mass_dist_k = mass_position.squared_distance(points[k]);
+          if(nn_mass_dist_k < nn_distance){
+            nn_distance = nn_mass_dist_k;
+            nn_mass_idx = k;
+          }
+        }
+      }
+  
+      nn_mass_position = points[nn_mass_idx];
+      obstacle_vec = nn_mass_position - mass_position;
+      current_vec = mass_dist_vec_normalized * mass_dist_vec_normalized.dot(obstacle_vec) - obstacle_vec;
+      return current_vec.cross(mass_dist_vec_normalized).normalized();     
+    }
+
     Point3D launch_cpu_kernel(
         const Point3D* points,
         size_t num_points,
@@ -79,32 +108,55 @@ namespace obstacle_heuristic {
         auto start_time = std::chrono::high_resolution_clock::now();
         
         Point3D net_force(0.0, 0.0, 0.0);
-        
+        Point3D goal_vec;
+        Point3D mass_position;
+        Point3D mass_dist_vec;
+        Point3D mass_velocity; 
+        Point3D mass_rvel_vec;
+        Point3D force_vec;
+        Point3D mass_dist_vec_normalized;
+        Point3D current_vec;
+        Point3D rot_vec;
+        Point3D mass_rvel_vec_normalized;
+        double dist_to_goal;
+        double dist_to_mass;
+
         for (size_t i = 0; i < num_points; ++i) {
-            double dx = points[i].x - agent_position.x;
-            double dy = points[i].y - agent_position.y;
-            double dz = points[i].z - agent_position.z;
-            
-            double distance_sq = dx*dx + dy*dy + dz*dz;
-            double distance = std::sqrt(distance_sq);
-            
-            // Only consider points within detection shell
-            if (distance < detect_shell_rad) {
-                double safe_distance = agent_radius + mass_radius;
-                
-                // Apply repulsive force if point is close enough
-                if (distance < safe_distance * 2.0) {
-                    double force_magnitude = k_force * (1.0 / distance - 1.0 / (safe_distance * 2.0));
-                    force_magnitude = std::min(force_magnitude, max_allowable_force);
-                    
-                    // Normalize direction vector
-                    if (distance > 0) {
-                        net_force.x -= force_magnitude * dx / distance;
-                        net_force.y -= force_magnitude * dy / distance;
-                        net_force.z -= force_magnitude * dz / distance;
-                    }
+            // implementation of obstacle heuristic circ force
+            goal_vec = goal_position - agent_position;
+            dist_to_goal = goal_vec.norm();
+            mass_position = points[i];
+            mass_dist_vec = mass_position - agent_position;
+            mass_velocity = {0.0, 0.0, 0.0};
+            mass_rvel_vec = agent_velocity - mass_velocity;
+            force_vec = {0.0, 0.0, 0.0};
+            mass_dist_vec_normalized = mass_dist_vec.normalized();
+
+            // "Skip this obstacle if it's behind us AND we're moving away from it"
+            if(mass_dist_vec_normalized.dot(goal_vec.normalized()) < -1e-5 &&
+                mass_dist_vec.dot(mass_rvel_vec) < -1e-5)
+                {
+                  continue; // skip this obstacle
                 }
+
+            dist_to_mass = mass_dist_vec.norm() - (agent_radius + mass_radius);
+            dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
+            
+            // implement OBSTACLE HEURISTIC
+            // calculate rotation vector, current vector, and force vector
+            if(dist_to_mass < detect_shell_rad && mass_rvel_vec.norm() > 1e-10){ 
+
+                rot_vec = calculate_rotation_vector(i, points, num_points, mass_position, mass_dist_vec_normalized);
+                current_vec = mass_dist_vec_normalized.cross(rot_vec).normalized();
+
+                // calculate force vector
+                // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
+                //  A×(B×C) = B(A·C) - C(A·B)
+                force_vec = (current_vec * mass_rvel_vec_normalized.dot(mass_rvel_vec_normalized)) - 
+                    (mass_rvel_vec_normalized * mass_rvel_vec_normalized.dot(current_vec));
+                force_vec = force_vec * (k_force / pow(dist_to_mass, 2));
             }
+            net_force = net_force + force_vec;          
         }
         
         if (show_processing_delay) {
@@ -112,7 +164,6 @@ namespace obstacle_heuristic {
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
             std::cout << "Obstacle heuristic computation took " << duration.count() << " microseconds" << std::endl;
         }
-        
         return net_force;
     }
 }
@@ -120,7 +171,12 @@ namespace obstacle_heuristic {
 // CPU implementation for velocity heuristic
 namespace velocity_heuristic {
 
-    
+    Point3D calculate_current_vec(Point3D mass_dist_vec_normalized, Point3D mass_rvel_vec_normalized){
+        // Project out the component of velocity parallel to obstacle direction to get perpendicular component
+        Point3D current_vec = mass_rvel_vec_normalized - (mass_dist_vec_normalized * mass_rvel_vec_normalized.dot(mass_dist_vec_normalized));
+        return current_vec;
+    }
+
     Point3D launch_cpu_kernel(
         const Point3D* points,
         size_t num_points,
@@ -138,17 +194,60 @@ namespace velocity_heuristic {
         
         // Simple implementation - align with velocity direction
         Point3D net_force(0.0, 0.0, 0.0);
-        
-        double vel_mag = std::sqrt(agent_velocity.x*agent_velocity.x + 
-                                  agent_velocity.y*agent_velocity.y + 
-                                  agent_velocity.z*agent_velocity.z);
-        
-        if (vel_mag > 0.001) {
-            // Normalize and scale velocity vector
-            double force_magnitude = std::min(k_force, max_allowable_force);
-            net_force.x = force_magnitude * agent_velocity.x / vel_mag;
-            net_force.y = force_magnitude * agent_velocity.y / vel_mag;
-            net_force.z = force_magnitude * agent_velocity.z / vel_mag;
+        Point3D goal_vec;
+        Point3D mass_position;
+        Point3D mass_dist_vec;
+        Point3D mass_velocity; 
+        Point3D mass_rvel_vec;
+        Point3D force_vec;
+        Point3D mass_dist_vec_normalized;
+        Point3D current_vec;
+        Point3D rot_vec;
+        Point3D mass_rvel_vec_normalized;
+        double dist_to_goal;
+        double dist_to_mass;
+
+        for (size_t i = 0; i < num_points; ++i) {
+            // implementation of velocity heuristic circ force
+            goal_vec = goal_position - agent_position;
+            dist_to_goal = goal_vec.norm();
+            mass_position = points[i];
+            mass_dist_vec = mass_position - agent_position;
+            mass_velocity = {0.0, 0.0, 0.0};
+            mass_rvel_vec = agent_velocity - mass_velocity;
+            force_vec = {0.0, 0.0, 0.0};
+            mass_dist_vec_normalized = mass_dist_vec.normalized();
+
+            // implement VELOCITY HEURISTIC
+            // calculate rotation vector, current vector, and force vector
+            // "Skip this obstacle if it's behind us AND we're moving away from it"
+            if(mass_dist_vec_normalized.dot(goal_vec.normalized()) < -1e-5 &&
+                mass_dist_vec.dot(mass_rvel_vec) < -1e-5)
+                {
+                  continue; // skip this obstacle
+                }
+            dist_to_mass = mass_dist_vec.norm() - (agent_radius + mass_radius);
+            dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
+
+            // implement VELOCITY HEURISTIC
+            // calculate rotation vector, current vector, and force vector
+            if(dist_to_mass < detect_shell_rad && mass_rvel_vec.norm() > 1e-10){ 
+
+                // create rotation vector
+                rot_vec = {0.0, 0.0, 1.0}; // velocity heuristic does not use rotation vector to calculate current vector or force vector
+
+                // calculate current vector
+                mass_rvel_vec_normalized = mass_rvel_vec.normalized();
+                current_vec = calculate_current_vec(mass_dist_vec_normalized, mass_rvel_vec_normalized);
+
+                // calculate force vector
+                // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
+                //  A×(B×C) = B(A·C) - C(A·B)
+                force_vec = (current_vec * mass_rvel_vec_normalized.dot(mass_rvel_vec_normalized)) - 
+                    (mass_rvel_vec_normalized * mass_rvel_vec_normalized.dot(current_vec));
+                force_vec = force_vec * (k_force / pow(dist_to_mass, 2));
+            }
+            net_force = net_force + force_vec;            
         }
         
         if (show_processing_delay) {
@@ -164,6 +263,18 @@ namespace velocity_heuristic {
 // CPU implementation for goal heuristic
 namespace goal_heuristic {
 
+    Point3D calculate_current_vec(Point3D mass_dist_vec_normalized, Point3D goal_vec){
+        
+    // Project goal vector onto the plane perpendicular to mass_dist_vec using vector rejection.
+    // This creates a vector that points towards the goal while being perpendicular to the obstacle direction.
+    Point3D current_vec = goal_vec - mass_dist_vec_normalized * mass_dist_vec_normalized.dot(goal_vec);
+
+    if (current_vec.norm() < 1e-10) {
+        current_vec = Point3D(0.0, 0.0, 1.0); // or make random vector
+    }
+    current_vec = current_vec.normalized(); // normalize the current vector
+    return current_vec;
+}
     
     Point3D launch_cpu_kernel(
         const Point3D* points,
@@ -179,22 +290,54 @@ namespace goal_heuristic {
         bool show_processing_delay)
     {
         auto start_time = std::chrono::high_resolution_clock::now();
-        
+
+
+        // Simple implementation - align with velocity direction
         Point3D net_force(0.0, 0.0, 0.0);
-        
-        // Calculate vector to goal
-        double dx = goal_position.x - agent_position.x;
-        double dy = goal_position.y - agent_position.y;
-        double dz = goal_position.z - agent_position.z;
-        
-        double distance = std::sqrt(dx*dx + dy*dy + dz*dz);
-        
-        if (distance > 0.001) {
-            // Normalize and scale force toward goal
-            double force_magnitude = std::min(k_force, max_allowable_force);
-            net_force.x = force_magnitude * dx / distance;
-            net_force.y = force_magnitude * dy / distance;
-            net_force.z = force_magnitude * dz / distance;
+        Point3D goal_vec;
+        Point3D mass_position;
+        Point3D mass_dist_vec;
+        Point3D mass_velocity; 
+        Point3D mass_rvel_vec;
+        Point3D force_vec;
+        Point3D mass_dist_vec_normalized;
+        Point3D current_vec;
+        Point3D rot_vec;
+        Point3D mass_rvel_vec_normalized;
+        double dist_to_goal;
+        double dist_to_mass;
+
+        for (size_t i = 0; i < num_points; ++i) {
+
+            // implementation of goal heuristic circ force
+            goal_vec = goal_position - agent_position;
+            dist_to_goal = goal_vec.norm();
+            mass_position = points[i];
+            mass_velocity = {0.0, 0.0, 0.0};
+            mass_dist_vec = mass_position - agent_position;
+            mass_rvel_vec = agent_velocity - mass_velocity;
+            force_vec = {0.0, 0.0, 0.0};
+            mass_dist_vec_normalized = mass_dist_vec.normalized();
+
+            // implement GOAL HEURISTIC
+            // calculate rotation vector, current vector, and force vector
+            if(dist_to_mass < detect_shell_rad && mass_rvel_vec.norm() > 1e-10){ 
+
+                // create rotation vector
+                rot_vec = {0.0, 0.0, 1.0}; // velocity heuristic does not use rotation vector to calculate current vector or force vector
+
+                // calculate current vector
+                mass_rvel_vec_normalized = mass_rvel_vec.normalized();
+                current_vec = calculate_current_vec(mass_dist_vec_normalized, mass_rvel_vec_normalized);
+
+                // calculate force vector
+                // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
+                //  A×(B×C) = B(A·C) - C(A·B)
+                force_vec = (current_vec * mass_rvel_vec_normalized.dot(mass_rvel_vec_normalized)) - 
+                    (mass_rvel_vec_normalized * mass_rvel_vec_normalized.dot(current_vec));
+                force_vec = force_vec * (k_force / pow(dist_to_mass, 2));
+            }
+            net_force = net_force + force_vec;                 
         }
         
         if (show_processing_delay) {
@@ -210,6 +353,50 @@ namespace goal_heuristic {
 // CPU implementation for goal-obstacle heuristic
 namespace goalobstacle_heuristic {
 
+    Point3D calculate_rotation_vector(
+      int i, 
+      const Point3D* points, 
+      int num_points, 
+      Point3D mass_position, 
+      Point3D mass_dist_vec_normalized, 
+      Point3D goal_vec
+    ){
+      double nn_distance = 1000.0;
+      double nn_mass_dist_k;
+      int nn_mass_idx = -1;
+      Point3D nn_mass_position;
+      Point3D obstacle_vec;
+      Point3D obstacle_current_vec;
+      Point3D current_vec;
+      Point3D goal_current_vec;
+
+      for(int k=0; k<num_points; k++){
+        if(k != i){
+          nn_mass_dist_k = mass_position.squared_distance(points[k]);
+          if(nn_mass_dist_k < nn_distance){
+            nn_distance = nn_mass_dist_k;
+            nn_mass_idx = k;
+          }
+        }
+      }
+   
+      nn_mass_position = points[nn_mass_idx];
+      obstacle_vec = nn_mass_position - mass_position;
+
+      // Current vector is perpendicular to obstacle surface normal and shows in opposite direction of obstacle_vec
+      obstacle_current_vec = mass_dist_vec_normalized * mass_dist_vec_normalized.dot(obstacle_vec) - obstacle_vec;  
+
+      // Project goal vector onto plane perpendicular to mass_dist_vec by removing its parallel component
+      // This gives the component of the goal direction that is tangent to the obstacle surface
+      goal_current_vec = goal_vec - mass_dist_vec_normalized * mass_dist_vec_normalized.dot(goal_vec);
+
+      current_vec = goal_current_vec.normalized() + obstacle_current_vec.normalized();
+      if (current_vec.norm() < 1e-10){
+        current_vec = Point3D(0.0, 0.0, 1.0); // or make random vector
+      }
+      current_vec = current_vec.normalized(); // normalize the current vector
+      return current_vec.cross(mass_dist_vec_normalized).normalized();     
+    }
     
     Point3D launch_cpu_kernel(
         const Point3D* points,
@@ -224,39 +411,65 @@ namespace goalobstacle_heuristic {
         double max_allowable_force,
         bool show_processing_delay)
     {
-        auto start_time = std::chrono::high_resolution_clock::now();
-        
-        // Combine goal and obstacle forces
-        Point3D goal_force = goal_heuristic::launch_cpu_kernel(
-            points, num_points, agent_position, agent_velocity, goal_position,
-            agent_radius, mass_radius, detect_shell_rad, k_force * 0.5, max_allowable_force * 0.5, false);
+        auto start_time = std::chrono::high_resolution_clock::now(); 
+
+        Point3D net_force(0.0, 0.0, 0.0);
+        Point3D goal_vec;
+        Point3D mass_position;
+        Point3D mass_dist_vec;
+        Point3D mass_velocity; 
+        Point3D mass_rvel_vec;
+        Point3D force_vec;
+        Point3D mass_dist_vec_normalized;
+        Point3D current_vec;
+        Point3D rot_vec;
+        Point3D mass_rvel_vec_normalized;
+        double dist_to_goal;
+        double dist_to_mass;
+        double nn_distance;
+        double nn_mass_dist_k;
+        int nn_mass_idx;
+
+
+        for (size_t i = 0; i < num_points; ++i) {
+
+          goal_vec = goal_position - agent_position;
+          dist_to_goal = goal_vec.norm();
+          mass_position = points[i];
+          mass_dist_vec = mass_position - agent_position;
+          mass_velocity = {0.0, 0.0, 0.0};
+          mass_rvel_vec = agent_velocity - mass_velocity;
+          force_vec = {0.0, 0.0, 0.0};
+          mass_dist_vec_normalized = mass_dist_vec.normalized();
+          
+
+          if (mass_dist_vec_normalized.dot(goal_vec.normalized()) < -1e-5 && mass_dist_vec.dot(mass_rvel_vec) < -1e-5){
+            continue;
+          }
+
+          dist_to_mass = mass_dist_vec.norm() - (agent_radius + mass_radius);
+          dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
+          
+          if (dist_to_mass < detect_shell_rad && mass_rvel_vec.norm() > 1e-10){
+            rot_vec = calculate_rotation_vector(i, points, num_points, mass_position, mass_dist_vec_normalized, goal_vec);
             
-        Point3D obstacle_force = obstacle_heuristic::launch_cpu_kernel(
-            points, num_points, agent_position, agent_velocity, goal_position,
-            agent_radius, mass_radius, detect_shell_rad, k_force * 0.5, max_allowable_force * 0.5, false);
-        
-        Point3D net_force;
-        net_force.x = goal_force.x + obstacle_force.x;
-        net_force.y = goal_force.y + obstacle_force.y;
-        net_force.z = goal_force.z + obstacle_force.z;
-        
-        // Limit the max force
-        double force_mag = std::sqrt(net_force.x*net_force.x + 
-                                    net_force.y*net_force.y + 
-                                    net_force.z*net_force.z);
-                                    
-        if (force_mag > max_allowable_force && force_mag > 0.001) {
-            net_force.x = net_force.x * max_allowable_force / force_mag;
-            net_force.y = net_force.y * max_allowable_force / force_mag;
-            net_force.z = net_force.z * max_allowable_force / force_mag;
-        }
-        
+            mass_rvel_vec_normalized = mass_rvel_vec.normalized();
+            current_vec = mass_dist_vec_normalized.cross(rot_vec).normalized();
+
+            // calculate force vector
+            // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
+            //  A×(B×C) = B(A·C) - C(A·B)
+            force_vec = current_vec * mass_rvel_vec_normalized.dot(mass_rvel_vec_normalized) - 
+                mass_rvel_vec_normalized * mass_rvel_vec_normalized.dot(current_vec);
+            force_vec = force_vec * (k_force / pow(dist_to_mass, 2));
+          }
+          net_force = net_force + force_vec;          
+        }        
         if (show_processing_delay) {
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
             std::cout << "Goal-obstacle heuristic computation took " << duration.count() << " microseconds" << std::endl;
         }
-        
         return net_force;
     }
 }
@@ -264,6 +477,12 @@ namespace goalobstacle_heuristic {
 // CPU implementation for random heuristic
 namespace random_heuristic {
 
+    Point3D make_random_vector(){
+      static std::random_device rd;
+      static std::mt19937 gen(rd());
+      std::uniform_real_distribution<double> dist(-1.0, 1.0);
+      return Point3D(dist(gen), dist(gen), dist(gen));
+    }
     
     Point3D launch_cpu_kernel(
         const Point3D* points,
@@ -285,27 +504,52 @@ namespace random_heuristic {
         static std::mt19937 gen(rd());
         std::uniform_real_distribution<double> dist(-1.0, 1.0);
         
-        Point3D net_force;
-        net_force.x = dist(gen);
-        net_force.y = dist(gen);
-        net_force.z = dist(gen);
-        
-        // Normalize and scale
-        double force_mag = std::sqrt(net_force.x*net_force.x + 
-                                    net_force.y*net_force.y + 
-                                    net_force.z*net_force.z);
-        
-        if (force_mag > 0.001) {
-            double scale = std::min(k_force, max_allowable_force) / force_mag;
-            net_force.x *= scale;
-            net_force.y *= scale;
-            net_force.z *= scale;
-        }
-        
-        if (show_processing_delay) {
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-            std::cout << "Random heuristic computation took " << duration.count() << " microseconds" << std::endl;
+        Point3D net_force(0.0, 0.0, 0.0);
+        Point3D goal_vec;
+        Point3D mass_position;
+        Point3D mass_dist_vec;
+        Point3D mass_velocity; 
+        Point3D mass_rvel_vec;
+        Point3D force_vec;
+        Point3D mass_dist_vec_normalized;
+        Point3D current_vec;
+        Point3D rot_vec;
+        Point3D mass_rvel_vec_normalized;
+        double dist_to_goal;
+        double dist_to_mass;
+
+        for (size_t i = 0; i < num_points; ++i) {
+          goal_vec = goal_position - agent_position;
+          dist_to_goal = goal_vec.norm();
+          mass_position = points[i];
+          mass_dist_vec = mass_position - agent_position;
+          mass_velocity = {0.0, 0.0, 0.0};
+          mass_rvel_vec = agent_velocity - mass_velocity;
+          force_vec = {0.0, 0.0, 0.0};
+          mass_dist_vec_normalized = mass_dist_vec.normalized();
+          
+
+          if (mass_dist_vec_normalized.dot(goal_vec.normalized()) < -1e-5 && mass_dist_vec.dot(mass_rvel_vec) < -1e-5){
+            continue;
+          }
+
+          dist_to_mass = mass_dist_vec.norm() - (agent_radius + mass_radius);
+          dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
+          
+          if (dist_to_mass < detect_shell_rad && mass_rvel_vec.norm() > 1e-10){
+            rot_vec = goal_vec.normalized().cross(make_random_vector());
+            
+            mass_rvel_vec_normalized = mass_rvel_vec.normalized();
+            current_vec = mass_dist_vec_normalized.cross(rot_vec).normalized();
+
+            // calculate force vector
+            // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
+            //  A×(B×C) = B(A·C) - C(A·B)
+            force_vec = current_vec * mass_rvel_vec_normalized.dot(mass_rvel_vec_normalized) - 
+                mass_rvel_vec_normalized * mass_rvel_vec_normalized.dot(current_vec);
+            force_vec = force_vec * (k_force / pow(dist_to_mass, 2));
+          }
+          net_force = net_force + force_vec;          
         }
         
         return net_force;

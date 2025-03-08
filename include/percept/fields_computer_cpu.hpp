@@ -68,6 +68,11 @@ struct Point3D {
     }
 };
 
+// Non-member operator for scalar multiplication (allows scalar * Point3D)
+inline Point3D operator*(const double scalar, const Point3D& point) {
+    return point * scalar;
+}
+
 
 class FieldsComputerCPU : public rclcpp::Node
 {
