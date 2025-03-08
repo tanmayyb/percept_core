@@ -158,6 +158,15 @@ namespace obstacle_heuristic {
             }
             net_force = net_force + force_vec;          
         }
+
+        // clamp the force magnitude
+        if (max_allowable_force > 0.0) {
+          double force_magnitude = sqrt(net_force.norm());   
+          if (force_magnitude > max_allowable_force) {
+            double scale = max_allowable_force / force_magnitude;
+            net_force = net_force * scale;
+          }
+        }
         
         if (show_processing_delay) {
             auto end_time = std::chrono::high_resolution_clock::now();
@@ -174,6 +183,10 @@ namespace velocity_heuristic {
     Point3D calculate_current_vec(Point3D mass_dist_vec_normalized, Point3D mass_rvel_vec_normalized){
         // Project out the component of velocity parallel to obstacle direction to get perpendicular component
         Point3D current_vec = mass_rvel_vec_normalized - (mass_dist_vec_normalized * mass_rvel_vec_normalized.dot(mass_dist_vec_normalized));
+        if (current_vec.norm() < 1e-10) {
+            current_vec = Point3D(0.0, 0.0, 1.0); // or make random vector
+        }
+        current_vec = current_vec.normalized(); // normalize the current vector
         return current_vec;
     }
 
@@ -250,6 +263,15 @@ namespace velocity_heuristic {
             net_force = net_force + force_vec;            
         }
         
+        // clamp the force magnitude
+        if (max_allowable_force > 0.0) {
+          double force_magnitude = sqrt(net_force.norm());   
+          if (force_magnitude > max_allowable_force) {
+            double scale = max_allowable_force / force_magnitude;
+            net_force = net_force * scale;
+          }
+        }
+
         if (show_processing_delay) {
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
@@ -340,6 +362,15 @@ namespace goal_heuristic {
             net_force = net_force + force_vec;                 
         }
         
+        // clamp the force magnitude
+        if (max_allowable_force > 0.0) {
+          double force_magnitude = sqrt(net_force.norm());   
+          if (force_magnitude > max_allowable_force) {
+            double scale = max_allowable_force / force_magnitude;
+            net_force = net_force * scale;
+          }
+        }
+
         if (show_processing_delay) {
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
@@ -464,7 +495,17 @@ namespace goalobstacle_heuristic {
             force_vec = force_vec * (k_force / pow(dist_to_mass, 2));
           }
           net_force = net_force + force_vec;          
-        }        
+        }
+
+        // clamp the force magnitude
+        if (max_allowable_force > 0.0) {
+          double force_magnitude = sqrt(net_force.norm());   
+          if (force_magnitude > max_allowable_force) {
+            double scale = max_allowable_force / force_magnitude;
+            net_force = net_force * scale;
+          }
+        }
+
         if (show_processing_delay) {
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
@@ -551,6 +592,21 @@ namespace random_heuristic {
           }
           net_force = net_force + force_vec;          
         }
+
+        // clamp the force magnitude
+        if (max_allowable_force > 0.0) {
+          double force_magnitude = sqrt(net_force.norm());   
+          if (force_magnitude > max_allowable_force) {
+            double scale = max_allowable_force / force_magnitude;
+            net_force = net_force * scale;
+          }
+        }
+
+        if (show_processing_delay) {
+            auto end_time = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+            std::cout << "Random heuristic computation took " << duration.count() << " microseconds" << std::endl;
+        }
         
         return net_force;
     }
@@ -624,6 +680,7 @@ FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
   }
   RCLCPP_INFO(this->get_logger(), "  show_processing_delay: %s", show_processing_delay ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  show_requests: %s", show_service_request_received ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "  use_cpu: true");
   RCLCPP_INFO(this->get_logger(), "Helper services:");
   RCLCPP_INFO(this->get_logger(), "  disable_nearest_obstacle_distance: %s", disable_nearest_obstacle_distance ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Heuristics:");
