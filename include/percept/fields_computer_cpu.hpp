@@ -49,7 +49,7 @@ struct Point3D {
     }
 
     double norm() const {
-        return x * x + y * y + z * z;
+        return sqrt(x * x + y * y + z * z);
     }
 
     double squared_distance(const Point3D& other) const {
@@ -60,7 +60,7 @@ struct Point3D {
     }
 
     Point3D normalized() const {
-        double mag = sqrt(norm());
+        double mag = norm();
         if (mag > 0.0) {
             return (*this) * (1.0 / mag);
         }

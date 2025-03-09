@@ -161,7 +161,7 @@ namespace obstacle_heuristic {
 
         // clamp the force magnitude
         if (max_allowable_force > 0.0) {
-          double force_magnitude = sqrt(net_force.norm());   
+          double force_magnitude = net_force.norm();   
           if (force_magnitude > max_allowable_force) {
             double scale = max_allowable_force / force_magnitude;
             net_force = net_force * scale;
@@ -265,7 +265,7 @@ namespace velocity_heuristic {
         
         // clamp the force magnitude
         if (max_allowable_force > 0.0) {
-          double force_magnitude = sqrt(net_force.norm());   
+          double force_magnitude = net_force.norm();   
           if (force_magnitude > max_allowable_force) {
             double scale = max_allowable_force / force_magnitude;
             net_force = net_force * scale;
@@ -364,7 +364,7 @@ namespace goal_heuristic {
         
         // clamp the force magnitude
         if (max_allowable_force > 0.0) {
-          double force_magnitude = sqrt(net_force.norm());   
+          double force_magnitude = net_force.norm();   
           if (force_magnitude > max_allowable_force) {
             double scale = max_allowable_force / force_magnitude;
             net_force = net_force * scale;
@@ -499,7 +499,7 @@ namespace goalobstacle_heuristic {
 
         // clamp the force magnitude
         if (max_allowable_force > 0.0) {
-          double force_magnitude = sqrt(net_force.norm());   
+          double force_magnitude = net_force.norm();   
           if (force_magnitude > max_allowable_force) {
             double scale = max_allowable_force / force_magnitude;
             net_force = net_force * scale;
@@ -595,7 +595,7 @@ namespace random_heuristic {
 
         // clamp the force magnitude
         if (max_allowable_force > 0.0) {
-          double force_magnitude = sqrt(net_force.norm());   
+          double force_magnitude = net_force.norm();   
           if (force_magnitude > max_allowable_force) {
             double scale = max_allowable_force / force_magnitude;
             net_force = net_force * scale;
