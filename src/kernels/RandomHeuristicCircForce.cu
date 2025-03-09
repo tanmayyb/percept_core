@@ -193,7 +193,7 @@ __host__ double3 launch_kernel(
 
     // cap the force magnitude
     if(max_allowable_force > 0.0){
-        double force_magnitude = sqrt(norm(net_force));   
+        double force_magnitude = norm(net_force);   
         if (force_magnitude > max_allowable_force) {
             double scale = max_allowable_force / force_magnitude;
             net_force = net_force * scale;

@@ -70,7 +70,7 @@ __global__ void kernel(
     if (i < num_masses) {
         double3 mass_position = d_masses[i];
         double3 dist_vec = mass_position - agent_position;
-        double dist = sqrt(norm(dist_vec));
+        double dist = norm(dist_vec);
         // Compute effective distance (adjusting for the agent and mass radii)
         double effective_distance = dist - (agent_radius + mass_radius);
         if (effective_distance < 0.0)

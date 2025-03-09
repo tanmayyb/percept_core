@@ -22,6 +22,10 @@ __host__ __device__ inline double3 operator*(const double3& a, const double scal
 }
 
 __host__ __device__ inline double norm(const double3 &v) {
+    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+__host__ __device__ inline double squared_norm(const double3 &v) {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
@@ -54,7 +58,7 @@ __host__ __device__ inline double3 cross(const double3 &a, const double3 &b) {
 }
 
 __host__ __device__ inline double3 normalized(const double3 &v) {
-    double mag = sqrt(dot(v, v));
+    double mag = norm(v);
     if (mag > 0.0) {
         return v * (1.0 / mag);
     } else {
