@@ -24,7 +24,7 @@
 #include "percept/GoalHeuristicCircForce.h"
 #include "percept/GoalObstacleHeuristicCircForce.h"
 #include "percept/RandomHeuristicCircForce.h"
-
+#include "percept/ArtificialPotentialField.h"
 
 FieldsComputer::FieldsComputer() : Node("fields_computer")
 {
@@ -77,6 +77,9 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->declare_parameter("disable_random_heuristic", false);
   this->get_parameter("disable_random_heuristic", disable_random_heuristic);
 
+  this->declare_parameter("disable_apf_heuristic", false);
+  this->get_parameter("disable_apf_heuristic", disable_apf_heuristic);
+
   RCLCPP_INFO(this->get_logger(), "Parameters:");
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
@@ -95,7 +98,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   RCLCPP_INFO(this->get_logger(), "  disable_goal_heuristic: %s", disable_goal_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_goalobstacle_heuristic: %s", disable_goalobstacle_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_random_heuristic: %s", disable_random_heuristic ? "true" : "false");
-
+  RCLCPP_INFO(this->get_logger(), "  disable_apf_heuristic: %s", disable_apf_heuristic ? "true" : "false");
   // Start the queue processor thread
   queue_processor_ = std::thread(&FieldsComputer::process_queue, this);
 
@@ -148,6 +151,13 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
         std::bind(&FieldsComputer::handle_random_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
     random_heuristic::hello_cuda_world();
+  }
+  if (!disable_apf_heuristic) {
+    service_apf_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+        "/get_apf_heuristic_force",
+        std::bind(&FieldsComputer::handle_apf_heuristic, this,
+                  std::placeholders::_1, std::placeholders::_2));
+    artificial_potential_field::hello_cuda_world();
   }
 }
 
@@ -436,6 +446,16 @@ void FieldsComputer::handle_random_heuristic(
     RCLCPP_INFO(this->get_logger(), "Random heuristic service request received");
   }
   handle_heuristic(request, response, random_heuristic::launch_kernel);
+}
+
+void FieldsComputer::handle_apf_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
+{
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "APF heuristic service request received");
+  }
+  handle_heuristic(request, response, artificial_potential_field::launch_kernel);
 }
 
 // Add new queue processing methods

@@ -50,6 +50,8 @@ private:
   bool disable_goal_heuristic{false};
   bool disable_goalobstacle_heuristic{false};
   bool disable_random_heuristic{false};
+  bool disable_apf_heuristic{false};
+
   // debug parameters
   bool show_netforce_output{false};
   bool show_processing_delay{false};
@@ -71,6 +73,7 @@ private:
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_goal_heuristic;
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_goalobstacle_heuristic;
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_random_heuristic;
+  rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_apf_heuristic;
 
   // experimental
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
@@ -122,7 +125,9 @@ private:
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response); 
   void handle_obstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
-
+  void handle_apf_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+  
   template<typename HeuristicFunc>
   void handle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
