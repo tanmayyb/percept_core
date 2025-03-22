@@ -10,7 +10,7 @@
 #include "percept/cuda_vector_ops.cuh"
 
 
-namespace nearest_obstacle_distance{
+namespace obstacle_distance_cost{
 
 __host__ double launch_kernel(
     double3* d_masses,

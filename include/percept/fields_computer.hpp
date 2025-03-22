@@ -65,7 +65,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
 
   // helper services
-  rclcpp::Service<percept_interfaces::srv::AgentPoseToMinObstacleDist>::SharedPtr service_nearest_obstacle_distance;
+  rclcpp::Service<percept_interfaces::srv::AgentPoseToMinObstacleDist>::SharedPtr service_obstacle_distance_cost;
 
   // heuristic services
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_obstacle_heuristic;
@@ -112,7 +112,7 @@ private:
   void pointcloud_callback(
     const sensor_msgs::msg::PointCloud2::SharedPtr msg);
   // helper services handlers
-  void handle_nearest_obstacle_distance(
+  void handle_obstacle_distance_cost(
     const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request, std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response);
   // heuristics handlers
   void handle_goalobstacle_heuristic(

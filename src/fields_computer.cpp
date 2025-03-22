@@ -17,7 +17,7 @@
 
 // CUDA kernels
 // helpers
-#include "percept/NearestObstacleDistance.h"
+#include "percept/ObstacleDistanceCost.h"
 // heuristics
 #include "percept/ObstacleHeuristicCircForce.h"
 #include "percept/VelocityHeuristicCircForce.h"
@@ -110,11 +110,11 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
 
   // Create service servers for the helper services that are not disabled.
   if (!disable_nearest_obstacle_distance) {
-    service_nearest_obstacle_distance = this->create_service<percept_interfaces::srv::AgentPoseToMinObstacleDist>(
+    service_obstacle_distance_cost = this->create_service<percept_interfaces::srv::AgentPoseToMinObstacleDist>(
         "/get_min_obstacle_distance",
-        std::bind(&FieldsComputer::handle_nearest_obstacle_distance, this,
+        std::bind(&FieldsComputer::handle_obstacle_distance_cost, this,
                   std::placeholders::_1, std::placeholders::_2));
-    nearest_obstacle_distance::hello_cuda_world();
+    obstacle_distance_cost::hello_cuda_world();
   }
   // Create service servers for the heuristics that are not disabled.
   if (!disable_obstacle_heuristic) {
@@ -327,13 +327,13 @@ void FieldsComputer::force_vector_publisher(const double3& net_force,
 }
 
 
-// Service handler for the nearest obstacle distance.
-void FieldsComputer::handle_nearest_obstacle_distance(
+// Service handler for the obstacle distance cost.
+void FieldsComputer::handle_obstacle_distance_cost(
     const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response)
 {
   if (show_service_request_received) {
-    RCLCPP_INFO(this->get_logger(), "Nearest obstacle distance service request received");
+    RCLCPP_INFO(this->get_logger(), "Obstacle distance cost service request received");
   }
   
   enqueue_operation(OperationType::READ, [this, request, response]() {
@@ -349,7 +349,7 @@ void FieldsComputer::handle_nearest_obstacle_distance(
         request->agent_pose.position.y,
         request->agent_pose.position.z);
 
-    double min_dist = nearest_obstacle_distance::launch_kernel(
+    double net_potential = obstacle_distance_cost::launch_kernel(
         gpu_buffer.get(),
         gpu_num_points_,
         agent_position,
@@ -358,7 +358,7 @@ void FieldsComputer::handle_nearest_obstacle_distance(
         nn_detect_shell_rad,
         show_processing_delay);
 
-    response->distance = min_dist;
+    response->distance = net_potential;
   });
 }
 
