@@ -35,8 +35,8 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->declare_parameter("mass_radius", 0.050);
   this->get_parameter("mass_radius", mass_radius);
 
-  this->declare_parameter("nn_detect_shell_rad", 2.0);
-  this->get_parameter("nn_detect_shell_rad", nn_detect_shell_rad);
+  this->declare_parameter("potential_detect_shell_rad", 1.0);
+  this->get_parameter("potential_detect_shell_rad", potential_detect_shell_rad);
 
   this->declare_parameter("publish_force_vector", false);
   this->get_parameter("publish_force_vector", publish_force_vector);
@@ -83,7 +83,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   RCLCPP_INFO(this->get_logger(), "Parameters:");
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
-  RCLCPP_INFO(this->get_logger(), "  nn_detect_shell_rad: %.2f", nn_detect_shell_rad);
+  RCLCPP_INFO(this->get_logger(), "  potential_detect_shell_rad: %.2f", potential_detect_shell_rad);
   RCLCPP_INFO(this->get_logger(), "  publishing force vectors: %s", publish_force_vector ? "true" : "false");
   if (publish_force_vector) {
     RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
@@ -355,8 +355,12 @@ void FieldsComputer::handle_obstacle_distance_cost(
         agent_position,
         agent_radius,
         mass_radius,
-        nn_detect_shell_rad,
+        potential_detect_shell_rad,
         show_processing_delay);
+
+    if (show_service_request_received) {
+      RCLCPP_INFO(this->get_logger(), "Obstacle distance cost: %f", net_potential);
+    }
 
     response->distance = net_potential;
   });
@@ -379,6 +383,9 @@ void FieldsComputer::handle_heuristic(
       return;
     }
 
+
+    using clock = std::chrono::steady_clock;
+    auto start_time = clock::now();
     auto [agent_position, agent_velocity, goal_position, detect_shell_rad, k_force, max_allowable_force] = extract_request_data(request);
     double3 net_force = kernel_launcher(
         gpu_buffer.get(),
@@ -394,6 +401,9 @@ void FieldsComputer::handle_heuristic(
         show_processing_delay);
 
     process_response(net_force, request->agent_pose, response);
+    auto end_time = clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    RCLCPP_INFO(this->get_logger(), "Heuristic computation time: %ld microseconds", duration.count());
   });
 }
 

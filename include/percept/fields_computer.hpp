@@ -41,7 +41,7 @@ private:
   // common parameters
   double agent_radius{0.0};
   double mass_radius{0.0};
-  double nn_detect_shell_rad{0.0};
+  double potential_detect_shell_rad{0.0};
 
   // helper services parameters
   bool disable_nearest_obstacle_distance{false};  

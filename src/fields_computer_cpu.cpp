@@ -628,8 +628,8 @@ FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
   this->declare_parameter("mass_radius", 0.050);
   this->get_parameter("mass_radius", mass_radius);
 
-  this->declare_parameter("nn_detect_shell_rad", 2.0);
-  this->get_parameter("nn_detect_shell_rad", nn_detect_shell_rad);
+  this->declare_parameter("potential_detect_shell_rad", 1.0);
+  this->get_parameter("potential_detect_shell_rad", potential_detect_shell_rad);
 
   this->declare_parameter("publish_force_vector", false);
   this->get_parameter("publish_force_vector", publish_force_vector);
@@ -673,7 +673,7 @@ FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
   RCLCPP_INFO(this->get_logger(), "Parameters:");
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
-  RCLCPP_INFO(this->get_logger(), "  nn_detect_shell_rad: %.2f", nn_detect_shell_rad);
+  RCLCPP_INFO(this->get_logger(), "  potential_detect_shell_rad: %.2f", potential_detect_shell_rad);
   RCLCPP_INFO(this->get_logger(), "  publishing force vectors: %s", publish_force_vector ? "true" : "false");
   if (publish_force_vector) {
     RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
@@ -901,7 +901,7 @@ void FieldsComputerCPU::handle_nearest_obstacle_distance(
         agent_position,
         agent_radius,
         mass_radius,
-        nn_detect_shell_rad,
+        potential_detect_shell_rad,
         show_processing_delay);
 
     response->distance = min_dist;
