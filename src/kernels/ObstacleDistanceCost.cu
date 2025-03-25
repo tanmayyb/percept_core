@@ -58,9 +58,10 @@ __global__ void kernel(
     double3 mass_position = d_masses[i];
     double3 dist_vec = mass_position - agent_position;
     double dist = norm(dist_vec);
+    double effective_dist = dist-(agent_radius+mass_radius);
 
-    if (dist <= detect_shell_rad) {
-        sdata[tid] = 1.0 / fmax(1.0e-5, dist-(agent_radius+mass_radius));
+    if (effective_dist <= detect_shell_rad) {
+        sdata[tid] = 1.0 / fmax(1.0e-5, effective_dist);
     }
 
     // Perform reduction in shared memory, add up all the potentials
@@ -138,6 +139,11 @@ __host__ double launch_kernel(
         return 0.0;
     }
     cudaFree(d_net_potential);
+
+    // Normalize the potential by dividing by the number of masses
+    if (num_masses > 0) {
+        host_net_potential /= num_masses;
+    }
 
     if (debug) {
         auto end_time = std::chrono::high_resolution_clock::now();
