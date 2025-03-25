@@ -19,7 +19,7 @@ class SceneCreator(Node):
         self.declare_parameter('obstacles_config_path', default_config_path)
         config_path = self.get_parameter('obstacles_config_path').value
 
-        self.declare_parameter('publish_once', False)
+        self.declare_parameter('publish_once', True)
         publish_once = self.get_parameter('publish_once').value
 
         # Publisher for obstacle positions
