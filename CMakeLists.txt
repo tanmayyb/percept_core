@@ -108,6 +108,7 @@ add_executable(fields_computer
   src/kernels/GoalHeuristicCircForce.cu
   src/kernels/RandomHeuristicCircForce.cu
   src/kernels/ArtificialPotentialField.cu
+  src/kernels/NearestNeighbour.cu
 )
 
 add_executable(fields_computer_cpu 

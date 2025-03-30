@@ -33,8 +33,9 @@ private:
   // gpu buffer synchronization
   // double3* gpu_points_buffer{nullptr};
   std::shared_ptr<double3> gpu_points_buffer_shared_;
-  std::shared_timed_mutex gpu_points_mutex_;
+  std::shared_ptr<int> gpu_nn_index_shared_;
   size_t gpu_num_points_{0};
+  std::shared_timed_mutex gpu_points_mutex_;
   // std::mutex gpu_points_mutex_;
   // std::atomic<bool> is_gpu_points_in_use_{false};
 

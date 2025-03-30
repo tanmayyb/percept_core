@@ -25,6 +25,7 @@
 #include "percept/GoalObstacleHeuristicCircForce.h"
 #include "percept/RandomHeuristicCircForce.h"
 #include "percept/ArtificialPotentialField.h"
+#include "percept/NearestNeighbour.h"
 
 FieldsComputer::FieldsComputer() : Node("fields_computer")
 {
@@ -173,6 +174,7 @@ FieldsComputer::~FieldsComputer()
   // will keep the GPU memory alive until they finish.
   std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
   gpu_points_buffer_shared_.reset();
+  gpu_nn_index_shared_.reset();
 }
 
 
@@ -234,10 +236,34 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
       }
     });
 
+    // Allocate memory for the nearest neighbour index.
+    int* gpu_nn_index_ptr = nullptr;
+    err = cudaMalloc(&gpu_nn_index_ptr, num_points * sizeof(int));
+    if (!check_cuda_error(err, "cudaMalloc for nearest neighbor index")) {
+      cudaFree(gpu_buffer_ptr);
+      return;
+    }
+
+    // Launch the nearest neighbour kernel.
+    nearest_neighbour::launch_kernel(
+      gpu_buffer_ptr,
+      num_points,
+      gpu_nn_index_ptr,
+      show_processing_delay
+    );
+
+    // Wrap the raw GPU pointer in a shared_ptr with a custom deleter.
+    auto new_gpu_nn_index = std::shared_ptr<int>(gpu_nn_index_ptr, [](int* ptr) {
+      if (ptr) {
+        cudaFree(ptr);
+      }
+    });
+
     // Update the GPU buffer with exclusive access
     std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
     gpu_points_buffer_shared_ = new_gpu_buffer;
     gpu_num_points_ = num_points;
+    gpu_nn_index_shared_ = new_gpu_nn_index;
   });
 }
 
