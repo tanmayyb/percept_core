@@ -25,6 +25,7 @@ __device__ double3 calculate_rotation_vector(
     int i,
     double3* d_masses,
     int num_masses,
+    int* nn_index,
     double3 mass_position,
     double3 mass_dist_vec_normalized,
     double3 goal_vec
@@ -32,25 +33,13 @@ __device__ double3 calculate_rotation_vector(
 
     double nn_distance = 1000.0;
     double nn_mass_dist_k;
-    int nn_mass_idx = -1;
+    int nn_mass_idx = nn_index[i];
     double3 nn_mass_position;
     double3 obstacle_vec;
     double3 obstacle_current_vec;
     double3 current_vec;
     double3 goal_current_vec;
 
-    // find nearest neighbor using brute force :/
-    for(int k=0; k<num_masses; k++){
-    // find ways to optimize this
-    // need to use kdtrees/FLANN or some other method to find nearest neighbor
-        if(k != i){
-            nn_mass_dist_k = squared_distance(d_masses[k], mass_position);
-            if(nn_mass_dist_k < nn_distance){ // update nearest neighbor
-                nn_distance = nn_mass_dist_k;
-                nn_mass_idx = k;
-            }
-        }
-    }
 
     // calculate rotation vector
     nn_mass_position = d_masses[nn_mass_idx];
@@ -75,6 +64,7 @@ __global__ void kernel(
     double3* d_net_force,
     double3* d_masses,
     size_t num_masses,
+    int* nn_index,
     double3 agent_position,
     double3 agent_velocity,
     double3 goal_position,
@@ -133,7 +123,7 @@ __global__ void kernel(
     if(dist_to_mass < detect_shell_rad && norm(mass_rvel_vec) > 1e-10){ 
 
 
-        rot_vec =  calculate_rotation_vector(i, d_masses, num_masses, mass_position, mass_dist_vec_normalized, goal_vec);
+        rot_vec =  calculate_rotation_vector(i, d_masses, num_masses, nn_index, mass_position, mass_dist_vec_normalized, goal_vec);
 
         // calculate current vector
         mass_rvel_vec_normalized = normalized(mass_rvel_vec);
@@ -173,6 +163,7 @@ reduction:
 __host__ double3 launch_kernel(
     double3* d_masses,
     size_t num_masses,
+    int* nn_index,
     double3 agent_position,
     double3 agent_velocity,
     double3 goal_position,
@@ -204,7 +195,7 @@ __host__ double3 launch_kernel(
     int num_blocks = (num_masses + threads - 1) / threads; // ceiling division
     size_t shared_mem_size = threads * sizeof(double3);
     kernel<<<num_blocks, threads, shared_mem_size>>>(
-        d_net_force, d_masses, num_masses,
+        d_net_force, d_masses, num_masses, nn_index,
         agent_position, agent_velocity, goal_position,
         agent_radius, mass_radius, detect_shell_rad,
         k_circ

@@ -27,6 +27,10 @@
 #include "percept/ArtificialPotentialField.h"
 #include "percept/NearestNeighbour.h"
 
+// nvtx
+// #include <nvtx3/nvToolsExt.h>
+#include <nvtx3/nvtx3.hpp>
+
 FieldsComputer::FieldsComputer() : Node("fields_computer")
 {
 
@@ -399,9 +403,9 @@ template<typename HeuristicFunc>
 void FieldsComputer::handle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
-    HeuristicFunc kernel_launcher)
+    HeuristicFunc kernel_launcher, const std::string& heuristic_name)
 {
-  enqueue_operation(OperationType::READ, [this, request, response, kernel_launcher]() {
+  enqueue_operation(OperationType::READ, [this, request, response, kernel_launcher, heuristic_name]() {
     std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
     auto gpu_buffer = gpu_points_buffer_shared_;
     if (!gpu_buffer) {
@@ -413,7 +417,26 @@ void FieldsComputer::handle_heuristic(
     using clock = std::chrono::steady_clock;
     auto start_time = clock::now();
     auto [agent_position, agent_velocity, goal_position, detect_shell_rad, k_force, max_allowable_force] = extract_request_data(request);
-    double3 net_force = kernel_launcher(
+    double3 net_force;
+    // if (heuristic_name == "ObstacleHeuristic" || heuristic_name == "GoalObstacleHeuristic") {
+  if constexpr (std::is_invocable_v<HeuristicFunc, double3*, size_t, int*, double3, double3, double3, double, double, double, double, double, bool>) {
+      auto gpu_nn_index = gpu_nn_index_shared_;
+      net_force = kernel_launcher(
+        gpu_buffer.get(),
+        gpu_num_points_,
+        gpu_nn_index.get(),
+        agent_position,
+        agent_velocity, 
+        goal_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        k_force,
+        max_allowable_force,
+        show_processing_delay);
+    }
+    else{
+      net_force = kernel_launcher(
         gpu_buffer.get(),
         gpu_num_points_,
         agent_position,
@@ -425,6 +448,7 @@ void FieldsComputer::handle_heuristic(
         k_force,
         max_allowable_force,
         show_processing_delay);
+    }
 
     process_response(net_force, request->agent_pose, response);
     auto end_time = clock::now();
@@ -441,7 +465,7 @@ void FieldsComputer::handle_obstacle_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Obstacle heuristic service request received");
   }
-  handle_heuristic(request, response, obstacle_heuristic::launch_kernel);
+  handle_heuristic(request, response, obstacle_heuristic::launch_kernel, "ObstacleHeuristic");
 }
 
 void FieldsComputer::handle_velocity_heuristic(
@@ -451,7 +475,7 @@ void FieldsComputer::handle_velocity_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Velocity heuristic service request received");
   }
-  handle_heuristic(request, response, velocity_heuristic::launch_kernel);
+  handle_heuristic(request, response, velocity_heuristic::launch_kernel, "VelocityHeuristic");
 }
 
 void FieldsComputer::handle_goal_heuristic(
@@ -461,7 +485,7 @@ void FieldsComputer::handle_goal_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Goal heuristic service request received");
   }
-  handle_heuristic(request, response, goal_heuristic::launch_kernel);
+  handle_heuristic(request, response, goal_heuristic::launch_kernel, "GoalHeuristic");
 }
 
 void FieldsComputer::handle_goalobstacle_heuristic(
@@ -471,7 +495,7 @@ void FieldsComputer::handle_goalobstacle_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Goal obstacle heuristic service request received");
   }
-  handle_heuristic(request, response, goalobstacle_heuristic::launch_kernel);
+  handle_heuristic(request, response, goalobstacle_heuristic::launch_kernel, "GoalObstacleHeuristic");
 }
 
 void FieldsComputer::handle_random_heuristic(
@@ -481,7 +505,7 @@ void FieldsComputer::handle_random_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Random heuristic service request received");
   }
-  handle_heuristic(request, response, random_heuristic::launch_kernel);
+  handle_heuristic(request, response, random_heuristic::launch_kernel, "RandomHeuristic");
 }
 
 void FieldsComputer::handle_apf_heuristic(
@@ -491,7 +515,7 @@ void FieldsComputer::handle_apf_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "APF heuristic service request received");
   }
-  handle_heuristic(request, response, artificial_potential_field::launch_kernel);
+  handle_heuristic(request, response, artificial_potential_field::launch_kernel, "APFHeuristic");
 }
 
 // Add new queue processing methods

@@ -13,6 +13,7 @@ namespace obstacle_heuristic{
 __host__ double3 launch_kernel(
     double3* gpu_points_, 
     size_t gpu_num_points_,
+    int* nn_index,
     double3 agent_position,
     double3 agent_velocity,
     double3 goal_position,
