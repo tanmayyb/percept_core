@@ -25,6 +25,30 @@ enable_language(CUDA)
 add_definitions(-w -DUSE_CUDA)
 
 
+# Find NVTX3 headers
+find_path(NVTX3_INCLUDE_DIR
+  # first try to find in CUDA_DIR
+  NAMES nvtx3/nvtx3.hpp
+  PATHS ${CUDA_DIR}/include /usr/local/cuda/include
+  DOC "NVTX3 include directory"
+)
+if(NOT NVTX3_INCLUDE_DIR)
+  # Use submodule NVTX headers
+  set(NVTX3_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/third_party/nvtx/c/include")
+  message(STATUS "Using NVTX3 headers from submodule at: ${NVTX3_INCLUDE_DIR}")
+else()
+  message(STATUS "Found system NVTX3 headers at: ${NVTX3_INCLUDE_DIR}")
+endif()
+
+if(NVTX3_INCLUDE_DIR)
+  include_directories(${NVTX3_INCLUDE_DIR})
+  message(STATUS "Found NVTX3 headers at: ${NVTX3_INCLUDE_DIR}")
+else()
+  message(WARNING "NVTX3 headers not found. Profiling features will be disabled.")
+  add_definitions(-DDISABLE_NVTX)
+endif()
+
+
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)

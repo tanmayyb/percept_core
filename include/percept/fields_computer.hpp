@@ -135,6 +135,9 @@ private:
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
     HeuristicFunc kernel_launcher, const std::string& heuristic_name);
 
+  // nvtx
+  void mark_start(const std::string& name, unsigned int color_hex);
+
   // experimental
   void force_vector_publisher(const double3& net_force, const geometry_msgs::msg::Pose& agent_pose, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub);
 

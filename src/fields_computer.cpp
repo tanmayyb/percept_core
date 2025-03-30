@@ -28,8 +28,9 @@
 #include "percept/NearestNeighbour.h"
 
 // nvtx
-// #include <nvtx3/nvToolsExt.h>
+#ifndef DISABLE_NVTX
 #include <nvtx3/nvtx3.hpp>
+#endif
 
 FieldsComputer::FieldsComputer() : Node("fields_computer")
 {
@@ -104,6 +105,16 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   RCLCPP_INFO(this->get_logger(), "  disable_goalobstacle_heuristic: %s", disable_goalobstacle_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_random_heuristic: %s", disable_random_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_apf_heuristic: %s", disable_apf_heuristic ? "true" : "false");
+
+  // Profiling
+  RCLCPP_INFO(this->get_logger(), "Profiling:");
+  #ifndef DISABLE_NVTX
+  RCLCPP_INFO(this->get_logger(), "  nvtx enabled: %s", "true");
+  #else
+  RCLCPP_INFO(this->get_logger(), "  nvtx enabled: %s", "false");
+  #endif
+
+  
   // Start the queue processor thread
   queue_processor_ = std::thread(&FieldsComputer::process_queue, this);
 
@@ -197,10 +208,14 @@ bool FieldsComputer::check_cuda_error(cudaError_t err, const char* operation)
 // Callback for processing incoming point cloud messages.
 void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
+  mark_start("PointCloud Callback Received", 0x0000FF);
   // Create a copy of the message since we'll process it asynchronously
   auto msg_copy = std::make_shared<sensor_msgs::msg::PointCloud2>(*msg);
   
   enqueue_operation(OperationType::WRITE, [this, msg_copy]() {
+#ifndef DISABLE_NVTX
+    nvtx3::scoped_range range{"PointCloud Callback Processing"};
+#endif
     // Compute number of points
     size_t num_points = msg_copy->width * msg_copy->height;
 
@@ -362,6 +377,7 @@ void FieldsComputer::handle_obstacle_distance_cost(
     const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response)
 {
+  mark_start("ObstacleDistanceCost Request Received", 0x00FF00);
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Obstacle distance cost service request received");
   }
@@ -457,11 +473,27 @@ void FieldsComputer::handle_heuristic(
   });
 }
 
+void FieldsComputer::mark_start(const std::string& name, unsigned int color_hex) {
+#ifndef DISABLE_NVTX
+  nvtxEventAttributes_t eventAttrib = {0};
+  eventAttrib.colorType = NVTX_COLOR_ARGB;
+  eventAttrib.color = color_hex;
+  // eventAttrib.color = 0xFFFF0000; // Red color
+  // eventAttrib.color = 0xFFFFC0CB; // Pink color
+
+  eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
+  eventAttrib.message.ascii = name.c_str();
+
+  nvtxMarkEx(&eventAttrib);
+#endif
+}
+
 // Replace individual handlers with templated versions
 void FieldsComputer::handle_obstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  mark_start("ObstacleHeuristic Request Received", 0xFFFF0000);
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Obstacle heuristic service request received");
   }
@@ -472,6 +504,7 @@ void FieldsComputer::handle_velocity_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  mark_start("VelocityHeuristic Request Received", 0xFFFF0000);
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Velocity heuristic service request received");
   }
@@ -482,6 +515,7 @@ void FieldsComputer::handle_goal_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  mark_start("GoalHeuristic Request Received", 0xFFFF0000);
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Goal heuristic service request received");
   }
@@ -492,6 +526,7 @@ void FieldsComputer::handle_goalobstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  mark_start("GoalObstacleHeuristic Request Received", 0xFFFF0000);
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Goal obstacle heuristic service request received");
   }
@@ -502,6 +537,7 @@ void FieldsComputer::handle_random_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  mark_start("RandomHeuristic Request Received", 0xFFFF0000);
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Random heuristic service request received");
   }
@@ -512,6 +548,7 @@ void FieldsComputer::handle_apf_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
 {
+  mark_start("APFHeuristic Request Received", 0xFFFF0000);
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "APF heuristic service request received");
   }
