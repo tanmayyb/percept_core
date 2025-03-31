@@ -35,6 +35,49 @@
 FieldsComputer::FieldsComputer() : Node("fields_computer")
 {
 
+  // Select the GPU with the most memory (likely the most powerful)
+  int deviceCount = 0;
+  cudaError_t err = cudaGetDeviceCount(&deviceCount);
+  if (check_cuda_error(err, "getting device count")) {
+    if (deviceCount > 0) {
+      // Find the device with the most memory
+      int selectedDeviceId = 0;
+      size_t maxMemory = 0;
+      
+      for (int i = 0; i < deviceCount; i++) {
+        cudaDeviceProp deviceProp;
+        err = cudaGetDeviceProperties(&deviceProp, i);
+        if (check_cuda_error(err, "getting device properties")) {
+          if (deviceProp.totalGlobalMem > maxMemory) {
+            maxMemory = deviceProp.totalGlobalMem;
+            selectedDeviceId = i;
+          }
+        }
+      }
+      
+      // Set the selected device
+      err = cudaSetDevice(selectedDeviceId);
+      if (check_cuda_error(err, "setting device")) {
+        RCLCPP_INFO(this->get_logger(), "CUDA Device Properties:");
+        RCLCPP_INFO(this->get_logger(), "  Using CUDA device %d of %d devices", selectedDeviceId, deviceCount);
+        
+        // Get and log device properties
+        cudaDeviceProp deviceProp;
+        err = cudaGetDeviceProperties(&deviceProp, selectedDeviceId);
+        if (check_cuda_error(err, "getting device properties")) {
+          RCLCPP_INFO(this->get_logger(), "  Device name: %s", deviceProp.name);
+          RCLCPP_INFO(this->get_logger(), "  Compute capability: %d.%d", deviceProp.major, deviceProp.minor);
+          RCLCPP_INFO(this->get_logger(), "  Total global memory: %.2f GB", 
+                     static_cast<float>(deviceProp.totalGlobalMem) / (1024.0f * 1024.0f * 1024.0f));
+        }
+      }
+      cudaDeviceSynchronize();
+    } else {
+      RCLCPP_ERROR(this->get_logger(), "No CUDA devices found!");
+    }
+  }
+
+
   this->declare_parameter("agent_radius", 0.050);
   this->get_parameter("agent_radius", agent_radius);
 
@@ -469,7 +512,9 @@ void FieldsComputer::handle_heuristic(
     process_response(net_force, request->agent_pose, response);
     auto end_time = clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-    RCLCPP_INFO(this->get_logger(), "Heuristic computation time: %ld microseconds", duration.count());
+    if (show_processing_delay) {
+      RCLCPP_INFO(this->get_logger(), "Heuristic computation time: %ld microseconds", duration.count());
+    }
   });
 }
 
