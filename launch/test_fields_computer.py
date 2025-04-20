@@ -15,7 +15,7 @@ def setup_fields_computer(context):
         planner_mode = 'oriented_pointmass'
 
     use_cpu = LaunchConfiguration('use_cpu').perform(context)
-    if use_cpu:
+    if use_cpu.lower() == 'true':
         node_executable = 'fields_computer_cpu'
     else:
         node_executable = 'fields_computer'
