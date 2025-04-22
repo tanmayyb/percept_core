@@ -129,7 +129,6 @@ def setup_fields_computer(context):
             name=node_executable,
             output='screen',
             parameters=[{
-                'publish_force_vector': False,
                 'show_processing_delay': LaunchConfiguration('show_processing_delay'),
                 'show_requests': LaunchConfiguration('show_requests'),
             }],

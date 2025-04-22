@@ -5,7 +5,6 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include "percept_interfaces/srv/agent_state_to_circ_force.hpp"
 #include <percept_interfaces/srv/agent_pose_to_min_obstacle_dist.hpp>
-#include <visualization_msgs/msg/marker.hpp>
 
 // #include <mutex>
 #include <shared_mutex>
@@ -106,9 +105,6 @@ private:
   bool show_netforce_output{false};
   bool show_processing_delay{false};
   bool show_service_request_received{false};
-  // experimental
-  double force_viz_scale_{1.0};
-  bool publish_force_vector{false};
 
 
   // pointcloud buffer
@@ -124,8 +120,6 @@ private:
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_goalobstacle_heuristic;
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_random_heuristic;
 
-  // experimental
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
 
   // Operation queue structures
   enum class OperationType {
@@ -179,9 +173,6 @@ private:
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
     HeuristicFunc kernel_launcher);
-
-  // experimental
-  void force_vector_publisher(const Point3D& net_force, const geometry_msgs::msg::Pose& agent_pose, rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub);
 
 };
 

@@ -13,7 +13,6 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/point.hpp>
-#include <visualization_msgs/msg/marker.hpp>
 
 // CUDA kernels
 // helpers
@@ -87,16 +86,6 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->declare_parameter("potential_detect_shell_rad", 1.0);
   this->get_parameter("potential_detect_shell_rad", potential_detect_shell_rad);
 
-  this->declare_parameter("publish_force_vector", false);
-  this->get_parameter("publish_force_vector", publish_force_vector);
-
-  this->declare_parameter("force_viz_scale", 1.0);
-  this->get_parameter("force_viz_scale", force_viz_scale_);
-
-  if (publish_force_vector) {
-    marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("force_vector", 10);
-  }
-
   this->declare_parameter("show_netforce_output", false);
   this->get_parameter("show_netforce_output", show_netforce_output);
 
@@ -133,10 +122,6 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
   RCLCPP_INFO(this->get_logger(), "  potential_detect_shell_rad: %.2f", potential_detect_shell_rad);
-  RCLCPP_INFO(this->get_logger(), "  publishing force vectors: %s", publish_force_vector ? "true" : "false");
-  if (publish_force_vector) {
-    RCLCPP_INFO(this->get_logger(), "  force_viz_scale: %.2f", force_viz_scale_);
-  }
   RCLCPP_INFO(this->get_logger(), "  show_processing_delay: %s", show_processing_delay ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  show_requests: %s", show_service_request_received ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Helper services:");
@@ -372,46 +357,6 @@ void FieldsComputer::process_response(const double3& net_force,
   response->circ_force.y = net_force.y;
   response->circ_force.z = net_force.z;
   response->not_null = true;
-
-  if (publish_force_vector && marker_pub_) {
-    force_vector_publisher(net_force, agent_pose, marker_pub_);
-  }
-}
-
-
-// Publishes a visualization marker representing the force vector.
-void FieldsComputer::force_vector_publisher(const double3& net_force,
-                                              const geometry_msgs::msg::Pose& agent_pose,
-                                              rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub)
-{
-  visualization_msgs::msg::Marker marker;
-  marker.header.frame_id = "world";  // Adjust frame as necessary.
-  marker.header.stamp = this->now();
-  marker.ns = "force_vectors";
-  marker.id = 0;
-  marker.type = visualization_msgs::msg::Marker::ARROW;
-  marker.action = visualization_msgs::msg::Marker::ADD;
-
-  marker.points.resize(2);
-  // Start point at the agent's position.
-  marker.points[0].x = agent_pose.position.x;
-  marker.points[0].y = agent_pose.position.y;
-  marker.points[0].z = agent_pose.position.z;
-  // End point is the agent's position plus a scaled force vector.
-  marker.points[1].x = agent_pose.position.x + net_force.x * force_viz_scale_;
-  marker.points[1].y = agent_pose.position.y + net_force.y * force_viz_scale_;
-  marker.points[1].z = agent_pose.position.z + net_force.z * force_viz_scale_;
-
-  marker.scale.x = 0.1;  // Shaft diameter.
-  marker.scale.y = 0.2;  // Head diameter.
-  marker.scale.z = 0.3;  // Head length.
-
-  marker.color.r = 1.0;
-  marker.color.g = 0.0;
-  marker.color.b = 0.0;
-  marker.color.a = 1.0;
-
-  marker_pub->publish(marker);
 }
 
 
