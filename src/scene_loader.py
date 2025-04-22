@@ -10,10 +10,13 @@ import sensor_msgs_py.point_cloud2 as pc2
 import numpy as np
 
 import yaml
+import time
+
 
 class SceneCreator(Node):
     def __init__(self, node_name='scene_loader'):
         super().__init__(node_name)
+        
 
         default_config_path = 'src/percept/assets/benchmark_scenes/obstacles1.yaml'
         self.declare_parameter('obstacles_config_path', default_config_path)
@@ -28,11 +31,12 @@ class SceneCreator(Node):
             '/primitives',
             1
         )
-
-        # Load obstacles from yaml
-        with open(config_path, "r") as f:
-            self.obstacles_config = yaml.load(f, Loader=yaml.SafeLoader)
+        start = time.time()
+        with open(config_path, "r") as f:         # Load obstacles from yaml
+            self.obstacles_config = yaml.load(f, Loader=yaml.CLoader)
+        end = time.time()
         
+        self.get_logger().info(f"Time taken to load obstacles: {end - start} seconds")
         # Create timer for publishing
         if publish_once:
             self.publish_obstacles()
