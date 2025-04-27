@@ -24,10 +24,49 @@ inline Point3D make_point3d(double x, double y, double z) {
     return Point3D(x, y, z);
 }
 
-// CPU implementations of CUDA kernel functionality namespaces
-namespace nearest_obstacle_distance {
 
-    
+namespace nearest_neighbour{
+
+  void launch_cpu_kernel(
+    const Point3D* points,
+    size_t num_points,
+    int* nn_index,
+    bool show_processing_delay
+  ){
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    for(int i = 0; i < num_points; i++){ // for each point
+        double min_dist = 1000.0;
+        int nn_idx = -1;
+        for(int j = 0; j < num_points; j++){ // find the nearest neighbour
+            if(i == j){
+                continue;
+            }
+            Point3D mass_position = points[j];
+            Point3D mass_dist_vec = mass_position - points[i];
+            double dist_to_mass = mass_dist_vec.norm();
+
+            if(dist_to_mass < min_dist){
+                min_dist = dist_to_mass;
+                nn_idx = j;
+            }
+        }
+        nn_index[i] = nn_idx;
+    }
+
+    if (show_processing_delay) {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        std::cout << "Nearest neighbour computation took " << duration.count() << " microseconds" << std::endl;
+    }
+    return;
+  }
+}
+
+
+// CPU implementations of CUDA kernel functionality namespaces
+namespace obstacle_distance_cost {
+
     double launch_cpu_kernel(
         const Point3D* points,
         size_t num_points,
@@ -38,24 +77,26 @@ namespace nearest_obstacle_distance {
         bool show_processing_delay) 
     {
         auto start_time = std::chrono::high_resolution_clock::now();
-        
-        double min_dist = std::numeric_limits<double>::max();
+        double potential = 0.0;
         for (size_t i = 0; i < num_points; ++i) {
             double dx = points[i].x - agent_position.x;
             double dy = points[i].y - agent_position.y;
             double dz = points[i].z - agent_position.z;
             
-            double dist = std::sqrt(dx*dx + dy*dy + dz*dz) - agent_radius - mass_radius;
-            min_dist = std::min(min_dist, dist);
+            double dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+            if (dist < detect_shell_rad) {
+              // Truncated Quadratic (CHOMP)
+              potential += (1.0/2.0*detect_shell_rad) * (dist-detect_shell_rad)* (dist-detect_shell_rad);
+            }
         }
         
         if (show_processing_delay) {
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-            std::cout << "Nearest obstacle distance computation took " << duration.count() << " microseconds" << std::endl;
+            std::cout << "Obstacle distance cost computation took " << duration.count() << " microseconds" << std::endl;
         }
         
-        return min_dist;
+        return potential;
     }
 }
 
@@ -66,27 +107,15 @@ namespace obstacle_heuristic {
       int i, 
       const Point3D* points, 
       int num_points, 
+      int nn_index,
       Point3D mass_position, 
       Point3D mass_dist_vec_normalized
     ){
-      double nn_distance = 1000.0;
-      double nn_mass_dist_k;
-      int nn_mass_idx = -1;
       Point3D nn_mass_position;
       Point3D obstacle_vec;
       Point3D current_vec;
 
-      for(int k=0; k<num_points; k++){
-        if(k != i){
-          nn_mass_dist_k = mass_position.squared_distance(points[k]);
-          if(nn_mass_dist_k < nn_distance){
-            nn_distance = nn_mass_dist_k;
-            nn_mass_idx = k;
-          }
-        }
-      }
-  
-      nn_mass_position = points[nn_mass_idx];
+      nn_mass_position = points[nn_index];
       obstacle_vec = nn_mass_position - mass_position;
       current_vec = mass_dist_vec_normalized * mass_dist_vec_normalized.dot(obstacle_vec) - obstacle_vec;
       return current_vec.cross(mass_dist_vec_normalized).normalized();     
@@ -95,6 +124,7 @@ namespace obstacle_heuristic {
     Point3D launch_cpu_kernel(
         const Point3D* points,
         size_t num_points,
+        int* nn_index,
         const Point3D& agent_position,
         const Point3D& agent_velocity,
         const Point3D& goal_position,
@@ -146,7 +176,7 @@ namespace obstacle_heuristic {
             // calculate rotation vector, current vector, and force vector
             if(dist_to_mass < detect_shell_rad && mass_rvel_vec.norm() > 1e-10){ 
 
-                rot_vec = calculate_rotation_vector(i, points, num_points, mass_position, mass_dist_vec_normalized);
+                rot_vec = calculate_rotation_vector(i, points, num_points, nn_index[i], mass_position, mass_dist_vec_normalized);
                 current_vec = mass_dist_vec_normalized.cross(rot_vec).normalized();
 
                 // calculate force vector
@@ -388,30 +418,18 @@ namespace goalobstacle_heuristic {
       int i, 
       const Point3D* points, 
       int num_points, 
+      int nn_index,
       Point3D mass_position, 
       Point3D mass_dist_vec_normalized, 
       Point3D goal_vec
     ){
-      double nn_distance = 1000.0;
-      double nn_mass_dist_k;
-      int nn_mass_idx = -1;
       Point3D nn_mass_position;
       Point3D obstacle_vec;
       Point3D obstacle_current_vec;
       Point3D current_vec;
       Point3D goal_current_vec;
 
-      for(int k=0; k<num_points; k++){
-        if(k != i){
-          nn_mass_dist_k = mass_position.squared_distance(points[k]);
-          if(nn_mass_dist_k < nn_distance){
-            nn_distance = nn_mass_dist_k;
-            nn_mass_idx = k;
-          }
-        }
-      }
-   
-      nn_mass_position = points[nn_mass_idx];
+      nn_mass_position = points[nn_index];
       obstacle_vec = nn_mass_position - mass_position;
 
       // Current vector is perpendicular to obstacle surface normal and shows in opposite direction of obstacle_vec
@@ -432,6 +450,7 @@ namespace goalobstacle_heuristic {
     Point3D launch_cpu_kernel(
         const Point3D* points,
         size_t num_points,
+        int* nn_index,
         const Point3D& agent_position,
         const Point3D& agent_velocity,
         const Point3D& goal_position,
@@ -482,7 +501,7 @@ namespace goalobstacle_heuristic {
           dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
           
           if (dist_to_mass < detect_shell_rad && mass_rvel_vec.norm() > 1e-10){
-            rot_vec = calculate_rotation_vector(i, points, num_points, mass_position, mass_dist_vec_normalized, goal_vec);
+            rot_vec = calculate_rotation_vector(i, points, num_points, nn_index[i], mass_position, mass_dist_vec_normalized, goal_vec);
             
             mass_rvel_vec_normalized = mass_rvel_vec.normalized();
             current_vec = mass_dist_vec_normalized.cross(rot_vec).normalized();
@@ -612,6 +631,86 @@ namespace random_heuristic {
     }
 }
 
+
+// CPU implementation for random heuristic
+namespace apf_heuristic {
+    
+    Point3D launch_cpu_kernel(
+        const Point3D* points,
+        size_t num_points,
+        const Point3D& agent_position,
+        const Point3D& agent_velocity,
+        const Point3D& goal_position,
+        double agent_radius,
+        double mass_radius,
+        double detect_shell_rad,
+        double k_force,
+        double max_allowable_force,
+        bool show_processing_delay)
+    {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        
+        Point3D net_force(0.0, 0.0, 0.0);
+        Point3D goal_vec;
+        Point3D mass_position;
+        Point3D mass_dist_vec;
+        Point3D mass_velocity; 
+        Point3D mass_rvel_vec;
+        Point3D force_vec;
+        Point3D mass_dist_vec_normalized;
+        Point3D current_vec;
+        Point3D rot_vec;
+        Point3D mass_rvel_vec_normalized;
+        double dist_to_goal;
+        double dist_to_mass;
+
+        for (size_t i = 0; i < num_points; ++i) {
+          goal_vec = goal_position - agent_position;
+          dist_to_goal = goal_vec.norm();
+          mass_position = points[i];
+          mass_dist_vec = mass_position - agent_position;
+          mass_velocity = {0.0, 0.0, 0.0};
+          mass_rvel_vec = agent_velocity - mass_velocity;
+          force_vec = {0.0, 0.0, 0.0};
+          mass_dist_vec_normalized = mass_dist_vec.normalized();
+          
+
+          if (mass_dist_vec_normalized.dot(goal_vec.normalized()) < -1e-5 && mass_dist_vec.dot(mass_rvel_vec) < -1e-5){
+            continue;
+          }
+
+          dist_to_mass = mass_dist_vec.norm() - (agent_radius + mass_radius);
+          dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
+          
+          if (dist_to_mass < detect_shell_rad ){
+            // calculate force vector
+            force_vec = mass_dist_vec_normalized * (-1.0) * (1/dist_to_mass - 1/detect_shell_rad);
+            // Khatib (1986) : https://khatib.stanford.edu/publications/pdfs/Khatib_1986_IJRR.pdf
+            // Volpe and Khosla (1990): https://www.ri.cmu.edu/pub_files/pub1/volpe_r_1990_1/volpe_r_1990_1.pdf
+            force_vec = force_vec * (k_force / pow(dist_to_mass, 1));
+          }
+          net_force = net_force + force_vec;          
+        }
+
+        // clamp the force magnitude
+        if (max_allowable_force > 0.0) {
+          double force_magnitude = net_force.norm();   
+          if (force_magnitude > max_allowable_force) {
+            double scale = max_allowable_force / force_magnitude;
+            net_force = net_force * scale;
+          }
+        }
+
+        if (show_processing_delay) {
+            auto end_time = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+            std::cout << "APF heuristic computation took " << duration.count() << " microseconds" << std::endl;
+        }
+        
+        return net_force;
+    }
+}
+
 // Operation class to track queue tasks
 struct Operation {
     enum Type { READ, WRITE } type;
@@ -660,6 +759,9 @@ FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
   this->declare_parameter("disable_random_heuristic", false);
   this->get_parameter("disable_random_heuristic", disable_random_heuristic);
 
+  this->declare_parameter("disable_apf_heuristic", false);
+  this->get_parameter("disable_apf_heuristic", disable_apf_heuristic);
+
   RCLCPP_INFO(this->get_logger(), "Parameters:");
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
@@ -675,6 +777,7 @@ FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
   RCLCPP_INFO(this->get_logger(), "  disable_goal_heuristic: %s", disable_goal_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_goalobstacle_heuristic: %s", disable_goalobstacle_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_random_heuristic: %s", disable_random_heuristic ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "  disable_apf_heuristic: %s", disable_apf_heuristic ? "true" : "false");
 
   // Start the queue processor thread
   queue_processor_ = std::thread(&FieldsComputerCPU::process_queue, this);
@@ -687,9 +790,9 @@ FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
 
   // Create service servers for the helper services that are not disabled.
   if (!disable_nearest_obstacle_distance) {
-    service_nearest_obstacle_distance = this->create_service<percept_interfaces::srv::AgentPoseToMinObstacleDist>(
+    service_obstacle_distance_cost = this->create_service<percept_interfaces::srv::AgentPoseToMinObstacleDist>(
         "/get_min_obstacle_distance",
-        std::bind(&FieldsComputerCPU::handle_nearest_obstacle_distance, this,
+        std::bind(&FieldsComputerCPU::handle_obstacle_distance_cost, this,
                   std::placeholders::_1, std::placeholders::_2));
   }
   // Create service servers for the heuristics that are not disabled.
@@ -737,6 +840,7 @@ FieldsComputerCPU::~FieldsComputerCPU()
   // will keep the CPU memory alive until they finish.
   std::unique_lock<std::shared_timed_mutex> lock(points_mutex_);
   points_buffer_shared_.reset();
+  nn_index_shared_.reset();
 }
 
 
@@ -766,9 +870,26 @@ void FieldsComputerCPU::pointcloud_callback(const sensor_msgs::msg::PointCloud2:
           static_cast<double>(*iter_z));
     }
 
-    // Update the points buffer with exclusive access
+    int* nn_index_ptr = (int*)malloc(num_points * sizeof(int));
+    // Launch the nearest neighbour kernel.
+    nearest_neighbour::launch_cpu_kernel(
+      new_points_buffer->data(),
+      num_points,
+      nn_index_ptr,
+      show_processing_delay
+    );
+
+    // Wrap the raw pointer in a shared_ptr with a custom deleter
+    auto new_nn_index = std::shared_ptr<int>(nn_index_ptr, [](int* ptr) {
+      if (ptr) {
+        free(ptr);
+      }
+    });
+
+    // Update the points buffers with exclusive access
     std::unique_lock<std::shared_timed_mutex> lock(points_mutex_);
     points_buffer_shared_ = new_points_buffer;
+    nn_index_shared_ = new_nn_index;
     num_points_ = num_points;
   });
 }
@@ -822,7 +943,7 @@ void FieldsComputerCPU::process_response(const Point3D& net_force,
 
 
 // Service handler for the nearest obstacle distance.
-void FieldsComputerCPU::handle_nearest_obstacle_distance(
+void FieldsComputerCPU::handle_obstacle_distance_cost(
     const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response)
 {
@@ -843,7 +964,7 @@ void FieldsComputerCPU::handle_nearest_obstacle_distance(
         request->agent_pose.position.y,
         request->agent_pose.position.z);
 
-    double min_dist = nearest_obstacle_distance::launch_cpu_kernel(
+    double min_dist = obstacle_distance_cost::launch_cpu_kernel(
         points_buffer->data(),
         num_points_,
         agent_position,
@@ -861,29 +982,49 @@ template<typename HeuristicFunc>
 void FieldsComputerCPU::handle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
     std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
-    HeuristicFunc kernel_launcher)
+    HeuristicFunc kernel_launcher, const std::string& heuristic_name)
 {
-  enqueue_operation(OperationType::READ, [this, request, response, kernel_launcher]() {
+  enqueue_operation(OperationType::READ, [this, request, response, kernel_launcher, heuristic_name]() {
     std::shared_lock<std::shared_timed_mutex> lock(points_mutex_);
     auto points_buffer = points_buffer_shared_;
-    if (!points_buffer || points_buffer->empty()) {
+    auto nn_index = nn_index_shared_;
+    if (!points_buffer || points_buffer->empty() || !nn_index) {
       response->not_null = false;
       return;
     }
 
     auto [agent_position, agent_velocity, goal_position, detect_shell_rad, k_force, max_allowable_force] = extract_request_data(request);
-    Point3D net_force = kernel_launcher(
-        points_buffer->data(),
-        num_points_,
-        agent_position,
-        agent_velocity, 
-        goal_position,
-        agent_radius,
-        mass_radius,
-        detect_shell_rad,
-        k_force,
-        max_allowable_force,
-        show_processing_delay);
+    Point3D net_force;
+    // if (heuristic_name == "ObstacleHeuristic" || heuristic_name == "GoalObstacleHeuristic") {
+    if constexpr (std::is_invocable_v<HeuristicFunc, Point3D*, size_t, int*, Point3D, Point3D, Point3D, double, double, double, double, double, bool>){
+        net_force = kernel_launcher(
+            points_buffer->data(),
+            num_points_,
+            nn_index.get(),
+            agent_position,
+            agent_velocity, 
+            goal_position,
+            agent_radius,
+            mass_radius,
+            detect_shell_rad,
+            k_force,
+            max_allowable_force,
+            show_processing_delay);
+    }
+    else{
+        net_force = kernel_launcher(
+            points_buffer->data(),
+            num_points_,
+            agent_position,
+            agent_velocity, 
+            goal_position,
+            agent_radius,
+            mass_radius,
+            detect_shell_rad,
+            k_force,
+            max_allowable_force,
+            show_processing_delay);
+    }
 
     process_response(net_force, request->agent_pose, response);
   });
@@ -897,7 +1038,7 @@ void FieldsComputerCPU::handle_obstacle_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Obstacle heuristic service request received");
   }
-  handle_heuristic(request, response, obstacle_heuristic::launch_cpu_kernel);
+  handle_heuristic(request, response, obstacle_heuristic::launch_cpu_kernel, "ObstacleHeuristic");
 }
 
 void FieldsComputerCPU::handle_velocity_heuristic(
@@ -907,7 +1048,7 @@ void FieldsComputerCPU::handle_velocity_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Velocity heuristic service request received");
   }
-  handle_heuristic(request, response, velocity_heuristic::launch_cpu_kernel);
+  handle_heuristic(request, response, velocity_heuristic::launch_cpu_kernel, "VelocityHeuristic");
 }
 
 void FieldsComputerCPU::handle_goal_heuristic(
@@ -917,7 +1058,7 @@ void FieldsComputerCPU::handle_goal_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Goal heuristic service request received");
   }
-  handle_heuristic(request, response, goal_heuristic::launch_cpu_kernel);
+  handle_heuristic(request, response, goal_heuristic::launch_cpu_kernel, "GoalHeuristic");
 }
 
 void FieldsComputerCPU::handle_goalobstacle_heuristic(
@@ -927,7 +1068,7 @@ void FieldsComputerCPU::handle_goalobstacle_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Goal obstacle heuristic service request received");
   }
-  handle_heuristic(request, response, goalobstacle_heuristic::launch_cpu_kernel);
+  handle_heuristic(request, response, goalobstacle_heuristic::launch_cpu_kernel, "GoalObstacleHeuristic");
 }
 
 void FieldsComputerCPU::handle_random_heuristic(
@@ -937,7 +1078,17 @@ void FieldsComputerCPU::handle_random_heuristic(
   if (show_service_request_received) {
     RCLCPP_INFO(this->get_logger(), "Random heuristic service request received");
   }
-  handle_heuristic(request, response, random_heuristic::launch_cpu_kernel);
+  handle_heuristic(request, response, random_heuristic::launch_cpu_kernel, "RandomHeuristic");
+}
+
+void FieldsComputerCPU::handle_apf_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
+{
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "APF heuristic service request received");
+  }
+  handle_heuristic(request, response, apf_heuristic::launch_cpu_kernel, "APFHeuristic");
 }
 
 // Queue processing methods
