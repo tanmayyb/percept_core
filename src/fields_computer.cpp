@@ -198,7 +198,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   }
   if (!disable_apf_heuristic) {
     service_apf_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
-        "/get_apf_heuristic_force",
+        "/get_apf_heuristic_circforce",
         std::bind(&FieldsComputer::handle_apf_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
     artificial_potential_field::hello_cuda_world();

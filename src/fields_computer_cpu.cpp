@@ -826,6 +826,12 @@ FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
         std::bind(&FieldsComputerCPU::handle_random_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
   }
+  if (!disable_apf_heuristic) {
+    service_apf_heuristic = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+        "/get_apf_heuristic_circforce",
+        std::bind(&FieldsComputerCPU::handle_apf_heuristic, this,
+                  std::placeholders::_1, std::placeholders::_2));
+  }
 }
 
 
