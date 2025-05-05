@@ -4,6 +4,7 @@ from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from ament_index_python.packages import get_package_share_directory
 import os
+from launch.conditions import IfCondition
 
 def get_path(pkg_share:str, *paths):
     return os.path.join(pkg_share, *paths)
@@ -93,6 +94,13 @@ def generate_launch_description():
         description='Planner Mode'
     )    
 
+    show_rviz_arg = DeclareLaunchArgument(
+        'show_rviz',
+        default_value='True',
+        description='Show RVIZ'
+    )    
+
+
     opaque_fields_computer_setup = OpaqueFunction(
         function=setup_fields_computer
     )
@@ -120,11 +128,13 @@ def generate_launch_description():
         #     output='screen'
         # ),
         opaque_fields_computer_setup,
+        show_rviz_arg,
         Node(
             package='rviz2',
             executable='rviz2',
             name='perception_rviz',
             arguments=['-d', get_path(pkg_share, 'rviz2', 'planning.rviz')],
-            namespace='perception' 
+            namespace='perception',
+            condition=IfCondition(LaunchConfiguration('show_rviz'))
         )
     ])
