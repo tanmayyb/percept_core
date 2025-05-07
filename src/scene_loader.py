@@ -36,7 +36,7 @@ class SceneCreator(Node):
             self.obstacles_config = yaml.load(f, Loader=yaml.CLoader)
         end = time.time()
         
-        self.get_logger().info(f"Time taken to load obstacles: {end - start} seconds")
+        self.get_logger().info(f"Loaded {len(self.obstacles_config['obstacles'])} obstacles in {end - start} seconds")
         # Create timer for publishing
         if publish_once:
             self.publish_obstacles()
