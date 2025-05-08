@@ -1,3 +1,6 @@
 [submodule "include/third_party/nvtx"]
 	path = include/third_party/nvtx
 	url = https://github.com/NVIDIA/NVTX.git
+[submodule "include/third_party/cupoch"]
+	path = include/third_party/cupoch
+	url = https://github.com/neka-nat/cupoch.git
