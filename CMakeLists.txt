@@ -133,6 +133,7 @@ add_executable(fields_computer
   src/kernels/RandomHeuristicCircForce.cu
   src/kernels/ArtificialPotentialField.cu
   src/kernels/NearestNeighbour.cu
+  src/kernels/NavigationFunctionForce.cu
 )
 
 add_executable(fields_computer_cpu 
