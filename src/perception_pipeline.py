@@ -229,7 +229,10 @@ class PerceptionPipeline():
         # Compute minimums for each column on GPU
         mins = cp.min(primitives_pos_gpu, axis=0)
         
-        # Perform operations on GPU
+        # Perform operations on GPU (Normalize and scale)
+        # Subtract mins: Shifts all voxel indices so the minimum is at zero (origin).
+        # Scale: Multiplies by the voxel size to convert from grid indices to real-world coordinates.
+        # Offset: Adds the minimum bound and half a voxel size to center each primitive in its voxel.
         primitives_pos_gpu = primitives_pos_gpu - mins[None, :]
         primitives_pos_gpu = primitives_pos_gpu * voxel_size
         primitives_pos_gpu = primitives_pos_gpu + (offset + voxel_size/2)
