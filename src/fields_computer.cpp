@@ -25,6 +25,7 @@
 #include "percept/RandomHeuristicCircForce.h"
 #include "percept/ArtificialPotentialField.h"
 #include "percept/NearestNeighbour.h"
+#include "percept/NavigationFunctionForce.h"
 
 // nvtx
 #ifndef DISABLE_NVTX
@@ -118,6 +119,9 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->declare_parameter("disable_apf_heuristic", false);
   this->get_parameter("disable_apf_heuristic", disable_apf_heuristic);
 
+  this->declare_parameter("disable_navigation_function_force", false);
+  this->get_parameter("disable_navigation_function_force", disable_navigation_function_force);
+
   RCLCPP_INFO(this->get_logger(), "Parameters:");
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
@@ -133,6 +137,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   RCLCPP_INFO(this->get_logger(), "  disable_goalobstacle_heuristic: %s", disable_goalobstacle_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_random_heuristic: %s", disable_random_heuristic ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  disable_apf_heuristic: %s", disable_apf_heuristic ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "  disable_navigation_function_force: %s", disable_navigation_function_force ? "true" : "false");
 
   // Profiling
   RCLCPP_INFO(this->get_logger(), "Profiling:");
@@ -202,6 +207,12 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
         std::bind(&FieldsComputer::handle_apf_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
     artificial_potential_field::hello_cuda_world();
+  }
+  if (!disable_navigation_function_force) {
+    service_navigation_function_force = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+        "/get_navigation_function_circforce",
+        std::bind(&FieldsComputer::handle_navigation_function_force, this,
+                  std::placeholders::_1, std::placeholders::_2));
   }
 }
 
@@ -543,6 +554,17 @@ void FieldsComputer::handle_apf_heuristic(
     RCLCPP_INFO(this->get_logger(), "APF heuristic service request received");
   }
   handle_heuristic(request, response, artificial_potential_field::launch_kernel, "APFHeuristic");
+}
+
+void FieldsComputer::handle_navigation_function_force(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
+{
+  mark_start("NavigationFunctionForce Request Received", 0xFFFF0000);
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "Navigation function force service request received");
+  }
+  handle_heuristic(request, response, navigation_function::launch_kernel, "NavigationFunctionForce");
 }
 
 // Add new queue processing methods

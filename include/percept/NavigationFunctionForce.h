@@ -7,17 +7,17 @@ namespace navigation_function {
 
 // Main kernel launch function that computes the navigation function force
 __host__ double3 launch_kernel(
-    double3* d_obstacles,
-    double* d_obstacle_radii,
-    size_t num_obstacles,
-    double3 agent_position,
-    double3 goal_position,
-    double3 world_center,
-    double world_radius,
-    int K,
-    float eps,
-    double max_allowable_force,
-    bool debug = false
+	double3* d_masses,
+	size_t num_masses,
+	double3 agent_position,
+	double3 agent_velocity,
+	double3 goal_position,
+	double agent_radius,
+	double mass_radius,
+	double detect_shell_rad,
+	double k_force, 
+	double max_allowable_force,
+	bool debug
 );
 
 // Utility function for testing
