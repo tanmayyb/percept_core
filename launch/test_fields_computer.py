@@ -31,7 +31,8 @@ def setup_fields_computer(context):
             ('/get_velocity_heuristic_circforce', '/manipulator/get_velocity_heuristic_force'),
             ('/get_goalobstacle_heuristic_circforce', '/manipulator/get_goalobstacle_heuristic_force'),
             ('/get_random_heuristic_circforce', '/manipulator/get_random_heuristic_force'),
-            ('/get_apf_heuristic_force', '/manipulator/get_apf_heuristic_force'),
+            ('/get_apf_heuristic_circforce', '/manipulator/get_apf_heuristic_force'),
+            ('/get_navigation_function_circforce', '/manipulator/get_navigation_function_force'),
         ]
     else:
         remappings = [
@@ -42,7 +43,8 @@ def setup_fields_computer(context):
             ('/get_velocity_heuristic_circforce', '/oriented_pointmass/get_velocity_heuristic_force'),
             ('/get_goalobstacle_heuristic_circforce', '/oriented_pointmass/get_goalobstacle_heuristic_force'),
             ('/get_random_heuristic_circforce', '/oriented_pointmass/get_random_heuristic_force'),
-            ('/get_apf_heuristic_force', '/oriented_pointmass/get_apf_heuristic_force'),
+            ('/get_apf_heuristic_circforce', '/oriented_pointmass/get_apf_heuristic_force'),
+            ('/get_navigation_function_circforce', '/oriented_pointmass/get_navigation_function_force'),
         ]
     return [Node(
             package='percept',
