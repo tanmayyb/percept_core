@@ -87,6 +87,12 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   this->declare_parameter("potential_detect_shell_rad", 1.0);
   this->get_parameter("potential_detect_shell_rad", potential_detect_shell_rad);
 
+  this->declare_parameter("navigation_function_K", 1.0);
+  this->get_parameter("navigation_function_K", navigation_function_K);
+
+  this->declare_parameter("navigation_function_world_radius", 10.0);
+  this->get_parameter("navigation_function_world_radius", navigation_function_world_radius);
+
   this->declare_parameter("show_netforce_output", false);
   this->get_parameter("show_netforce_output", show_netforce_output);
 
@@ -126,9 +132,12 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
   RCLCPP_INFO(this->get_logger(), "  potential_detect_shell_rad: %.2f", potential_detect_shell_rad);
+  RCLCPP_INFO(this->get_logger(), "  navigation_function_K: %.2f", navigation_function_K);
+  RCLCPP_INFO(this->get_logger(), "  navigation_function_world_radius: %.2f", navigation_function_world_radius);
+  RCLCPP_INFO(this->get_logger(), "Helper functions:");
   RCLCPP_INFO(this->get_logger(), "  show_processing_delay: %s", show_processing_delay ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  show_requests: %s", show_service_request_received ? "true" : "false");
-  RCLCPP_INFO(this->get_logger(), "Helper services:");
+  RCLCPP_INFO(this->get_logger(), "Services:");
   RCLCPP_INFO(this->get_logger(), "  disable_nearest_obstacle_distance: %s", disable_nearest_obstacle_distance ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Heuristics:");
   RCLCPP_INFO(this->get_logger(), "  disable_obstacle_heuristic: %s", disable_obstacle_heuristic ? "true" : "false");
@@ -213,6 +222,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
         "/get_navigation_function_circforce",
         std::bind(&FieldsComputer::handle_navigation_function_force, this,
                   std::placeholders::_1, std::placeholders::_2));
+    navigation_function::hello_cuda_world();
   }
 }
 
@@ -427,14 +437,12 @@ void FieldsComputer::handle_heuristic(
       response->not_null = false;
       return;
     }
-
-
     using clock = std::chrono::steady_clock;
     auto start_time = clock::now();
     auto [agent_position, agent_velocity, goal_position, detect_shell_rad, k_force, max_allowable_force] = extract_request_data(request);
     double3 net_force;
-    // if (heuristic_name == "ObstacleHeuristic" || heuristic_name == "GoalObstacleHeuristic") {
   if constexpr (std::is_invocable_v<HeuristicFunc, double3*, size_t, int*, double3, double3, double3, double, double, double, double, double, bool>) {
+      // GoalObstacleHeuristic, Obstacle Heuristic
       auto gpu_nn_index = gpu_nn_index_shared_;
       net_force = kernel_launcher(
         gpu_buffer.get(),
@@ -450,7 +458,8 @@ void FieldsComputer::handle_heuristic(
         max_allowable_force,
         show_processing_delay);
     }
-    else{
+    else if constexpr( std::is_invocable_v<HeuristicFunc, double3*, size_t, double3, double3, double3, double, double, double, double, double, bool>){
+      // Velocity Heuristic, Goal Heuristic, Random Heuristic, APF Heuristic
       net_force = kernel_launcher(
         gpu_buffer.get(),
         gpu_num_points_,
@@ -463,6 +472,25 @@ void FieldsComputer::handle_heuristic(
         k_force,
         max_allowable_force,
         show_processing_delay);
+    }
+    else if constexpr( std::is_invocable_v<HeuristicFunc, double3*, size_t, double3, double3, double, double, double, double, double, bool>){
+      // Navigation Function Force
+      net_force = kernel_launcher(
+        gpu_buffer.get(),
+        gpu_num_points_,
+        agent_position,
+        goal_position,
+        detect_shell_rad,
+        k_force,
+        navigation_function_K,
+        navigation_function_world_radius,
+        max_allowable_force,
+        show_processing_delay);
+    }
+    else{
+      RCLCPP_ERROR(this->get_logger(), "Invalid heuristic function");
+      response->not_null = false;
+      return;
     }
 
     process_response(net_force, request->agent_pose, response);

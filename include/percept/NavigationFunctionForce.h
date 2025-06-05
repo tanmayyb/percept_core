@@ -10,12 +10,11 @@ __host__ double3 launch_kernel(
 	double3* d_masses,
 	size_t num_masses,
 	double3 agent_position,
-	double3 agent_velocity,
 	double3 goal_position,
-	double agent_radius,
-	double mass_radius,
 	double detect_shell_rad,
 	double k_force, 
+	double K,
+	double world_radius,
 	double max_allowable_force,
 	bool debug
 );
