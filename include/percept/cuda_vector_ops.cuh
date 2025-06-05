@@ -21,6 +21,10 @@ __host__ __device__ inline double3 operator*(const double3& a, const double scal
     return make_double3(a.x * scalar, a.y * scalar, a.z * scalar);
 }
 
+__host__ __device__ inline double3 operator/(const double3& a, const double scalar) {
+    return make_double3(a.x / scalar, a.y / scalar, a.z / scalar);
+}
+
 __host__ __device__ inline double norm(const double3 &v) {
     return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
