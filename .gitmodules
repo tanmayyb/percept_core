@@ -1,3 +1,4 @@
 [submodule "include/third_party/nvtx"]
 	path = include/third_party/nvtx
 	url = https://github.com/NVIDIA/NVTX.git
+	branch = 6230bdf710bc94f44d433acceba735aaa9090ba5
