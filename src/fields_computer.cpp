@@ -312,13 +312,14 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
       return;
     }
 
-    // Launch the nearest neighbour kernel.
-    nearest_neighbour::launch_kernel(
-      gpu_buffer_ptr,
-      num_points,
-      gpu_nn_index_ptr,
-      show_processing_delay
-    );
+    // Nearest neighbour kernel is not used for now.
+    // // Launch the nearest neighbour kernel.
+    // nearest_neighbour::launch_kernel(
+    //   gpu_buffer_ptr,
+    //   num_points,
+    //   gpu_nn_index_ptr,
+    //   show_processing_delay
+    // );
 
     // Wrap the raw GPU pointer in a shared_ptr with a custom deleter.
     auto new_gpu_nn_index = std::shared_ptr<int>(gpu_nn_index_ptr, [](int* ptr) {
@@ -441,7 +442,7 @@ void FieldsComputer::handle_heuristic(
     auto start_time = clock::now();
     auto [agent_position, agent_velocity, goal_position, detect_shell_rad, k_force, max_allowable_force] = extract_request_data(request);
     double3 net_force;
-  if constexpr (std::is_invocable_v<HeuristicFunc, double3*, size_t, int*, double3, double3, double3, double, double, double, double, double, bool>) {
+    if constexpr (std::is_invocable_v<HeuristicFunc, double3*, size_t, int*, double3, double3, double3, double, double, double, double, double, bool>) {
       // GoalObstacleHeuristic, Obstacle Heuristic
       auto gpu_nn_index = gpu_nn_index_shared_;
       net_force = kernel_launcher(

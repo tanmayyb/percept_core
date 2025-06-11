@@ -711,6 +711,27 @@ namespace apf_heuristic {
     }
 }
 
+namespace navigation_function {
+
+  Point3D launch_cpu_kernel(
+    const Point3D* points,
+    size_t num_points,
+    const Point3D& agent_position,
+    const Point3D& goal_position,
+    double detect_shell_rad,
+    double k_force,
+    double navigation_function_K,
+    double navigation_function_world_radius,
+    double max_allowable_force,
+    bool show_processing_delay
+  ){
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    // Not implemented yet.
+    return Point3D(0.0, 0.0, 0.0);    
+  }
+}
+
 // Operation class to track queue tasks
 struct Operation {
     enum Type { READ, WRITE } type;
@@ -762,14 +783,20 @@ FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
   this->declare_parameter("disable_apf_heuristic", false);
   this->get_parameter("disable_apf_heuristic", disable_apf_heuristic);
 
+  this->declare_parameter("disable_navigation_function_force", false);
+  this->get_parameter("disable_navigation_function_force", disable_navigation_function_force);
+
   RCLCPP_INFO(this->get_logger(), "Parameters:");
   RCLCPP_INFO(this->get_logger(), "  agent_radius: %.2f", agent_radius);
   RCLCPP_INFO(this->get_logger(), "  mass_radius: %.2f", mass_radius);
   RCLCPP_INFO(this->get_logger(), "  potential_detect_shell_rad: %.2f", potential_detect_shell_rad);
+  RCLCPP_INFO(this->get_logger(), "  navigation_function_K: %.2f", navigation_function_K);
+  RCLCPP_INFO(this->get_logger(), "  navigation_function_world_radius: %.2f", navigation_function_world_radius);
+  RCLCPP_INFO(this->get_logger(), "Helper functions:");
   RCLCPP_INFO(this->get_logger(), "  show_processing_delay: %s", show_processing_delay ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  show_requests: %s", show_service_request_received ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  use_cpu: true");
-  RCLCPP_INFO(this->get_logger(), "Helper services:");
+  RCLCPP_INFO(this->get_logger(), "Services:");
   RCLCPP_INFO(this->get_logger(), "  disable_nearest_obstacle_distance: %s", disable_nearest_obstacle_distance ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Heuristics:");
   RCLCPP_INFO(this->get_logger(), "  disable_obstacle_heuristic: %s", disable_obstacle_heuristic ? "true" : "false");
@@ -832,6 +859,12 @@ FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
         std::bind(&FieldsComputerCPU::handle_apf_heuristic, this,
                   std::placeholders::_1, std::placeholders::_2));
   }
+  if (!disable_navigation_function_force) {
+    service_navigation_function_force = this->create_service<percept_interfaces::srv::AgentStateToCircForce>(
+        "/get_navigation_function_circforce",
+        std::bind(&FieldsComputerCPU::handle_navigation_function_force, this,
+                  std::placeholders::_1, std::placeholders::_2));
+  }
 }
 
 
@@ -877,13 +910,15 @@ void FieldsComputerCPU::pointcloud_callback(const sensor_msgs::msg::PointCloud2:
     }
 
     int* nn_index_ptr = (int*)malloc(num_points * sizeof(int));
-    // Launch the nearest neighbour kernel.
-    nearest_neighbour::launch_cpu_kernel(
-      new_points_buffer->data(),
-      num_points,
-      nn_index_ptr,
-      show_processing_delay
-    );
+
+    // Nearest neighbour kernel is not used for now.
+    // // Launch the nearest neighbour kernel.
+    // nearest_neighbour::launch_cpu_kernel(
+    //   new_points_buffer->data(),
+    //   num_points,
+    //   nn_index_ptr,
+    //   show_processing_delay
+    // );
 
     // Wrap the raw pointer in a shared_ptr with a custom deleter
     auto new_nn_index = std::shared_ptr<int>(nn_index_ptr, [](int* ptr) {
@@ -998,41 +1033,67 @@ void FieldsComputerCPU::handle_heuristic(
       response->not_null = false;
       return;
     }
-
+    using clock = std::chrono::steady_clock;
+    auto start_time = clock::now();
     auto [agent_position, agent_velocity, goal_position, detect_shell_rad, k_force, max_allowable_force] = extract_request_data(request);
     Point3D net_force;
-    // if (heuristic_name == "ObstacleHeuristic" || heuristic_name == "GoalObstacleHeuristic") {
     if constexpr (std::is_invocable_v<HeuristicFunc, Point3D*, size_t, int*, Point3D, Point3D, Point3D, double, double, double, double, double, bool>){
-        net_force = kernel_launcher(
-            points_buffer->data(),
-            num_points_,
-            nn_index.get(),
-            agent_position,
-            agent_velocity, 
-            goal_position,
-            agent_radius,
-            mass_radius,
-            detect_shell_rad,
-            k_force,
-            max_allowable_force,
-            show_processing_delay);
+      // GoalObstacleHeuristic, Obstacle Heuristic
+      net_force = kernel_launcher(
+        points_buffer->data(),
+        num_points_,
+        nn_index.get(),
+        agent_position,
+        agent_velocity, 
+        goal_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        k_force,
+        max_allowable_force,
+        show_processing_delay);
+    }
+    else if constexpr(std::is_invocable_v<HeuristicFunc, Point3D*, size_t, Point3D, Point3D, Point3D, double, double, double, double, double, bool>){
+      // Velocity Heuristic, Goal Heuristic, Random Heuristic, APF Heuristic
+      net_force = kernel_launcher(
+        points_buffer->data(),
+        num_points_,
+        agent_position,
+        agent_velocity, 
+        goal_position,
+        agent_radius,
+        mass_radius,
+        detect_shell_rad,
+        k_force,
+        max_allowable_force,
+        show_processing_delay);
+    }
+    else if constexpr(std::is_invocable_v<HeuristicFunc, Point3D*, size_t, Point3D, Point3D, double, double, double, double, double, bool>){
+      // Navigation Function Force
+      net_force = kernel_launcher(
+        points_buffer->data(),
+        num_points_,
+        agent_position,
+        goal_position,
+        detect_shell_rad,
+        k_force,
+        navigation_function_K,
+        navigation_function_world_radius,
+        max_allowable_force,
+        show_processing_delay);
     }
     else{
-        net_force = kernel_launcher(
-            points_buffer->data(),
-            num_points_,
-            agent_position,
-            agent_velocity, 
-            goal_position,
-            agent_radius,
-            mass_radius,
-            detect_shell_rad,
-            k_force,
-            max_allowable_force,
-            show_processing_delay);
+      RCLCPP_ERROR(this->get_logger(), "Invalid heuristic function");
+      response->not_null = false;
+      return;
     }
 
     process_response(net_force, request->agent_pose, response);
+    auto end_time = clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    if (show_processing_delay) {
+      RCLCPP_INFO(this->get_logger(), "Heuristic computation time: %ld microseconds", duration.count());
+    }
   });
 }
 
@@ -1095,6 +1156,16 @@ void FieldsComputerCPU::handle_apf_heuristic(
     RCLCPP_INFO(this->get_logger(), "APF heuristic service request received");
   }
   handle_heuristic(request, response, apf_heuristic::launch_cpu_kernel, "APFHeuristic");
+}
+
+void FieldsComputerCPU::handle_navigation_function_force(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response)
+{
+  if (show_service_request_received) {
+    RCLCPP_INFO(this->get_logger(), "Navigation function force service request received");
+  }
+  handle_heuristic(request, response, navigation_function::launch_cpu_kernel, "NavigationFunctionForce");
 }
 
 // Queue processing methods

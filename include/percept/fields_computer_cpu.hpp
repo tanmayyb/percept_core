@@ -94,6 +94,8 @@ private:
   double agent_radius{0.0};
   double mass_radius{0.0};
   double potential_detect_shell_rad{0.0};
+  double navigation_function_K{0.0};
+  double navigation_function_world_radius{0.0};  
 
   // helper services parameters
   bool disable_nearest_obstacle_distance{false};  
@@ -103,12 +105,12 @@ private:
   bool disable_goalobstacle_heuristic{false};
   bool disable_random_heuristic{false};
   bool disable_apf_heuristic{false};
+  bool disable_navigation_function_force{false};
   
   // debug parameters
   bool show_netforce_output{false};
   bool show_processing_delay{false};
   bool show_service_request_received{false};
-
 
   // pointcloud buffer
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
@@ -123,6 +125,7 @@ private:
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_goalobstacle_heuristic;
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_random_heuristic;
   rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_apf_heuristic;
+  rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr service_navigation_function_force;
 
   // Operation queue structures
   enum class OperationType {
@@ -171,6 +174,8 @@ private:
   void handle_obstacle_heuristic(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
   void handle_apf_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
+  void handle_navigation_function_force(
     const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request, std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response);
 
   template<typename HeuristicFunc>
