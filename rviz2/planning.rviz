@@ -4,6 +4,7 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /PointCloud21
         - /Pose1/Topic1
       Splitter Ratio: 0.49760764837265015
     Tree Height: 363
@@ -53,11 +54,11 @@ Visualization Manager:
       Radius: 0.009999999776482582
       Reference Frame: world
       Value: true
-    - Alpha: 1
+    - Alpha: 0.20000000298023224
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 1
-        Min Value: -0.9900000095367432
+        Max Value: 0.9800000190734863
+        Min Value: -0.9800000190734863
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -241,25 +242,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 3.9915571212768555
+      Distance: 4.99346399307251
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.38843920826911926
-        Y: -1.8918627500534058
-        Z: 1.0960990190505981
+        X: 0.025123460218310356
+        Y: -1.1391217708587646
+        Z: 0.4674092233181
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8247979283332825
+      Pitch: 0.7947984933853149
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.284971237182617
+      Yaw: 4.294968128204346
     Saved: ~
 Window Geometry:
   Displays:
