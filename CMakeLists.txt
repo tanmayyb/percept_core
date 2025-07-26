@@ -1,53 +1,41 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.18)
+
+
+# project(percept LANGUAGES CXX CUDA)
 project(percept)
-
-# Set CUDA architecture policy
-cmake_policy(SET CMP0104 NEW)
-set(CMAKE_CUDA_ARCHITECTURES 75)  # For RTX 20xx series, adjust if needed
-
-# Default to C++14
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
+set(PROJECT_ENV_NAME "percept_env")
+if(POLICY CMP0104)
+  cmake_policy(SET CMP0104 NEW)
 endif()
+set(CMAKE_CXX_STANDARD 20)
 
-# if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-#   add_compile_options(-Wall -Wextra -Wpedantic)
-# endif()
-
-# Setup CUDA/NVCC
-set(CMAKE_C_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/gcc" CACHE PATH "" FORCE)
-set(CMAKE_CXX_COMPILER "/usr/lib/nvidia-cuda-toolkit/bin/g++" CACHE PATH "" FORCE)
-set(CUDA_DIR "/usr/lib/nvidia-cuda-toolkit")
-set(CUDA_NVCC_FLAGS "-arch=sm_75" CACHE STRING "nvcc flags" FORCE)
-set (CUDA_VERBOSE_BUILD ON CACHE BOOL "nvcc verbose" FORCE)
-find_package(CUDA REQUIRED)
+# ---- CUDA ----
+set(CMAKE_CUDA_ARCHITECTURES 86)
+set(CUDA_DIR "/usr/local/cuda-12.8")
+set(CUDAToolkit_ROOT "${CUDA_DIR}")
+set(CMAKE_CUDA_COMPILER "${CUDA_DIR}/bin/nvcc")
+set(CUDA_LIBS_DIR "${CUDA_DIR}/lib64")
+include_directories("${CUDA_DIR}/include")
 enable_language(CUDA)
-add_definitions(-w -DUSE_CUDA)
+set (CUDA_VERBOSE_BUILD ON)
 
-
-# Find NVTX3 headers
-find_path(NVTX3_INCLUDE_DIR
-  # first try to find in CUDA_DIR
-  NAMES nvtx3/nvtx3.hpp
-  PATHS ${CUDA_DIR}/include /usr/local/cuda/include
-  DOC "NVTX3 include directory"
-)
-if(NOT NVTX3_INCLUDE_DIR)
-  # Use submodule NVTX headers
-  set(NVTX3_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/third_party/nvtx/c/include")
-  message(STATUS "Using NVTX3 headers from submodule at: ${NVTX3_INCLUDE_DIR}")
-else()
-  message(STATUS "Found system NVTX3 headers at: ${NVTX3_INCLUDE_DIR}")
-endif()
-
+# ---- NVTX3 (GPU profiling features) ----
+set(NVTX3_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include/third_party/nvtx/c/include")
+find_path(NVTX3_INCLUDE_DIR nvtx3/nvtx3.hpp PATHS ${NVTX3_PATH})
 if(NVTX3_INCLUDE_DIR)
   include_directories(${NVTX3_INCLUDE_DIR})
-  message(STATUS "Found NVTX3 headers at: ${NVTX3_INCLUDE_DIR}")
 else()
-  message(WARNING "NVTX3 headers not found. Profiling features will be disabled.")
   add_definitions(-DDISABLE_NVTX)
 endif()
 
+# ---- Python ----
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CONDA_BASE "$ENV{HOME}/miniforge3/envs")
+set(CONDA_ENV "${CONDA_BASE}/${PROJECT_ENV_NAME}")
+set(PYTHON_EXECUTABLE "${CONDA_ENV}/bin/python")
+set(PYTHON_INCLUDE_DIRS "${CONDA_ENV}/include/python3.10")
+set(PYTHON_LIBRARY "${CONDA_ENV}/lib/libpython3.10.so")
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
@@ -60,46 +48,12 @@ find_package(geometry_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(visualization_msgs REQUIRED)
-
-# find_package(percept_interfaces REQUIRED
-find_package(percept_interfaces)
-
-
-# Find Python from Conda environment
-execute_process(
-    COMMAND ${CMAKE_COMMAND} -E env python -c
-    "import sys; print(sys.executable)"
-    OUTPUT_VARIABLE PYTHON_EXECUTABLE
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-# Set the Python executable
-set(PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
-message(STATUS "Using Python from: ${PYTHON_EXECUTABLE}")
-
-# Set the Python include directory
-execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} -c
-    "from sysconfig import get_paths as gp; print(gp()['include'])"
-    OUTPUT_VARIABLE PYTHON_INCLUDE_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-include_directories(${PYTHON_INCLUDE_DIR})
-
-# Set the Python library directory
-execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} -c
-    "from sysconfig import get_paths as gp; print(gp()['stdlib'])"
-    OUTPUT_VARIABLE PYTHON_LIB_DIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-link_directories(${PYTHON_LIB_DIR})
+find_package(percept_interfaces REQUIRED)
 
 # Install Python modules
 ament_python_install_package(${PROJECT_NAME}
   PACKAGE_DIR src
 )
-
 
 # Install Python executables
 install(PROGRAMS
@@ -140,9 +94,13 @@ add_executable(fields_computer_cpu
   src/fields_computer_cpu.cpp
 )
 
-target_include_directories(fields_computer 
-  PRIVATE include
+target_include_directories(fields_computer PRIVATE 
+  ${CUDA_DIR}/include 
+  include
 )
+target_compile_definitions(fields_computer PRIVATE USE_CUDA)
+target_compile_options(fields_computer PRIVATE -w) # suppresses warnings for the code
+
 target_include_directories(fields_computer_cpu 
   PRIVATE include
 )
