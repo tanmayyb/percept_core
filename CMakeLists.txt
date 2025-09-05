@@ -9,13 +9,21 @@ if(POLICY CMP0104)
 endif()
 set(CMAKE_CXX_STANDARD 20)
 
-# ---- CUDA ----
-set(CMAKE_CUDA_ARCHITECTURES 86)
-set(CUDA_DIR "/usr/local/cuda-12.8")
+# # ---- CUDA ----
+# set(CMAKE_CUDA_ARCHITECTURES 86)
+# set(CUDA_DIR "/usr/local/cuda-12.6")
+# set(CUDAToolkit_ROOT "${CUDA_DIR}")
+# set(CMAKE_CUDA_COMPILER "${CUDA_DIR}/bin/nvcc")
+# set(CUDA_LIBS_DIR "${CUDA_DIR}/lib64")
+# include_directories("${CUDA_DIR}/include")
+
+set(CMAKE_CUDA_ARCHITECTURES 75)
+set(CUDA_DIR "/usr/lib/nvidia-cuda-toolkit")
 set(CUDAToolkit_ROOT "${CUDA_DIR}")
 set(CMAKE_CUDA_COMPILER "${CUDA_DIR}/bin/nvcc")
 set(CUDA_LIBS_DIR "${CUDA_DIR}/lib64")
-include_directories("${CUDA_DIR}/include")
+include_directories("/usr/include/")
+
 enable_language(CUDA)
 set (CUDA_VERBOSE_BUILD ON)
 
@@ -49,6 +57,8 @@ find_package(diagnostic_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(percept_interfaces REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 # Install Python modules
 ament_python_install_package(${PROJECT_NAME}
@@ -110,6 +120,8 @@ ament_target_dependencies(fields_computer
   sensor_msgs
   geometry_msgs
   visualization_msgs
+  tf2
+  tf2_geometry_msgs
   percept_interfaces
 )
 ament_target_dependencies(fields_computer_cpu 
@@ -118,6 +130,8 @@ ament_target_dependencies(fields_computer_cpu
   sensor_msgs
   geometry_msgs
   visualization_msgs
+  tf2
+  tf2_geometry_msgs
   percept_interfaces
 )
 target_link_libraries(fields_computer 

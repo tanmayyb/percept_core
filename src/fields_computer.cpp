@@ -14,6 +14,11 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/point.hpp>
 
+// tf2 includes
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Vector3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
 // CUDA kernels
 // helpers
 #include "percept/ObstacleDistanceCost.h"
@@ -375,9 +380,18 @@ void FieldsComputer::process_response(const double3& net_force,
                 net_force.x, net_force.y, net_force.z, gpu_num_points_);
   }
 
-  response->circ_force.x = net_force.x;
-  response->circ_force.y = net_force.y;
-  response->circ_force.z = net_force.z;
+  // Build quaternion from agent's world pose.
+  tf2::Quaternion q_world_from_agent;
+  tf2::fromMsg(agent_pose.orientation, q_world_from_agent);
+  q_world_from_agent.normalize(); 
+  
+  // Rotate world vector into the agent frame: v_agent = R^T * v_world = quat.inverse() ⊗ v_world ⊗ quat
+  const tf2::Vector3 v_world(net_force.x, net_force.y, net_force.z);
+  const tf2::Vector3 v_agent = tf2::quatRotate(q_world_from_agent.inverse(), v_world);
+
+  response->circ_force.x = v_agent.x();
+  response->circ_force.y = v_agent.y();
+  response->circ_force.z = v_agent.z();
   response->not_null = true;
 }
 
