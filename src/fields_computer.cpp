@@ -351,10 +351,18 @@ std::tuple<double3, double3, double3, double, double, double> FieldsComputer::ex
       request->agent_pose.position.y,
       request->agent_pose.position.z);
 
+  tf2::Quaternion q_world_from_agent; // Transform agent velocity from agent frame to world frame
+  tf2::fromMsg(request->agent_pose.orientation, q_world_from_agent);
+  q_world_from_agent.normalize();
+  const tf2::Vector3 v_agent(
+    request->agent_velocity.x, 
+    request->agent_velocity.y, 
+    request->agent_velocity.z);
+  const tf2::Vector3 v_world = tf2::quatRotate(q_world_from_agent, v_agent);
   double3 agent_velocity = make_double3(
-      request->agent_velocity.x,
-      request->agent_velocity.y,
-      request->agent_velocity.z);
+    v_world.x(), 
+    v_world.y(), 
+    v_world.z());
 
   double3 goal_position = make_double3(
       request->target_pose.position.x,

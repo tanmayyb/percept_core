@@ -949,10 +949,18 @@ std::tuple<Point3D, Point3D, Point3D, double, double, double> FieldsComputerCPU:
       request->agent_pose.position.y,
       request->agent_pose.position.z);
 
+  tf2::Quaternion q_world_from_agent; // Transform agent velocity from agent frame to world frame
+  tf2::fromMsg(request->agent_pose.orientation, q_world_from_agent);
+  q_world_from_agent.normalize();
+  const tf2::Vector3 v_agent(
+    request->agent_velocity.x, 
+    request->agent_velocity.y, 
+    request->agent_velocity.z);
+  const tf2::Vector3 v_world = tf2::quatRotate(q_world_from_agent, v_agent);
   Point3D agent_velocity = make_point3d(
-      request->agent_velocity.x,
-      request->agent_velocity.y,
-      request->agent_velocity.z);
+    v_world.x(), 
+    v_world.y(), 
+    v_world.z());
 
   Point3D goal_position = make_point3d(
       request->target_pose.position.x,
