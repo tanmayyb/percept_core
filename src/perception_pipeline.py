@@ -29,6 +29,9 @@ class PerceptionPipeline():
         self.downsample = 5
         self.outlier_neighbours = 0
 
+        self.aabb_min_offset = np.array([0.03, 0.03, 0.03])
+        self.aabb_max_offset = np.array([0.03, 0.03, 0.03])
+
         self.node = node
         self.logger = node.get_logger().get_child('perception_pipeline')
         self.check_cuda()
@@ -182,6 +185,10 @@ class PerceptionPipeline():
 
                 for mesh in body_meshes.values():
                     aabb = mesh.get_axis_aligned_bounding_box()
+                    aabb = cph.geometry.AxisAlignedBoundingBox(
+                        aabb.get_min_bound()-self.aabb_min_offset, 
+                        aabb.get_max_bound()+self.aabb_max_offset
+                        )
                     indices = aabb.get_point_indices_within_bounding_box(filtered_points.points)
                     filtered_points = filtered_points.select_by_index(indices, invert=True)
             except Exception as e:
