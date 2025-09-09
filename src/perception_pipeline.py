@@ -219,40 +219,17 @@ class PerceptionPipeline():
         return voxel_grid
 
     
-    def _convert_voxels_to_primitives(self, voxel_grid:cph.geometry.VoxelGrid):
+    def _perform_grid2world_transform(self, voxel_grid:cph.geometry.VoxelGrid):
         start = time.time()
-        voxels = voxel_grid.voxels.cpu()
-        primitives_pos = np.array(list(voxels.keys()))
 
-        if primitives_pos.size == 0:  # Handle empty voxel grid
-            self.logger.warn("No voxels found in voxel grid")
-            return None
-        
-        # Transfer data to GPU
-        primitives_pos_gpu = cp.asarray(primitives_pos)
-        offset = cp.asarray(voxel_grid.get_min_bound())
-        voxel_size = cp.asarray(self.voxel_size)
-        
-        # Compute minimums for each column on GPU
-        mins = cp.min(primitives_pos_gpu, axis=0)
-        
-        # Perform operations on GPU (Normalize and scale)
-        # Subtract mins: Shifts all voxel indices so the minimum is at zero (origin).
-        # Scale: Multiplies by the voxel size to convert from grid indices to real-world coordinates.
-        # Offset: Adds the minimum bound and half a voxel size to center each primitive in its voxel.
-        primitives_pos_gpu = primitives_pos_gpu - mins[None, :]
-        primitives_pos_gpu = primitives_pos_gpu * voxel_size
-        primitives_pos_gpu = primitives_pos_gpu + (offset + voxel_size/2)
-
-        # save copy of primitives_pos_gpu
-        self.primitives_pos_gpu = cuda.as_cuda_array(primitives_pos_gpu)
-        
-        # Transfer result back to CPU
-        primitives_pos = cp.asnumpy(primitives_pos_gpu)
+        voxel_keys = np.array(list(voxel_grid.voxels.cpu().keys()))
+        grid2pcd = cph.geometry.PointCloud(cph.utility.Vector3fVector(voxel_keys))
+        grid2pcd = grid2pcd.scale(self.voxel_size, center=True)
+        grid2pcd = grid2pcd.translate(voxel_grid.get_center(), relative=False)
 
         if self.show_pipeline_delays:
-            self.logger.info(f"Voxel2Primitives (CPU+GPU) [sec]: {time.time()-start}")
-        return primitives_pos
+            self.logger.info(f"Grid2WorldTransform (CPU+GPU) [sec]: {time.time()-start}")
+        return grid2pcd
 
     def run_pipeline(self, pointclouds:dict, camera_tfs:dict, agent_tfs:dict, joint_states:dict):
         # streamer/realsense gives pointclouds and tfs
@@ -278,13 +255,14 @@ class PerceptionPipeline():
 
             if pointcloud is not None:
                 voxel_grid = self._perform_voxelization(pointcloud)
-                primitives_pos = self._convert_voxels_to_primitives(voxel_grid)
+                output_pcd = self._perform_grid2world_transform(voxel_grid)
             else:
-                primitives_pos = None
+                output_pcd = None
+
         except Exception as e:
             self.logger.error(troubleshoot.get_error_text(e), print_stack_trace=True)
             return None
 
         if show_total_pipeline_delay:
             self.logger.info(f"Perception Pipeline (CPU+GPU) [sec]: {time.time()-start}")
-        return primitives_pos
+        return np.array(output_pcd.points.cpu())
