@@ -31,8 +31,7 @@ class PerceptionPipeline():
         self.ema_decay_factor = 0.85    # How long absent voxels persist
         self.ema_confidence_threshold = 0.60   # Minimum confidence for output            
 
-        self.aabb_min_offset = np.array([0.03, 0.03, 0.03])
-        self.aabb_max_offset = np.array([0.03, 0.03, 0.03])
+        self.robot_aabb_scale = 1.25
 
         self.node = node
         self.logger = node.get_logger().get_child('perception_pipeline')
@@ -79,13 +78,8 @@ class PerceptionPipeline():
 
         self.scene_bbox = cph.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
 
-
-        self.ema_max_voxels = (self.scene_bounds['max'][0] - self.scene_bounds['min'][0])/self.voxel_size \
-            * (self.scene_bounds['max'][1] - self.scene_bounds['min'][1])/self.voxel_size \
-            * (self.scene_bounds['max'][2] - self.scene_bounds['min'][2])/self.voxel_size
-
         self.ema_max_voxels = np.prod((max_bound-min_bound)/self.voxel_size).astype(int)
-        self.logger.info(f"EMA max voxels: {self.ema_max_voxels}")
+        # self.logger.info(f"EMA max voxels: {self.ema_max_voxels}")
 
         self.temporal_voxel_filter = EMAVoxelFilter(
             alpha=self.ema_alpha, 
@@ -199,11 +193,7 @@ class PerceptionPipeline():
                 body_meshes = self.robot_kinematics_chain.get_transformed_visual_geometry_map(poses)
 
                 for mesh in body_meshes.values():
-                    aabb = mesh.get_axis_aligned_bounding_box()
-                    aabb = cph.geometry.AxisAlignedBoundingBox(
-                        aabb.get_min_bound()-self.aabb_min_offset, 
-                        aabb.get_max_bound()+self.aabb_max_offset
-                        )
+                    aabb = mesh.get_axis_aligned_bounding_box().scale(self.robot_aabb_scale, center=True)
                     indices = aabb.get_point_indices_within_bounding_box(filtered_points.points)
                     filtered_points = filtered_points.select_by_index(indices, invert=True)
             except Exception as e:
@@ -232,13 +222,13 @@ class PerceptionPipeline():
         if self.enable_temporal_filtering:
             start = time.time()
 
-            filtered_voxel_keys = self.temporal_voxel_filter.update(voxel_keys)
+            voxel_keys = self.temporal_voxel_filter.update(voxel_keys)
             
 
             if self.show_pipeline_delays:
                 self.logger.info(f"Temporal Filtering (GPU) [sec]: {time.time()-start}")
 
-        return filtered_voxel_keys
+        return voxel_keys
 
     def _perform_grid2world_transform(self, voxel_grid:cph.geometry.VoxelGrid, voxel_keys:list, filtered_voxel_keys:list):
         start = time.time()

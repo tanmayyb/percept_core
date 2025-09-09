@@ -1,242 +1,201 @@
 import cupy as cp
 import numpy as np
-from typing import List, Tuple, Optional
-from collections import defaultdict
+from typing import List, Tuple
 import time
 
 
 class EMAVoxelFilter:
     """
     GPU-accelerated Exponential Moving Average filter for voxel data.
-    Handles temporal filtering of voxel coordinates to remove flickering artifacts.
+    Optimized to eliminate per-voxel Python loops in the hot path by using set
+    intersection/difference and batched GPU updates.
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                  alpha: float = 0.7,
                  decay_factor: float = 0.85,
                  confidence_threshold: float = 0.3,
                  max_voxels: int = 100000,
                  cleanup_interval: int = 100):
-        """
-        Initialize the EMA voxel filter.
-        
-        Args:
-            alpha: Learning rate for new observations (0-1, higher = more responsive)
-            decay_factor: Decay rate for absent voxels (0-1, higher = longer memory)
-            confidence_threshold: Minimum confidence to include voxel in output
-            max_voxels: Maximum number of voxels to track (for memory management)
-            cleanup_interval: Frames between confidence cleanup operations
-        """
-        self.alpha = alpha
-        self.decay_factor = decay_factor
-        self.confidence_threshold = confidence_threshold
-        self.max_voxels = max_voxels
-        self.cleanup_interval = cleanup_interval
-        
-        # GPU arrays for tracking voxel states
-        self.voxel_coords = None  # (N, 3) array of voxel coordinates
-        self.confidences = None  # (N,) array of confidence values
-        self.voxel_to_idx = {}   # CPU dict mapping voxel tuple to GPU array index
-        self.free_indices = []   # Available indices for new voxels
-        self.current_size = 0    # Current number of tracked voxels
+        self.alpha = float(alpha)
+        self.decay_factor = float(decay_factor)
+        self.confidence_threshold = float(confidence_threshold)
+        self.max_voxels = int(max_voxels)
+        self.cleanup_interval = int(cleanup_interval)
+
+        # GPU arrays
+        self.voxel_coords = None      # (N, 3) int32
+        self.confidences = None       # (N,) float32
+
+        # CPU-side bookkeeping
+        self.voxel_to_idx = {}        # { (x,y,z): idx }
+        self.free_indices = []        # recycled indices (stack)
+        self.current_size = 0
         self.frame_count = 0
-        
-        # Initialize GPU arrays
+
         self._initialize_arrays()
-    
+
     def _initialize_arrays(self):
-        """Initialize GPU arrays for voxel tracking."""
         self.voxel_coords = cp.zeros((self.max_voxels, 3), dtype=cp.int32)
         self.confidences = cp.zeros(self.max_voxels, dtype=cp.float32)
-    
-    def _add_voxel(self, voxel: Tuple[int, int, int]) -> int:
-        """Add a new voxel to tracking arrays."""
-        if self.free_indices:
-            idx = self.free_indices.pop()
-        elif self.current_size < self.max_voxels:
-            idx = self.current_size
-            self.current_size += 1
-        else:
-            # Find least confident voxel to replace
-            min_idx = int(cp.argmin(self.confidences[:self.current_size]))
-            old_voxel = tuple(self.voxel_coords[min_idx].get())
-            del self.voxel_to_idx[old_voxel]
-            idx = min_idx
-        
-        self.voxel_coords[idx] = cp.array(voxel, dtype=cp.int32)
-        self.confidences[idx] = 0.0
-        self.voxel_to_idx[voxel] = idx
-        return idx
-    
+
+    # -------- Batch helpers (minimize Python loops) --------
+
+    def _allocate_indices(self, count: int) -> np.ndarray:
+        """Allocate 'count' free slots and return them as a NumPy int64 array."""
+        idxs = []
+        # Reuse free indices first
+        reuse = min(count, len(self.free_indices))
+        if reuse:
+            # Pop from end (O(1))
+            for _ in range(reuse):
+                idxs.append(self.free_indices.pop())
+        # Grow if needed
+        remaining = count - reuse
+        if remaining > 0:
+            grow = min(remaining, self.max_voxels - self.current_size)
+            if grow > 0:
+                start = self.current_size
+                self.current_size += grow
+                idxs.extend(range(start, start + grow))
+            # If still need more, replace least confident ones
+            still = remaining - grow
+            if still > 0:
+                # Replace the 'still' least-confident among active
+                active_confs = self.confidences[:self.current_size]
+                # argsort on GPU, then fetch the first 'still' indices
+                replace_order = cp.asnumpy(cp.argsort(active_confs))[:still]
+                # remove their voxel keys from CPU map
+                if replace_order.size:
+                    # Bulk fetch coords -> CPU
+                    coords_to_delete = cp.asnumpy(self.voxel_coords[replace_order])
+                    for c in coords_to_delete:
+                        t = (int(c[0]), int(c[1]), int(c[2]))
+                        self.voxel_to_idx.pop(t, None)
+                idxs.extend(replace_order.tolist())
+        return np.asarray(idxs, dtype=np.int64)
+
+    def _add_voxels_batch(self, voxels: List[Tuple[int, int, int]]):
+        """Add multiple voxels at once; write coords/conf on GPU in a single pass."""
+        if not voxels:
+            return
+        idxs = self._allocate_indices(len(voxels))
+        # Write coords on GPU in one go
+        coords_np = np.asarray(voxels, dtype=np.int32)
+        self.voxel_coords[idxs] = cp.asarray(coords_np)
+        # Initialize confidences for new voxels on GPU
+        self.confidences[idxs] = np.float32(self.alpha)
+        # Update CPU map in bulk
+        self.voxel_to_idx.update({tuple(v): int(i) for v, i in zip(coords_np, idxs)})
+
     def _cleanup_low_confidence_voxels(self):
-        """Remove voxels with very low confidence to free up memory."""
+        """Periodic memory cleanup for very low-confidence voxels (batched)."""
         if self.current_size == 0:
             return
-            
-        # Find voxels with confidence below cleanup threshold
-        low_conf_mask = self.confidences[:self.current_size] < (self.confidence_threshold * 0.1)
-        low_conf_indices = cp.where(low_conf_mask)[0]
-        
-        if len(low_conf_indices) == 0:
+        # Identify victims on GPU
+        thresh = np.float32(self.confidence_threshold * 0.1)
+        low_mask = self.confidences[:self.current_size] < thresh
+        low_idx = cp.where(low_mask)[0]
+        if low_idx.size == 0:
             return
-        
-        # Remove from CPU mapping and add to free indices
-        for idx in low_conf_indices.get():
-            voxel = tuple(self.voxel_coords[idx].get())
-            if voxel in self.voxel_to_idx:
-                del self.voxel_to_idx[voxel]
-                self.free_indices.append(idx)
-                self.confidences[idx] = 0.0
-    
+        low_idx_h = cp.asnumpy(low_idx)
+        # Remove from CPU map in bulk
+        coords = cp.asnumpy(self.voxel_coords[low_idx_h])
+        for c in coords:
+            self.voxel_to_idx.pop((int(c[0]), int(c[1]), int(c[2])), None)
+        # Mark slots reusable
+        self.free_indices.extend(map(int, low_idx_h))
+        # Optional: zero out confidence (not strictly required, but keeps stats sane)
+        self.confidences[low_idx] = 0.0
+
+    # ------------------- Public API -------------------
+
     def update(self, current_voxels: List[Tuple[int, int, int]]) -> List[Tuple[int, int, int]]:
         """
-        Update the filter with new voxel observations and return filtered voxels.
-        
-        Args:
-            current_voxels: List of voxel coordinates as (x, y, z) tuples
-            
-        Returns:
-            List of filtered voxel coordinates
+        Update the EMA filter with the current frame's voxel observations.
+        Returns voxels whose confidence >= confidence_threshold.
         """
         self.frame_count += 1
-        
-        # Convert current voxels to set for O(1) lookup
-        current_voxel_set = set(current_voxels)
-        
-        # Create masks for batch operations
-        present_mask = cp.zeros(self.current_size, dtype=bool)
-        
-        # Check which tracked voxels are present in current frame
-        for voxel, idx in self.voxel_to_idx.items():
-            if voxel in current_voxel_set:
-                present_mask[idx] = True
-        
-        # Batch update confidences on GPU
-        if self.current_size > 0:
-            # Update present voxels: confidence = alpha * 1.0 + (1-alpha) * confidence
-            self.confidences[:self.current_size] = cp.where(
-                present_mask,
-                self.alpha + (1 - self.alpha) * self.confidences[:self.current_size],
-                self.decay_factor * self.confidences[:self.current_size]
+        if not current_voxels and self.current_size == 0:
+            return []
+
+        # ---- CPU set logic (fast, no per-voxel Python loops) ----
+        curr_set = set(current_voxels)
+        tracked_set = set(self.voxel_to_idx.keys())
+
+        # Voxels present this frame and already tracked
+        present_voxels = curr_set & tracked_set
+        # Voxels new this frame
+        new_voxels = curr_set - tracked_set
+
+        # ---- Mark present (batched) ----
+        present_idx = None
+        if present_voxels:
+            present_idx = np.fromiter((self.voxel_to_idx[v] for v in present_voxels),
+                                      dtype=np.int64, count=len(present_voxels))
+            # Vectorized confidence update on GPU for present voxels
+            self.confidences[present_idx] = (
+                np.float32(self.alpha) +
+                (1.0 - np.float32(self.alpha)) * self.confidences[present_idx]
             )
-        
-        # Add new voxels that aren't being tracked
-        for voxel in current_voxels:
-            if voxel not in self.voxel_to_idx:
-                idx = self._add_voxel(voxel)
-                self.confidences[idx] = self.alpha
-        
-        # Get filtered voxels (those above confidence threshold)
+
+        # ---- Decay all others (batched) ----
         if self.current_size > 0:
-            valid_mask = self.confidences[:self.current_size] >= self.confidence_threshold
-            valid_indices = cp.where(valid_mask)[0]
-            
-            if len(valid_indices) > 0:
-                filtered_coords = self.voxel_coords[valid_indices].get()
-                filtered_voxels = [tuple(coord) for coord in filtered_coords]
+            # Build mask once on GPU
+            mask = cp.zeros(self.current_size, dtype=cp.bool_)
+            if present_idx is not None and present_idx.size > 0:
+                mask[present_idx] = True
+            # Decay where not present
+            self.confidences[:self.current_size] = cp.where(
+                mask,
+                self.confidences[:self.current_size],
+                np.float32(self.decay_factor) * self.confidences[:self.current_size]
+            )
+
+        # ---- Add new voxels (batched) ----
+        if new_voxels:
+            # (One bulk write to GPU + one dict update)
+            self._add_voxels_batch(list(new_voxels))
+
+        # ---- Threshold & return filtered coords (batched) ----
+        if self.current_size == 0:
+            filtered_voxels: List[Tuple[int, int, int]] = []
+        else:
+            valid_mask = self.confidences[:self.current_size] >= np.float32(self.confidence_threshold)
+            valid_idx = cp.where(valid_mask)[0]
+            if valid_idx.size:
+                coords = cp.asnumpy(self.voxel_coords[valid_idx])
+                filtered_voxels = [tuple(map(int, c)) for c in coords]
             else:
                 filtered_voxels = []
-        else:
-            filtered_voxels = []
-        
-        # Periodic cleanup
+
+        # ---- Periodic cleanup ----
         if self.frame_count % self.cleanup_interval == 0:
             self._cleanup_low_confidence_voxels()
-        
+
         return filtered_voxels
-    
+
     def get_stats(self) -> dict:
-        """Get statistics about the filter state."""
         if self.current_size == 0:
             return {
                 'tracked_voxels': 0,
                 'mean_confidence': 0.0,
                 'max_confidence': 0.0,
                 'min_confidence': 0.0,
-                'memory_usage': 0
+                'memory_usage': 0,
             }
-        
-        confidences = self.confidences[:self.current_size]
+        conf = self.confidences[:self.current_size]
         return {
-            'tracked_voxels': self.current_size,
-            'mean_confidence': float(cp.mean(confidences)),
-            'max_confidence': float(cp.max(confidences)),
-            'min_confidence': float(cp.min(confidences)),
-            'memory_usage': len(self.voxel_to_idx)
+            'tracked_voxels': int(self.current_size),
+            'mean_confidence': float(cp.mean(conf)),
+            'max_confidence': float(cp.max(conf)),
+            'min_confidence': float(cp.min(conf)),
+            'memory_usage': int(len(self.voxel_to_idx)),  # number of active keys
         }
-    
+
     def reset(self):
-        """Reset the filter state."""
         self.voxel_to_idx.clear()
         self.free_indices.clear()
         self.current_size = 0
         self.frame_count = 0
         self.confidences.fill(0.0)
-
-
-# Example usage and benchmarking
-def benchmark_filter():
-    """Benchmark the EMA voxel filter with synthetic data."""
-    
-    # Initialize filter
-    filter_obj = CuPyEMAVoxelFilter(
-        alpha=0.7,
-        decay_factor=0.85,
-        confidence_threshold=0.3,
-        max_voxels=50000
-    )
-    
-    # Generate synthetic noisy voxel data
-    np.random.seed(42)
-    base_voxels = [(i, j, k) for i in range(-30, 30, 2) 
-                   for j in range(-30, 30, 2) 
-                   for k in range(10, 20)]
-    
-    print(f"Base voxels: {len(base_voxels)}")
-    
-    # Simulate frames with noise
-    frame_times = []
-    
-    for frame in range(100):
-        # Add noise: remove some base voxels, add random ones
-        current_voxels = base_voxels.copy()
-        
-        # Remove 10% of base voxels (simulating noise)
-        remove_count = int(len(current_voxels) * 0.1)
-        remove_indices = np.random.choice(len(current_voxels), remove_count, replace=False)
-        current_voxels = [v for i, v in enumerate(current_voxels) if i not in remove_indices]
-        
-        # Add 5% random noise voxels
-        noise_count = int(len(base_voxels) * 0.05)
-        for _ in range(noise_count):
-            noise_voxel = (
-                np.random.randint(-50, 50),
-                np.random.randint(-50, 50),
-                np.random.randint(5, 25)
-            )
-            current_voxels.append(noise_voxel)
-        
-        # Time the filtering operation
-        start_time = time.perf_counter()
-        filtered_voxels = filter_obj.update(current_voxels)
-        end_time = time.perf_counter()
-        
-        frame_times.append(end_time - start_time)
-        
-        if frame % 20 == 0:
-            stats = filter_obj.get_stats()
-            print(f"Frame {frame}: Input={len(current_voxels)}, "
-                  f"Output={len(filtered_voxels)}, "
-                  f"Tracked={stats['tracked_voxels']}, "
-                  f"Mean Conf={stats['mean_confidence']:.3f}, "
-                  f"Time={frame_times[-1]*1000:.2f}ms")
-    
-    print(f"\nPerformance Summary:")
-    print(f"Mean frame time: {np.mean(frame_times)*1000:.2f}ms")
-    print(f"Max frame time: {np.max(frame_times)*1000:.2f}ms")
-    print(f"Min frame time: {np.min(frame_times)*1000:.2f}ms")
-    print(f"FPS capability: {1.0/np.mean(frame_times):.1f}")
-
-
-if __name__ == "__main__":
-    benchmark_filter()
