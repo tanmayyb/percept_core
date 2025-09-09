@@ -27,7 +27,9 @@ class PerceptionPipeline():
         # self.agent_tfs = None
 
         self.downsample = 5
-        self.outlier_neighbours = 0
+
+        self.outlier_neighbours = 2
+        self.outlier_std_ratio = 2.0
 
         self.aabb_min_offset = np.array([0.03, 0.03, 0.03])
         self.aabb_max_offset = np.array([0.03, 0.03, 0.03])
@@ -200,9 +202,10 @@ class PerceptionPipeline():
         return filtered_points
 
     def _remove_outliers(self, pcd:cph.geometry.PointCloud):
-        outlier_neighbours = self.outlier_neighbours
-        outlier_std_ratio = 2.0
-        pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=outlier_neighbours, std_ratio=outlier_std_ratio)
+        pcd, _ = pcd.remove_statistical_outlier(
+            nb_neighbors=self.outlier_neighbours, 
+            std_ratio=self.outlier_std_ratio
+        )
         return pcd
 
     def _perform_voxelization(self, pcd:cph.geometry.PointCloud):
@@ -250,12 +253,11 @@ class PerceptionPipeline():
             if enable_robot_body_subtraction:
                 pointcloud = self._perform_robot_body_subtraction(pointcloud, agent_tfs, joint_states)
 
-            if outlier_neighbours > 0:
-                pointcloud = self._remove_outliers(pointcloud)
-
             if pointcloud is not None:
                 voxel_grid = self._perform_voxelization(pointcloud)
                 output_pcd = self._perform_grid2world_transform(voxel_grid)
+                if outlier_neighbours > 0:
+                    output_pcd = self._remove_outliers(output_pcd)
             else:
                 output_pcd = None
 
