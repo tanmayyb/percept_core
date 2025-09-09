@@ -12,6 +12,7 @@ import percept.utils.troubleshoot as troubleshoot
 from percept.utils.pose_helpers import create_tf_matrix_from_euler
 from pathlib import Path
 
+from utils.ema_voxel_filter import EMAVoxelFilter
 
 class PerceptionPipeline():
     def __init__(self, node):
@@ -19,17 +20,16 @@ class PerceptionPipeline():
         self.show_total_pipeline_delay = False
         self.enable_robot_body_subtraction = False
 
-        # self.robot_id = None
-        # self.robot_description_path = None
-        # self.camera_names = None
-        # self.camera_tfs = None
-        # self.agent_names = None
-        # self.agent_tfs = None
+        self.enable_spatial_filtering = True
+        self.enable_temporal_filtering = True
 
         self.downsample = 5
-
         self.outlier_neighbours = 2
         self.outlier_std_ratio = 2.0
+
+        self.ema_alpha = 0.70            # Responsiveness to new observations
+        self.ema_decay_factor = 0.85    # How long absent voxels persist
+        self.ema_confidence_threshold = 0.60   # Minimum confidence for output            
 
         self.aabb_min_offset = np.array([0.03, 0.03, 0.03])
         self.aabb_max_offset = np.array([0.03, 0.03, 0.03])
@@ -70,6 +70,7 @@ class PerceptionPipeline():
         # set scene geometry properties
         min_bound = np.array(self.scene_bounds['min'])
         max_bound = np.array(self.scene_bounds['max'])
+
         self.voxel_min_bound = tuple(min_bound)
         self.voxel_max_bound = tuple(max_bound)
         
@@ -78,8 +79,20 @@ class PerceptionPipeline():
 
         self.scene_bbox = cph.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
 
-        # set data buffers
-        self.primitives_pos_gpu = None
+
+        self.ema_max_voxels = (self.scene_bounds['max'][0] - self.scene_bounds['min'][0])/self.voxel_size \
+            * (self.scene_bounds['max'][1] - self.scene_bounds['min'][1])/self.voxel_size \
+            * (self.scene_bounds['max'][2] - self.scene_bounds['min'][2])/self.voxel_size
+
+        self.ema_max_voxels = np.prod((max_bound-min_bound)/self.voxel_size).astype(int)
+        self.logger.info(f"EMA max voxels: {self.ema_max_voxels}")
+
+        self.temporal_voxel_filter = EMAVoxelFilter(
+            alpha=self.ema_alpha, 
+            decay_factor=self.ema_decay_factor,   
+            confidence_threshold=self.ema_confidence_threshold,
+            max_voxels=self.ema_max_voxels
+        )
 
     def _process_single_pointcloud(self, camera_name:str, msg, camera_tf=None):
         downsample = self.downsample
@@ -198,15 +211,8 @@ class PerceptionPipeline():
                 continue
 
         if self.show_pipeline_delays:
-            self.logger.info(f"Robot body subtraction (GPU) [sec]: {time.time()-start}")
+            self.logger.info(f"Robot Filtering (GPU) [sec]: {time.time()-start}")
         return filtered_points
-
-    def _remove_outliers(self, pcd:cph.geometry.PointCloud):
-        pcd, _ = pcd.remove_statistical_outlier(
-            nb_neighbors=self.outlier_neighbours, 
-            std_ratio=self.outlier_std_ratio
-        )
-        return pcd
 
     def _perform_voxelization(self, pcd:cph.geometry.PointCloud):
         start = time.time()
@@ -219,20 +225,43 @@ class PerceptionPipeline():
         if self.show_pipeline_delays:
             self.logger.info(f"Voxelization (GPU) [sec]: {time.time()-start}")
 
-        return voxel_grid
+        voxel_keys = list(voxel_grid.voxels.cpu().keys())
+        return voxel_grid, voxel_keys
 
-    
-    def _perform_grid2world_transform(self, voxel_grid:cph.geometry.VoxelGrid):
+    def _perform_temporal_filtering(self, voxel_keys):
+        if self.enable_temporal_filtering:
+            start = time.time()
+
+            filtered_voxel_keys = self.temporal_voxel_filter.update(voxel_keys)
+            
+
+            if self.show_pipeline_delays:
+                self.logger.info(f"Temporal Filtering (GPU) [sec]: {time.time()-start}")
+
+        return filtered_voxel_keys
+
+    def _perform_grid2world_transform(self, voxel_grid:cph.geometry.VoxelGrid, voxel_keys:list, filtered_voxel_keys:list):
         start = time.time()
 
-        voxel_keys = np.array(list(voxel_grid.voxels.cpu().keys()))
-        grid2pcd = cph.geometry.PointCloud(cph.utility.Vector3fVector(voxel_keys))
-        grid2pcd = grid2pcd.scale(self.voxel_size, center=True)
-        grid2pcd = grid2pcd.translate(voxel_grid.get_center(), relative=False)
+        if len(voxel_keys) == 0:
+            return None
 
+        grid2pcd = cph.geometry.PointCloud(cph.utility.Vector3fVector(filtered_voxel_keys))
+        grid2pcd = grid2pcd.translate(-cp.asnumpy(cp.min(cp.asarray(voxel_keys), axis=0)), relative=True)
+        grid2pcd = grid2pcd.scale(self.voxel_size, center=False)
+        grid2pcd = grid2pcd.translate(voxel_grid.get_min_bound()+self.voxel_size/2, relative=True)
+        
         if self.show_pipeline_delays:
             self.logger.info(f"Grid2WorldTransform (CPU+GPU) [sec]: {time.time()-start}")
         return grid2pcd
+
+    def _remove_outliers(self, pcd:cph.geometry.PointCloud):
+        if self.enable_spatial_filtering:
+            pcd, _ = pcd.remove_statistical_outlier(
+                nb_neighbors=self.outlier_neighbours, 
+                std_ratio=self.outlier_std_ratio
+            )
+        return pcd
 
     def run_pipeline(self, pointclouds:dict, camera_tfs:dict, agent_tfs:dict, joint_states:dict):
         # streamer/realsense gives pointclouds and tfs
@@ -254,10 +283,11 @@ class PerceptionPipeline():
                 pointcloud = self._perform_robot_body_subtraction(pointcloud, agent_tfs, joint_states)
 
             if pointcloud is not None:
-                voxel_grid = self._perform_voxelization(pointcloud)
-                output_pcd = self._perform_grid2world_transform(voxel_grid)
-                if outlier_neighbours > 0:
-                    output_pcd = self._remove_outliers(output_pcd)
+                voxel_grid, voxel_keys = self._perform_voxelization(pointcloud)
+
+                filtered_voxel_keys = self._perform_temporal_filtering(voxel_keys)
+                g2w_pcd = self._perform_grid2world_transform(voxel_grid, voxel_keys, filtered_voxel_keys)
+                output_pcd = self._remove_outliers(g2w_pcd)
             else:
                 output_pcd = None
 
