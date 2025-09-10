@@ -12,9 +12,9 @@ import percept.utils.troubleshoot as troubleshoot
 from percept.utils.pose_helpers import create_tf_matrix_from_euler
 from pathlib import Path
 
-from utils.temporal_filter_ema import TemporalEMAVoxelFilter
-from utils.temporal_filter_majority import TemporalMajorityVoxelFilter
-from utils.temporal_filter_median import TemporalMedianVoxelFilter
+from filters.temporal_filter_ema import TemporalEMAVoxelFilter
+from filters.temporal_filter_majority import TemporalMajorityVoxelFilter
+from filters.temporal_filter_median import TemporalMedianVoxelFilter
 
 class PerceptionPipeline():
     def __init__(self, node):
@@ -34,7 +34,7 @@ class PerceptionPipeline():
         self.outlier_std_ratio = 2.0
 
         # temporal filter params
-        self.temporal_filter_type = 'median'
+        self.temporal_filter_type = 'majority'
 
         self.ema_alpha = 0.70            # Responsiveness to new observations
         self.ema_decay_factor = 0.85    # How long absent voxels persist
