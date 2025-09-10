@@ -4,3 +4,8 @@ perception_pipeline_config:
     max: [1.0, 1.0, 1.0]
   graphics_settings:
     voxel_size: 0.040 # 2*mass_radius
+  bb_filters:
+    enable: true
+    bbs:
+      - min: [-1.0, -1.0, 0.040]
+        max: [1.0, 1.0, 1.0]
