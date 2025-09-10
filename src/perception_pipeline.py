@@ -14,6 +14,7 @@ from pathlib import Path
 
 from utils.temporal_filter_ema import TemporalEMAVoxelFilter
 from utils.temporal_filter_majority import TemporalMajorityVoxelFilter
+from utils.temporal_filter_median import TemporalMedianVoxelFilter
 
 class PerceptionPipeline():
     def __init__(self, node):
@@ -21,21 +22,30 @@ class PerceptionPipeline():
         self.show_total_pipeline_delay = False
         self.enable_robot_body_subtraction = False
 
+        # filtering params
         self.enable_spatial_filtering = True
         self.enable_temporal_filtering = True
 
-        self.temporal_filter_type = 'Majority'
-
+        # downsampling params
         self.downsample = 5
+
+        # spatial filtering params
         self.outlier_neighbours = 2
         self.outlier_std_ratio = 2.0
+
+        # temporal filter params
+        self.temporal_filter_type = 'median'
 
         self.ema_alpha = 0.70            # Responsiveness to new observations
         self.ema_decay_factor = 0.85    # How long absent voxels persist
         self.ema_confidence_threshold = 0.70   # Minimum confidence for output            
 
-        self.majority_window_size = 5
+        self.majority_window_size = 5 # number of frames to consider
+        
+        self.median_window_size = 5 # number of frames to consider
+        self.median_threshold = 0.85 # threshold for median filtering
 
+        # robot filtering params
         self.robot_aabb_scale = 1.25
 
         self.node = node
@@ -82,20 +92,26 @@ class PerceptionPipeline():
             raise ValueError("The min_bound and max_bound do not define a cube. Make it a cube!")
 
         self.scene_bbox = cph.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+        self.max_voxels = np.prod((max_bound-min_bound)/self.voxel_size).astype(int)
 
-        self.ema_max_voxels = np.prod((max_bound-min_bound)/self.voxel_size).astype(int)
-        # self.logger.info(f"EMA max voxels: {self.ema_max_voxels}")
-
-        if self.temporal_filter_type == 'EMA':
+        if self.temporal_filter_type == 'ema':
             self.temporal_voxel_filter = TemporalEMAVoxelFilter(
                 alpha=self.ema_alpha, 
                 decay_factor=self.ema_decay_factor,   
                 confidence_threshold=self.ema_confidence_threshold,
-                max_voxels=self.ema_max_voxels
+                max_voxels=self.max_voxels
             )
-        elif self.temporal_filter_type == 'Majority':
+        elif self.temporal_filter_type == 'majority':
             self.temporal_voxel_filter = TemporalMajorityVoxelFilter(
                 window_size=self.majority_window_size,
+                logger=self.logger
+            )
+        elif self.temporal_filter_type == 'median':
+            self.temporal_voxel_filter = TemporalMedianVoxelFilter(
+                window_size=self.median_window_size,
+                threshold=self.median_threshold,
+                max_voxels=self.max_voxels,
+                logger=self.logger
             )
 
     def _process_single_pointcloud(self, camera_name:str, msg, camera_tf=None):
