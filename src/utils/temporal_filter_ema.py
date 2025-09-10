@@ -4,7 +4,7 @@ from typing import List, Tuple
 import time
 
 
-class EMAVoxelFilter:
+class TemporalEMAVoxelFilter:
     """
     GPU-accelerated Exponential Moving Average filter for voxel data.
     Optimized to eliminate per-voxel Python loops in the hot path by using set

@@ -12,7 +12,8 @@ import percept.utils.troubleshoot as troubleshoot
 from percept.utils.pose_helpers import create_tf_matrix_from_euler
 from pathlib import Path
 
-from utils.ema_voxel_filter import EMAVoxelFilter
+from utils.temporal_filter_ema import TemporalEMAVoxelFilter
+from utils.temporal_filter_majority import TemporalMajorityVoxelFilter
 
 class PerceptionPipeline():
     def __init__(self, node):
@@ -23,13 +24,17 @@ class PerceptionPipeline():
         self.enable_spatial_filtering = True
         self.enable_temporal_filtering = True
 
+        self.temporal_filter_type = 'Majority'
+
         self.downsample = 5
         self.outlier_neighbours = 2
         self.outlier_std_ratio = 2.0
 
         self.ema_alpha = 0.70            # Responsiveness to new observations
         self.ema_decay_factor = 0.85    # How long absent voxels persist
-        self.ema_confidence_threshold = 0.60   # Minimum confidence for output            
+        self.ema_confidence_threshold = 0.70   # Minimum confidence for output            
+
+        self.majority_window_size = 5
 
         self.robot_aabb_scale = 1.25
 
@@ -81,12 +86,17 @@ class PerceptionPipeline():
         self.ema_max_voxels = np.prod((max_bound-min_bound)/self.voxel_size).astype(int)
         # self.logger.info(f"EMA max voxels: {self.ema_max_voxels}")
 
-        self.temporal_voxel_filter = EMAVoxelFilter(
-            alpha=self.ema_alpha, 
-            decay_factor=self.ema_decay_factor,   
-            confidence_threshold=self.ema_confidence_threshold,
-            max_voxels=self.ema_max_voxels
-        )
+        if self.temporal_filter_type == 'EMA':
+            self.temporal_voxel_filter = TemporalEMAVoxelFilter(
+                alpha=self.ema_alpha, 
+                decay_factor=self.ema_decay_factor,   
+                confidence_threshold=self.ema_confidence_threshold,
+                max_voxels=self.ema_max_voxels
+            )
+        elif self.temporal_filter_type == 'Majority':
+            self.temporal_voxel_filter = TemporalMajorityVoxelFilter(
+                window_size=self.majority_window_size,
+            )
 
     def _process_single_pointcloud(self, camera_name:str, msg, camera_tf=None):
         downsample = self.downsample
@@ -223,7 +233,6 @@ class PerceptionPipeline():
             start = time.time()
 
             voxel_keys = self.temporal_voxel_filter.update(voxel_keys)
-            
 
             if self.show_pipeline_delays:
                 self.logger.info(f"Temporal Filtering (GPU) [sec]: {time.time()-start}")
