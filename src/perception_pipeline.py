@@ -230,6 +230,15 @@ class PerceptionPipeline():
             self.logger.info(f"Robot Filtering (GPU) [sec]: {time.time()-start}")
         return filtered_points
 
+    def _perform_exclusion_region_subtraction(self, pointcloud:cph.geometry.PointCloud):
+        start = time.time()
+        for exclusion_region_bb in self.exclusion_region_bbs:
+            indices = exclusion_region_bb.get_point_indices_within_bounding_box(pointcloud.points)
+            pointcloud = pointcloud.select_by_index(indices, invert=True)
+        if self.show_pipeline_delays:
+            self.logger.info(f"Exclusion Region Filtering (GPU) [sec]: {time.time()-start}")
+        return pointcloud
+
     def _perform_voxelization(self, pcd:cph.geometry.PointCloud):
         start = time.time()
         voxel_grid = cph.geometry.VoxelGrid.create_from_point_cloud_within_bounds(
@@ -296,6 +305,9 @@ class PerceptionPipeline():
         try:
             if enable_robot_body_subtraction:
                 pointcloud = self._perform_robot_body_subtraction(pointcloud, agent_tfs, joint_states)
+
+            if len(self.exclusion_region_bbs) > 0:
+                pointcloud = self._perform_exclusion_region_subtraction(pointcloud)
 
             if pointcloud is not None:
                 voxel_grid, voxel_keys = self._perform_voxelization(pointcloud)

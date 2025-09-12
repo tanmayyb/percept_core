@@ -9,6 +9,7 @@ from percept.perception_pipeline import PerceptionPipeline
 from percept.perception_node import PerceptionNode
 from percept.utils.pose_helpers import create_tf_matrix_from_euler
 # from percept.utils.config_helpers import load_yaml_as_dict
+import cupoch as cph
 
 from sensor_msgs.msg import PointCloud2, JointState
 
@@ -53,6 +54,7 @@ class RealPerceptionPipeline(PerceptionPipeline):
         
         self.scene_bounds = pipeline_config['scene_bounds']
         self.voxel_size = pipeline_config['graphics_settings']['voxel_size']
+        self.exclusion_region_bbs =  [ cph.geometry.AxisAlignedBoundingBox(exclusion_region_bb[0], exclusion_region_bb[1]) for exclusion_region_bb in pipeline_config['exclusion_region_bbs']]
         
         if self.enable_robot_body_subtraction:
             self.load_robot_description(package_share_dir, robot_id)
