@@ -1,31 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
+project(percept LANGUAGES CXX CUDA)
 
-
-# project(percept LANGUAGES CXX CUDA)
-project(percept)
-set(PROJECT_ENV_NAME "percept_env")
-if(POLICY CMP0104)
-  cmake_policy(SET CMP0104 NEW)
-endif()
-set(CMAKE_CXX_STANDARD 20)
-
-# # ---- CUDA ----
-# set(CMAKE_CUDA_ARCHITECTURES 86)
-# set(CUDA_DIR "/usr/local/cuda-12.6")
-# set(CUDAToolkit_ROOT "${CUDA_DIR}")
-# set(CMAKE_CUDA_COMPILER "${CUDA_DIR}/bin/nvcc")
-# set(CUDA_LIBS_DIR "${CUDA_DIR}/lib64")
-# include_directories("${CUDA_DIR}/include")
-
-set(CMAKE_CUDA_ARCHITECTURES 75)
-set(CUDA_DIR "/usr/lib/nvidia-cuda-toolkit")
-set(CUDAToolkit_ROOT "${CUDA_DIR}")
-set(CMAKE_CUDA_COMPILER "${CUDA_DIR}/bin/nvcc")
-set(CUDA_LIBS_DIR "${CUDA_DIR}/lib64")
-include_directories("/usr/include/")
-
-enable_language(CUDA)
 set (CUDA_VERBOSE_BUILD ON)
+set(CMAKE_CUDA_ARCHITECTURES native)
 
 # ---- NVTX3 (GPU profiling features) ----
 set(NVTX3_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include/third_party/nvtx/c/include")
@@ -36,18 +13,8 @@ else()
   add_definitions(-DDISABLE_NVTX)
 endif()
 
-# ---- Python ----
-set(CMAKE_SKIP_BUILD_RPATH FALSE)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-set(CONDA_BASE "$ENV{HOME}/miniforge3/envs")
-set(CONDA_ENV "${CONDA_BASE}/${PROJECT_ENV_NAME}")
-set(PYTHON_EXECUTABLE "${CONDA_ENV}/bin/python")
-set(PYTHON_INCLUDE_DIRS "${CONDA_ENV}/include/python3.10")
-set(PYTHON_LIBRARY "${CONDA_ENV}/lib/libpython3.10.so")
-
 # Find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -59,23 +26,6 @@ find_package(visualization_msgs REQUIRED)
 find_package(percept_interfaces REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-
-# Install Python modules
-ament_python_install_package(${PROJECT_NAME}
-  PACKAGE_DIR src
-)
-
-# Install Python executables
-install(PROGRAMS
-  src/real_pipeline.py
-  src/utils/static_tf_publisher.py
-  src/utils/fake_panda.py
-  src/utils/fake_realsense.py
-  src/service_tester.py
-  src/sim_stream.py
-  src/scene_loader.py
-  DESTINATION lib/${PROJECT_NAME}
-)
 
 # Install launch and config files
 install(DIRECTORY
