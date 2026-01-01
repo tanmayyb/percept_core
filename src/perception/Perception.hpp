@@ -18,6 +18,8 @@ namespace perception
 
 			perception::Streamer streamer;
 
+			void stopThreads();
+
 		protected:
 		private:
 			size_t batch_size_;

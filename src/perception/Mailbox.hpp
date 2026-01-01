@@ -76,7 +76,7 @@ class Mailbox
 
 			producer_idx_ = latest_idx_.exchange(producer_idx_, std::memory_order_release);
 
-			std::cout<<"producer stored data at "<<producer_idx_<<std::endl;
+			// std::cout<<"producer stored data at "<<producer_idx_<<std::endl;
 		}
 
 		std::vector<T>& consume()

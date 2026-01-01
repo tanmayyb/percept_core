@@ -37,9 +37,18 @@ namespace perception
 
   }
 
-  PerceptionNode::~PerceptionNode() = default;
-}
+  // PerceptionNode::~PerceptionNode() = default;
 
+	PerceptionNode::~PerceptionNode() {
+    stopThreads();
+	}
+
+
+	void PerceptionNode::stopThreads()
+	{
+		streamer.stopStreams();		
+	}
+}
 
 
 

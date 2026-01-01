@@ -5,11 +5,17 @@
 
 #include <iostream>
 #include <iomanip>
-
 #include <fstream>
+#include <chrono>
+
 
 namespace perception
 {
+
+	filter_options::filter_options(const std::string name, rs2::filter& flt) : filter_name(name), filter(flt), is_enabled(true){}
+
+	filter_options::filter_options(filter_options&& other) : filter_name(std::move(other.filter_name)), filter(other.filter), is_enabled(other.is_enabled.load()){}
+
 	Streamer::Streamer()
 	{
 		pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept");
@@ -17,11 +23,7 @@ namespace perception
 		loadConfigs();
 		
 		setupPipelines();
-
-		// run();
 	}
-
-	Streamer::~Streamer() = default;
 
 	void Streamer::loadConfigs()
 	{
@@ -40,6 +42,21 @@ namespace perception
     root = YAML::LoadFile(pkg_share_dir_ + "/config/rs_settings.yaml");
 
 		
+	}
+
+	void Streamer::setupFilters()
+	{
+  	temp_filter_.set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.0f);
+
+		temp_filter_.set_option(RS2_OPTION_FILTER_SMOOTH_DELTA, 100.0f);
+
+		temp_filter_.set_option(RS2_OPTION_HOLES_FILL, 8);
+
+		filters.emplace_back("Depth2Disparity", depth_to_disparity_);
+
+		filters.emplace_back("Temporal", temp_filter_);
+
+		filters.emplace_back("Disparity2Depth", disparity_to_depth_);
 	}
 
 
@@ -66,39 +83,13 @@ namespace perception
 		batch_size_ = pipelines_.size();
 
 		n_points_ = 848*480;
+
+		setupFilters();
 	
 	}
 
-	// void Streamer::startStreams()
-	// {
 
-	// 	rs2::pointcloud pc;
-	// 	auto pipe = pipelines_.at(0);
-	// 	rs2::frameset frames = pipe.wait_for_frames();
-	// 	rs2::depth_frame depth = frames.get_depth_frame();
-
-	// 	// 2. Generate points
-	// 	rs2::points points = pc.calculate(depth);
-	// 	const rs2::vertex* vertices = points.get_vertices();
-	// 	const size_t n = points.size();
-
-	// 	std::cout<<"received "<<n<<" points"<<std::endl;
-		
-	// 	// 3. Allocate 1D SoA Array
-	// 	std::vector<float> soa_array(3 * n * 2);
-
-	// 	// 4. Map AoS vertices to SoA format
-	// 	for (size_t i = 0; i < n; ++i) {
-	// 			soa_array[i]         = vertices[i].x; // X block
-	// 			soa_array[i + n]     = vertices[i].y; // Y block
-	// 			soa_array[i + 2 * n] = vertices[i].z; // Z block
-	// 	}
-
-	// 	mailbox_ptr_->produce(soa_array);	
-	// }
-
-
-	void Streamer::startStreams()
+	void Streamer::run()
 	{
 		size_t n_pipes = static_cast<int>(pipelines_.size());
 		
@@ -108,43 +99,92 @@ namespace perception
 
 		std::vector<float> soa_array(frame_size*n_pipes); // XYZ*Points*cameras
 
-		// get frames in parallel
-		#pragma omp parallel for
-		for (int i=0; i<n_pipes; ++i)
+		auto start = std::chrono::high_resolution_clock::now();
+
+		auto end = std::chrono::high_resolution_clock::now();
+	
+		std::chrono::duration<double, std::milli> elapsed;
+
+		while(running_.load())
 		{
-			rs2::pointcloud pc;
-			
-			auto pipe = pipelines_.at(i);
-
-			rs2::frameset frames = pipe.wait_for_frames();
-
-			rs2::depth_frame depth = frames.get_depth_frame();
-
-			rs2::points points  = pc.calculate(depth);
-
-			const rs2::vertex* ptr = points.get_vertices();
-
-			const size_t n = points.size();
-
-			results[i].vertices.assign(ptr, ptr+n);
-		}
-
-		for(size_t i=0;i<n_points_;i++)
-		{
+			start = std::chrono::high_resolution_clock::now();
+			// get frames in parallel
 			#pragma omp parallel for
-			for(int j=0;j<n_pipes;j++)
+			for (int i=0; i<n_pipes; ++i)
 			{
-				soa_array[i + j * frame_size]         				= results[j].vertices[i].x; // X block
+				rs2::pointcloud pc;
+				
+				auto pipe = pipelines_.at(i);
 
-				soa_array[i + n_points_ + j * frame_size]     = results[j].vertices[i].y; // Y block
+				rs2::frameset frames = pipe.wait_for_frames();
 
-				soa_array[i + 2 * n_points_ + j * frame_size] = results[j].vertices[i].z; // Z block
+				rs2::frame depth_frame = frames.get_depth_frame();
+				
+				for (auto&& filter : filters)
+				{
+					depth_frame = filter.filter.process(depth_frame);
+				}
+
+				rs2::points points  = pc.calculate(depth_frame);
+
+				const rs2::vertex* ptr = points.get_vertices();
+
+				const size_t n = points.size();
+
+				// std::cout<<"pipe "<<i<<" has "<<n<<" points"<<std::endl;
+
+				results[i].vertices.assign(ptr, ptr+n);
 			}
+
+			for(size_t i=0;i<n_points_;i++)
+			{
+				#pragma omp parallel for
+				for(int j=0;j<n_pipes;j++)
+				{
+					soa_array[i + j * frame_size]         				= results[j].vertices[i].x; // X block
+
+					soa_array[i + n_points_ + j * frame_size]     = results[j].vertices[i].y; // Y block
+
+					soa_array[i + 2 * n_points_ + j * frame_size] = results[j].vertices[i].z; // Z block
+				}
+			}
+
+			mailbox_ptr_->produce(soa_array);	
+
+			// dumpSoAtoCSV(soa_array, n_pipes, n_points_, "pointcloud_dump.csv");
+
+			// running_ = false; // added for debugging
+
+			end = std::chrono::high_resolution_clock::now();
+    
+			elapsed = end - start;
+			
+			std::cout << "Duration: " << elapsed.count() << " ms" << std::endl;
 		}
 
-		mailbox_ptr_->produce(soa_array);	
+	}
 
-		// dumpSoAtoCSV(soa_array, n_pipes, n_points_, "pointcloud_dump.csv");
+	// Streamer::~Streamer() = default;
+
+	Streamer::~Streamer() {
+    stopStreams();
+	}
+
+	void Streamer::startStreams()
+	{
+		running_ = true;
+
+		thread_ = std::thread(&Streamer::run, this);
+	}
+
+	void Streamer::stopStreams()
+	{
+		running_ = false;
+
+		if (thread_.joinable())
+		{
+			thread_.join();
+		}
 	}
 
 	
