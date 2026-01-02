@@ -1,13 +1,5 @@
-#include <librealsense2/rs.hpp>
-#include <librealsense2/rs_advanced_mode.hpp>
 #include "Streamer.hpp"
-#include <ament_index_cpp/get_package_share_directory.hpp>
-
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <chrono>
-
+#include "Pointcloud.hpp"
 
 namespace perception
 {
@@ -97,8 +89,6 @@ namespace perception
 
 		std::vector<PointCloudData> results(n_pipes);
 
-		std::vector<float> aos_array(frame_size*n_pipes); // XYZ*Points*cameras
-
 		auto start = std::chrono::high_resolution_clock::now();
 
 		auto end = std::chrono::high_resolution_clock::now();
@@ -131,10 +121,10 @@ namespace perception
 
 				const size_t n = points.size();
 
-				// std::cout<<"pipe "<<i<<" has "<<n<<" points"<<std::endl;
-
 				results[i].vertices.assign(ptr, ptr+n);
 			}
+
+			std::vector<float>& target_buffer = mailbox_ptr_->get_producer_buffer();
 
 			#pragma omp parallel for
 			for (int j = 0; j < n_pipes; j++) 
@@ -145,19 +135,20 @@ namespace perception
 				{
 					const size_t base = i * 3 + offset;
 
-					aos_array[base]     = results[j].vertices[i].x;
+					target_buffer[base]     = results[j].vertices[i].x;
 
-					aos_array[base + 1] = results[j].vertices[i].y;
+					target_buffer[base + 1] = results[j].vertices[i].y;
 
-					aos_array[base + 2] = results[j].vertices[i].z;
+					target_buffer[base + 2] = results[j].vertices[i].z;
 				}
 			}
 
-			mailbox_ptr_->produce(aos_array);	
+			mailbox_ptr_->commit();
+
 
 			// dumpSoAtoCSV(soa_array, n_pipes, n_points_, "pointcloud_dump.csv");
 
-			running_ = false; // added for debugging
+			// running_ = false; // added for debugging
 
 			end = std::chrono::high_resolution_clock::now();
     
