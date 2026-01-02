@@ -97,7 +97,7 @@ namespace perception
 
 		std::vector<PointCloudData> results(n_pipes);
 
-		std::vector<float> soa_array(frame_size*n_pipes); // XYZ*Points*cameras
+		std::vector<float> aos_array(frame_size*n_pipes); // XYZ*Points*cameras
 
 		auto start = std::chrono::high_resolution_clock::now();
 
@@ -136,30 +136,34 @@ namespace perception
 				results[i].vertices.assign(ptr, ptr+n);
 			}
 
-			for(size_t i=0;i<n_points_;i++)
+			#pragma omp parallel for
+			for (int j = 0; j < n_pipes; j++) 
 			{
-				#pragma omp parallel for
-				for(int j=0;j<n_pipes;j++)
+				const size_t offset = j * frame_size;
+
+				for (size_t i = 0; i < n_points_; i++)
 				{
-					soa_array[i + j * frame_size]         				= results[j].vertices[i].x; // X block
+					const size_t base = i * 3 + offset;
 
-					soa_array[i + n_points_ + j * frame_size]     = results[j].vertices[i].y; // Y block
+					aos_array[base]     = results[j].vertices[i].x;
 
-					soa_array[i + 2 * n_points_ + j * frame_size] = results[j].vertices[i].z; // Z block
+					aos_array[base + 1] = results[j].vertices[i].y;
+
+					aos_array[base + 2] = results[j].vertices[i].z;
 				}
 			}
 
-			mailbox_ptr_->produce(soa_array);	
+			mailbox_ptr_->produce(aos_array);	
 
 			// dumpSoAtoCSV(soa_array, n_pipes, n_points_, "pointcloud_dump.csv");
 
-			// running_ = false; // added for debugging
+			running_ = false; // added for debugging
 
 			end = std::chrono::high_resolution_clock::now();
     
 			elapsed = end - start;
 			
-			std::cout << "Duration: " << elapsed.count() << " ms" << std::endl;
+			// std::cout << "Duration: " << elapsed.count() << " ms" << std::endl;
 		}
 
 	}
@@ -186,6 +190,8 @@ namespace perception
 			thread_.join();
 		}
 	}
+
+
 
 	
 	// void Streamer::dumpSoAtoCSV(const std::vector<float>& soa_array, 

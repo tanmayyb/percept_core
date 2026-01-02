@@ -5,6 +5,9 @@
 #include "Streamer.hpp"
 #include "Mailbox.hpp"
 #include "Pointcloud.hpp"
+// #include "Pipeline.hpp"
+
+#include <thread>
 
 // this program/node manages:
 // 1. Producer/ingestor/CPU framesets
@@ -22,18 +25,27 @@ namespace perception
 
 		n_points_ = streamer.getPCSize();
 
+		pipeline.setupConfigs(
+			batch_size_,
+			n_points_,
+			streamer.getCameraConfigs()
+		);
+
 		mailbox_ = std::make_unique<Mailbox<float>>(batch_size_, n_points_);
 
-		std::cout<<"Mailbox setup with "<<batch_size_<<" batch size and "<<n_points_<<" points per batch"<<std::endl;
-
-    // configure rs pipeline
+		std::cout<<"Mailbox setup with batch size="<<batch_size_<<" and "<<n_points_<<" points per batch element"<<std::endl;
 
 		streamer.setMailbox(mailbox_.get());
 
+		pipeline.setMailbox(mailbox_.get());
+
 		streamer.startStreams();
 
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    // ...
+		pipeline.readMailbox();
+
+		// ...
 
   }
 

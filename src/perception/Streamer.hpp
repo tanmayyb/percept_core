@@ -14,8 +14,8 @@
 namespace perception
 {
 
-class filter_options
-{
+	class filter_options
+	{
 	public:
 		filter_options(const std::string name, rs2::filter& filter);
 
@@ -104,6 +104,10 @@ class filter_options
 			void stopStreams();
 
 			void run();
+
+			const std::vector<CameraConfig>& getCameraConfigs() const {
+				return cameras;
+			}
 	};
 
 }

@@ -6,6 +6,8 @@
 #include "Streamer.hpp"
 #include "Mailbox.hpp"
 #include "Pointcloud.hpp"
+#include "Pipeline.hpp"
+
 
 namespace perception
 {
@@ -16,7 +18,9 @@ namespace perception
 			PerceptionNode();
 			virtual ~PerceptionNode();
 
-			perception::Streamer streamer;
+			Streamer streamer;
+
+			Pipeline pipeline;
 
 			void stopThreads();
 
