@@ -22,7 +22,6 @@
   <depend>rclcpp</depend>
   <depend>rviz2</depend>
   <depend>std_msgs</depend>
-  <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>visualization_msgs</depend>
   <depend>diagnostic_msgs</depend>
@@ -35,6 +34,13 @@
   <depend>ament_index_cpp</depend>
   <depend>yaml-cpp</depend>
   <depend>librealsense2</depend>
+  <depend>open3d</depend>
+
+	<depend>sensor_msgs</depend>
+	<depend>geometry_msgs</depend>
+	<depend>tf2_ros</depend>
+	<depend>tf2_eigen</depend>
+	<depend>eigen</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
