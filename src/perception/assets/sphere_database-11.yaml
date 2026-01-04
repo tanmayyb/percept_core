@@ -1,0 +1,132 @@
+panda_link0::meshes/collision/link0.obj:
+  '8':
+    '0':
+      mean: 624.437
+      best: 624.437
+      worst: 624.437
+      spheres:
+      - origin:
+        - -0.04364899999999999
+        - 0.0019533500000000034
+        - 0.05863225359999999
+        radius: 0.129098
+panda_link1::meshes/collision/link1.obj:
+  '8':
+    '0':
+      mean: 767.509
+      best: 767.509
+      worst: 767.509
+      spheres:
+      - origin:
+        - -0.0047819
+        - -0.026864349999999995
+        - -0.07289745
+        radius: 0.144937
+panda_link2::meshes/collision/link2.obj:
+  '8':
+    '0':
+      mean: 745.955
+      best: 745.955
+      worst: 745.955
+      spheres:
+      - origin:
+        - -0.0024612499999999977
+        - -0.07439499999999999
+        - 0.026458199999999994
+        radius: 0.14549
+panda_link3::meshes/collision/link3.obj:
+  '8':
+    '0':
+      mean: 783.667
+      best: 783.667
+      worst: 783.667
+      spheres:
+      - origin:
+        - 0.03523959999999999
+        - 0.032871899999999996
+        - -0.045717799999999996
+        radius: 0.128047
+panda_link4::meshes/collision/link4.obj:
+  '8':
+    '0':
+      mean: 802.24
+      best: 802.24
+      worst: 802.24
+      spheres:
+      - origin:
+        - -0.04629375000000001
+        - 0.047323649999999995
+        - 0.031302699999999996
+        radius: 0.1285
+panda_link5::meshes/collision/link5.obj:
+  '8':
+    '0':
+      mean: 804.046
+      best: 804.046
+      worst: 804.046
+      spheres:
+      - origin:
+        - -0.004543550000000003
+        - 0.02706605
+        - -0.10576985
+        radius: 0.174236
+panda_link6::meshes/collision/link6.obj:
+  '8':
+    '0':
+      mean: 658.884
+      best: 658.884
+      worst: 658.884
+      spheres:
+      - origin:
+        - 0.047576515989217895
+        - 0.0031721436002485684
+        - 0.001105386282253618
+        radius: 0.103894
+panda_link7::meshes/collision/link7.obj:
+  '8':
+    '0':
+      mean: 848.044
+      best: 848.044
+      worst: 848.044
+      spheres:
+      - origin:
+        - 0.013032750000000003
+        - 0.013715850000000002
+        - 0.08680775
+        radius: 0.073139
+panda_hand::meshes/collision/hand.obj:
+  '8':
+    '0':
+      mean: 770.993
+      best: 770.993
+      worst: 770.993
+      spheres:
+      - origin:
+        - -0.000994050000000001
+        - -0.00046199999999999887
+        - 0.0215807
+        radius: 0.107882
+panda_leftfinger::meshes/collision/finger.obj:
+  '8':
+    '0':
+      mean: 797.774
+      best: 797.774
+      worst: 797.774
+      spheres:
+      - origin:
+        - -0.00032234999999999946
+        - 0.0133683785
+        - 0.026373348
+        radius: 0.031199
+panda_rightfinger::meshes/collision/finger.obj:
+  '8':
+    '0':
+      mean: 783.591
+      best: 783.591
+      worst: 783.591
+      spheres:
+      - origin:
+        - -5.264999999677309e-05
+        - -0.01342037850000197
+        - 0.026331348
+        radius: 0.031072
