@@ -1,6 +1,3 @@
-#include <rclcpp/rclcpp.hpp>
-#include <ament_index_cpp/get_package_share_directory.hpp>
-
 #include "Perception.hpp"
 #include "Streamer.hpp"
 #include "Mailbox.hpp"
@@ -8,6 +5,7 @@
 // #include "Pipeline.hpp"
 
 #include <thread>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 // this program/node manages:
 // 1. Producer/ingestor/CPU framesets
@@ -31,22 +29,23 @@ namespace perception
 			streamer.getCameraConfigs()
 		);
 
-		mailbox_ = std::make_unique<Mailbox<float>>(batch_size_, n_points_);
+		pipeline.setOwner(this);
 
-		std::cout<<"Mailbox setup with batch size="<<batch_size_<<" and "<<n_points_<<" points per batch element"<<std::endl;
+		#ifdef SHM_DISABLE
+			std::cout<<"SHM Disabled"<<std::endl;
+			publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+				"pointcloud", 10
+			);
+		#else
+			std::cout<<"SHM Enabled"<<std::endl;
+			publisher_ = this->create_publisher<percept_interfaces::msg::Pointcloud1M>(
+				"pointcloud", 10
+			);
+		#endif
 
-		streamer.setMailbox(mailbox_.get());
+		setupMailboxes(batch_size_, n_points_);
 
-		pipeline.setMailbox(mailbox_.get());
-
-		streamer.startStreams();
-
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-
-		pipeline.readMailbox();
-
-		// ...
-
+		startThreads();
   }
 
   // PerceptionNode::~PerceptionNode() = default;
@@ -55,10 +54,107 @@ namespace perception
     stopThreads();
 	}
 
+	void PerceptionNode::setupMailboxes(size_t batch_size, size_t n_points)
+	{
+		mailbox_ = std::make_unique<Mailbox<float>>(batch_size_, n_points_);
+
+		std::cout<<"Mailbox setup with batch size="<<batch_size_<<" and "<<n_points_<<" points per batch element"<<std::endl;
+
+		streamer.setMailbox(mailbox_.get());
+
+		pipeline.setMailbox(mailbox_.get());
+	}
+
+	void PerceptionNode::startThreads()
+	{
+		streamer.startStreams();
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+
+		pipeline.startPipeline();
+	}
+
 
 	void PerceptionNode::stopThreads()
 	{
 		streamer.stopStreams();		
+		
+		pipeline.stopPipeline();
+	}
+
+	void PerceptionNode::test(size_t i)
+	{
+		std::cout<<"test: "<<i<<std::endl;
+	}
+
+	// void PerceptionNode::publishPointclouds(const open3d::core::Tensor& cuda_points, size_t num_points)
+
+	void PerceptionNode::publishPointclouds(const open3d::t::geometry::PointCloud& pcd, size_t num_points)
+	{
+		// open3d::core::Tensor cpu_points = cuda_points.To(open3d::core::Device("CPU:0"), /*copy=*/false);
+
+		open3d::core::Tensor cpu_points = pcd.GetPointPositions().To(open3d::core::Device("CPU:0"));
+
+		const float* src = cpu_points.GetDataPtr<float>();
+
+		#ifdef SHM_DISABLE
+			// std::cout << "points size" << num_points << std::endl;
+
+			auto msg = sensor_msgs::msg::PointCloud2();
+
+			msg.header.stamp = this->now();
+
+			msg.header.frame_id = "panda_link0";
+
+			sensor_msgs::PointCloud2Modifier modifier(msg);
+
+			modifier.setPointCloud2FieldsByString(1, "xyz");
+
+			modifier.resize(num_points);
+
+			sensor_msgs::PointCloud2Iterator<float> iter_x(msg, "x");
+
+			sensor_msgs::PointCloud2Iterator<float> iter_y(msg, "y");
+
+			sensor_msgs::PointCloud2Iterator<float> iter_z(msg, "z");
+
+			for (size_t i = 0; i < num_points; ++i)
+			{
+				*iter_x = src[i * 3];
+
+				*iter_y = src[i * 3 + 1];
+
+				*iter_z = src[i * 3 + 2];
+
+				++iter_x; ++iter_y; ++iter_z;
+			}
+
+			publisher_->publish(std::move(msg));
+
+		#else
+			auto loaned_msg = publisher_->borrow_loaned_message();
+
+			if (loaned_msg.is_valid()) {
+				auto& msg = loaned_msg.get();
+
+				msg.num_points = num_points;
+
+				for (size_t i = 0; i < num_points; ++i)
+				{
+					msg.x[i] = src[i * 3];
+					
+					msg.y[i] = src[i * 3 + 1];
+					
+					msg.z[i] = src[i * 3 + 2];
+				}
+
+				publisher_->publish(std::move(loaned_msg));
+			} 
+			else 
+			{
+				RCLCPP_ERROR(this->get_logger(), "Failed to loan message memory");
+			}
+		#endif
 	}
 }
 
