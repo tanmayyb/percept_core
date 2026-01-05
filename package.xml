@@ -42,6 +42,8 @@
 	<depend>tf2_eigen</depend>
 	<depend>eigen</depend>
 
+	<depend>percept_interfaces</depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

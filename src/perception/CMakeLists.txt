@@ -40,7 +40,12 @@
 # )
 
 
-# with Open3D
+# Perception Node
+find_package(sensor_msgs REQUIRED)
+find_package(percept_interfaces REQUIRED)
+
+option(SHM_DISABLE "Disable shared memory features" ON)
+
 set(OLD_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED}) # To supress Open3D CMP0072 warning
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 find_package(Open3D REQUIRED)
@@ -55,7 +60,7 @@ add_executable(perception_node
 
 set_target_properties(perception_node 
 	PROPERTIES 
-	CXX_STANDARD 11
+	CXX_STANDARD 20
 	CUDA_ARCHITECTURES "native"
 	CUDA_SEPARABLE_COMPILATION ON
 	CUDA_RESOLVE_DEVICE_SYMBOLS ON
@@ -70,7 +75,13 @@ target_link_libraries(perception_node
 	ament_index_cpp::ament_index_cpp
 	Open3D::Open3D
 	CUDA::cudart
+	sensor_msgs::sensor_msgs__rosidl_typesupport_cpp
+	percept_interfaces::percept_interfaces__rosidl_typesupport_cpp
 )
+
+if(SHM_DISABLE)
+	target_compile_definitions(perception_node PUBLIC SHM_DISABLE)
+endif()
 
 target_include_directories(perception_node PUBLIC .)
 
@@ -78,29 +89,37 @@ install(TARGETS perception_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
+# PointsFK Node
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(Eigen3 REQUIRED)
+
+add_executable(fk_node PointsFK.cpp)
+
+target_link_libraries(fk_node
+  rclcpp::rclcpp
+  tf2_ros::tf2_ros
+  tf2_eigen::tf2_eigen
+  Eigen3::Eigen
+	sensor_msgs::sensor_msgs__rosidl_typesupport_cpp
+	ament_index_cpp::ament_index_cpp
+	yaml-cpp
+)
+
+if(SHM_DISABLE)
+	target_compile_definitions(fk_node PUBLIC SHM_DISABLE)
+endif()
+
+target_include_directories(fk_node PUBLIC .)
+
+install(DIRECTORY assets
+	DESTINATION share/${PROJECT_NAME}
+)
+
+install(TARGETS fk_node
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 
-
-
-
-
-# find_package(rclcpp REQUIRED)
-# find_package(geometry_msgs REQUIRED)
-# find_package(tf2_ros REQUIRED)
-# find_package(tf2_eigen REQUIRED)
-# find_package(Eigen3 REQUIRED)
-# find_package(sensor_msgs REQUIRED)
-
-# add_executable(fk_node PointsFK.cpp)
-
-# target_link_libraries(fk_node
-#   rclcpp::rclcpp
-#   tf2_ros::tf2_ros
-#   tf2_eigen::tf2_eigen
-#   Eigen3::Eigen
-# 	sensor_msgs::sensor_msgs__rosidl_typesupport_cpp
-# )
-
-# install(TARGETS fk_node
-#   DESTINATION lib/${PROJECT_NAME}
-# )
+# # Samples
+# add_subdirectory(samples)
