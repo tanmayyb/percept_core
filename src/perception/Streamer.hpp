@@ -19,18 +19,36 @@
 namespace perception
 {
 
+	// class filter_options
+	// {
+	// public:
+	// 	filter_options(const std::string name, rs2::filter& filter);
+
+	// 	filter_options(filter_options&& other);
+
+	// 	std::string filter_name;                                   
+
+	// 	rs2::filter& filter;                                       
+
+	// 	std::atomic_bool is_enabled;                               
+	// };
+
 	class filter_options
 	{
-	public:
-		filter_options(const std::string name, rs2::filter& filter);
+		public:
+			filter_options(const std::string name, std::shared_ptr<rs2::filter> flt)
+				: filter_name(name), filter(flt), is_enabled(true){}
 
-		filter_options(filter_options&& other);
+			filter_options(filter_options&& other) noexcept 
+        : filter_name(std::move(other.filter_name)), 
+          filter(std::move(other.filter)), 
+          is_enabled(other.is_enabled.load()) {}
 
-		std::string filter_name;                                   
+			std::string filter_name;
 
-		rs2::filter& filter;                                       
+			std::shared_ptr<rs2::filter> filter;
 
-		std::atomic_bool is_enabled;                               
+			std::atomic_bool is_enabled;
 	};
 
 	class Streamer
@@ -65,20 +83,22 @@ namespace perception
       //              size_t n_points, 
       //              const std::string& filename);
 
-			void setupFilters();
+			// void setupFilters();
 
 
-			//  rs2 filters
-			rs2::disparity_transform depth_to_disparity_{true};
+			// //  rs2 filters
+			// rs2::disparity_transform depth_to_disparity_{true};
 
-			rs2::temporal_filter temp_filter_;
+			// rs2::temporal_filter temp_filter_;
 
-			rs2::disparity_transform disparity_to_depth_{false};
+			// rs2::disparity_transform disparity_to_depth_{false};
 			
 		public:
 			std::vector<CameraConfig> cameras;
 
-	    std::vector<filter_options> filters;
+	    // std::vector<filter_options> filters;
+
+			std::vector<std::vector<filter_options>> pipeline_filters_;
 
 			void loadConfigs();
 

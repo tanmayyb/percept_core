@@ -4,9 +4,9 @@
 namespace perception
 {
 
-	filter_options::filter_options(const std::string name, rs2::filter& flt) : filter_name(name), filter(flt), is_enabled(true){}
+	// filter_options::filter_options(const std::string name, rs2::filter& flt) : filter_name(name), filter(flt), is_enabled(true){}
 
-	filter_options::filter_options(filter_options&& other) : filter_name(std::move(other.filter_name)), filter(other.filter), is_enabled(other.is_enabled.load()){}
+	// filter_options::filter_options(filter_options&& other) : filter_name(std::move(other.filter_name)), filter(other.filter), is_enabled(other.is_enabled.load()){}
 
 	Streamer::Streamer()
 	{
@@ -36,20 +36,20 @@ namespace perception
 		
 	}
 
-	void Streamer::setupFilters()
-	{
-  	temp_filter_.set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.0f);
+	// void Streamer::setupFilters()
+	// {
+  // 	temp_filter_.set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.0f);
 
-		temp_filter_.set_option(RS2_OPTION_FILTER_SMOOTH_DELTA, 100.0f);
+	// 	temp_filter_.set_option(RS2_OPTION_FILTER_SMOOTH_DELTA, 100.0f);
 
-		temp_filter_.set_option(RS2_OPTION_HOLES_FILL, 8);
+	// 	temp_filter_.set_option(RS2_OPTION_HOLES_FILL, 8);
 
-		filters.emplace_back("Depth2Disparity", depth_to_disparity_);
+	// 	filters.emplace_back("Depth2Disparity", depth_to_disparity_);
 
-		filters.emplace_back("Temporal", temp_filter_);
+	// 	filters.emplace_back("Temporal", temp_filter_);
 
-		filters.emplace_back("Disparity2Depth", disparity_to_depth_);
-	}
+	// 	filters.emplace_back("Disparity2Depth", disparity_to_depth_);
+	// }
 
 
 	void Streamer::setupPipelines()
@@ -70,13 +70,34 @@ namespace perception
 
 			std::cout<<"pipeline "<<cam.serial_no<<" started"<<std::endl;
 
+			std::vector<filter_options> cam_filters;
+
+			auto depth2disparity = std::make_shared<rs2::disparity_transform>(true);
+
+			auto temporal = std::make_shared<rs2::temporal_filter>();
+			
+			temporal->set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.0f);
+			
+			temporal->set_option(RS2_OPTION_FILTER_SMOOTH_DELTA, 100.0f);
+			
+			temporal->set_option(RS2_OPTION_HOLES_FILL, 8);
+			
+			auto disparity2depth = std::make_shared<rs2::disparity_transform>(false);	
+
+			cam_filters.emplace_back("Depth2Disparity", std::move(depth2disparity));
+
+			cam_filters.emplace_back("Temporal", std::move(temporal));
+
+			cam_filters.emplace_back("Disparity2Depth", std::move(disparity2depth));
+
+			pipeline_filters_.push_back(std::move(cam_filters));
 		}
 
 		batch_size_ = pipelines_.size();
 
 		n_points_ = 848*480;
 
-		setupFilters();
+		// setupFilters();
 	
 	}
 
@@ -110,9 +131,14 @@ namespace perception
 
 				rs2::frame depth_frame = frames.get_depth_frame();
 				
-				for (auto&& filter : filters)
+				// for (auto&& filter : filters)
+				// {
+				// 	depth_frame = filter.filter.process(depth_frame);
+				// }
+
+				for (auto& filter_opt : pipeline_filters_[i])
 				{
-					depth_frame = filter.filter.process(depth_frame);
+					depth_frame = filter_opt.filter->process(depth_frame);
 				}
 
 				rs2::points points  = pc.calculate(depth_frame);
