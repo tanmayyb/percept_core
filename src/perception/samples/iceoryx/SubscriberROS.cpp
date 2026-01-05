@@ -9,7 +9,7 @@ public:
         rclcpp::SubscriptionOptions options;
         // Optimization: Use a custom callback group if processing is heavy
         
-        m_subscription = this->create_subscription<percept_interfaces::msg::Pointcloud>(
+        m_subscription = this->create_subscription<percept_interfaces::msg::Pointcloud1M>(
             "out_cloud", 
             rclcpp::QoS(1).keep_last(1), // Lossy: keep only newest
             std::bind(&ZeroCopySubscriber::topic_callback, this, std::placeholders::_1),
@@ -20,7 +20,7 @@ public:
     }
 
 private:
-    void topic_callback(const percept_interfaces::msg::Pointcloud::SharedPtr msg) {
+    void topic_callback(const percept_interfaces::msg::Pointcloud1M::SharedPtr msg) {
         // Update the "Latest" buffer
         // In ROS 2, SharedPtr management ensures zero-copy if RMW supports it
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -28,7 +28,7 @@ private:
     }
 
     void process_latest() {
-        percept_interfaces::msg::Pointcloud::SharedPtr cloud_to_process;
+        percept_interfaces::msg::Pointcloud1M::SharedPtr cloud_to_process;
         
         {
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -40,9 +40,9 @@ private:
         RCLCPP_INFO(this->get_logger(), "Processing cloud with %u points", cloud_to_process->num_points);
     }
 
-    rclcpp::Subscription<percept_interfaces::msg::Pointcloud>::SharedPtr m_subscription;
+    rclcpp::Subscription<percept_interfaces::msg::Pointcloud1M>::SharedPtr m_subscription;
     rclcpp::TimerBase::SharedPtr m_timer;
-    percept_interfaces::msg::Pointcloud::SharedPtr m_latest_cloud;
+    percept_interfaces::msg::Pointcloud1M::SharedPtr m_latest_cloud;
     std::mutex m_mutex;
 };
 

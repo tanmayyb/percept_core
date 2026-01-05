@@ -49,7 +49,7 @@ class ZeroCopySubscriber : public rclcpp::Node {
 public:
     ZeroCopySubscriber() : Node("zero_copy_subscriber") {
         // RMW must be configured (e.g., Iceoryx) to enable zero-copy transport
-        m_subscription = this->create_subscription<percept_interfaces::msg::Pointcloud>(
+        m_subscription = this->create_subscription<percept_interfaces::msg::Pointcloud1M>(
             "out_cloud", 
             rclcpp::QoS(1).keep_last(1),
             std::bind(&ZeroCopySubscriber::topic_callback, this, std::placeholders::_1)
@@ -62,7 +62,7 @@ public:
     }
 
 private:
-    void topic_callback(const percept_interfaces::msg::Pointcloud::SharedPtr msg) {
+    void topic_callback(const percept_interfaces::msg::Pointcloud1M::SharedPtr msg) {
         // Lock-free handoff to the mailbox
         m_mailbox.commit(msg);
     }
@@ -79,9 +79,9 @@ private:
         RCLCPP_INFO(this->get_logger(), "Processing cloud with %u points", cloud_to_process->num_points);
     }
 
-    rclcpp::Subscription<percept_interfaces::msg::Pointcloud>::SharedPtr m_subscription;
+    rclcpp::Subscription<percept_interfaces::msg::Pointcloud1M>::SharedPtr m_subscription;
     rclcpp::TimerBase::SharedPtr m_timer;
-    SharedMailbox<percept_interfaces::msg::Pointcloud> m_mailbox;
+    SharedMailbox<percept_interfaces::msg::Pointcloud1M> m_mailbox;
 };
 
 int main(int argc, char** argv) {

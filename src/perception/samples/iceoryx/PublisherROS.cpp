@@ -9,7 +9,7 @@ class ZeroCopyPublisher : public rclcpp::Node {
 public:
     ZeroCopyPublisher() : Node("zero_copy_publisher") {
         // Publisher must be configured for zero-copy via RMW settings
-        m_publisher = this->create_publisher<percept_interfaces::msg::Pointcloud>("out_cloud", 10);
+        m_publisher = this->create_publisher<percept_interfaces::msg::Pointcloud1M>("out_cloud", 10);
         m_timer = this->create_wall_timer(30ms, std::bind(&ZeroCopyPublisher::publish_cloud, this));
     }
 		size_t num_points = 1000000;
@@ -44,7 +44,7 @@ private:
 		}
 	}
 
-    rclcpp::Publisher<percept_interfaces::msg::Pointcloud>::SharedPtr m_publisher;
+    rclcpp::Publisher<percept_interfaces::msg::Pointcloud1M>::SharedPtr m_publisher;
     rclcpp::TimerBase::SharedPtr m_timer;
 };
 
