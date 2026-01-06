@@ -23,9 +23,12 @@ namespace perception
 
 		n_points_ = streamer.getPCSize();
 
+		robot_filter_size_ = 30;
+
 		pipeline.setupConfigs(
 			batch_size_,
 			n_points_,
+			robot_filter_size_,
 			streamer.getCameraConfigs()
 		);
 
@@ -43,7 +46,12 @@ namespace perception
 			);
 		#endif
 
-		setupMailboxes(batch_size_, n_points_);
+		subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+			"robot_filter", 10,
+			std::bind(&PerceptionNode::storeRobotBody, this, std::placeholders::_1)
+		);
+
+		setupMailboxes(batch_size_, n_points_, robot_filter_size_);
 
 		startThreads();
   }
@@ -54,7 +62,7 @@ namespace perception
     stopThreads();
 	}
 
-	void PerceptionNode::setupMailboxes(size_t batch_size, size_t n_points)
+	void PerceptionNode::setupMailboxes(size_t batch_size, size_t n_points, size_t robot_body_size)
 	{
 		mailbox_ = std::make_unique<Mailbox<float>>(batch_size_, n_points_);
 
@@ -63,6 +71,10 @@ namespace perception
 		streamer.setMailbox(mailbox_.get());
 
 		pipeline.setMailbox(mailbox_.get());
+
+		robot_filter_mailbox_ = std::make_unique<Mailbox<float>>(1, robot_body_size);
+
+		pipeline.setRobotFilterMailbox(robot_filter_mailbox_.get());
 	}
 
 	void PerceptionNode::startThreads()
@@ -82,10 +94,39 @@ namespace perception
 		pipeline.stopPipeline();
 	}
 
-	void PerceptionNode::test(size_t i)
+	void PerceptionNode::storeRobotBody(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 	{
-		std::cout<<"test: "<<i<<std::endl;
+		if (!robot_filter_mailbox_) return;
+
+		auto& buffer = robot_filter_mailbox_->get_producer_buffer();
+
+		sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x");
+
+		sensor_msgs::PointCloud2ConstIterator<float> iter_y(*msg, "y");
+
+		sensor_msgs::PointCloud2ConstIterator<float> iter_z(*msg, "z");
+
+		size_t point_count = 0;
+
+		// const size_t limit = 37;
+
+		for (; iter_x != iter_x.end() && point_count < robot_filter_size_; ++iter_x, ++iter_y, ++iter_z)
+		{
+			size_t base_idx = point_count * 3;
+
+			buffer[base_idx + 0] = *iter_x;
+			
+			buffer[base_idx + 1] = *iter_y;
+			
+			buffer[base_idx + 2] = *iter_z;
+
+			point_count++;
+		}
+
+		robot_filter_mailbox_->commit();
 	}
+
+
 
 	// void PerceptionNode::publishPointclouds(const open3d::core::Tensor& cuda_points, size_t num_points)
 

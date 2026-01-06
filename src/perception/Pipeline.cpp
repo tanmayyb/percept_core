@@ -31,7 +31,7 @@ namespace perception
 		// int64_t num_points = pcd.GetPointPositions().GetShape(0);
 	}
 
-	void Pipeline::setupConfigs(size_t batch_size, size_t n_points, const std::vector<CameraConfig>& cameras)
+	void Pipeline::setupConfigs(size_t batch_size, size_t n_points, size_t robot_filter_size, const std::vector<CameraConfig>& cameras)
 	{
 		batch_size_ = batch_size;
 		
@@ -58,6 +58,8 @@ namespace perception
 
 		shape_ = {static_cast<int64_t>(batch_size_ * n_points_), 3};
 
+		robot_filter_shape_ = {static_cast<int64_t>(robot_filter_size), 3};
+
 		min_bound_ = open3d::core::Tensor::Init<float>({-1.0f, -1.0f, -1.0f}, device_);
 		
 		max_bound_ = open3d::core::Tensor::Init<float>({1.0f, 1.0f, 1.0f}, device_);
@@ -76,12 +78,17 @@ namespace perception
 
 		int64_t total_points;
 
+		// float subtraction_radius = 0.010;
+
+		float subtraction_radius = 0.125;
+
 		while(running_.load())
 		{
 			start = std::chrono::high_resolution_clock::now();
 
 			readMailbox();
-
+			
+			// Coordinate Trasform on All Frames
 			for(size_t i=0; i<batch_size_; ++i)
 			{
 				open3d::core::Tensor points = pc_buffer_.Slice(
@@ -93,6 +100,7 @@ namespace perception
 				partial_pcds_[i].Transform(transforms_[i]);	
 			}
 			
+			// Merge into 1 Frame
 			open3d::t::geometry::PointCloud accumulation = partial_pcds_[0];
 
 			for (size_t i = 1; i < batch_size_; ++i)
@@ -100,45 +108,45 @@ namespace perception
 				accumulation = accumulation.Append(partial_pcds_[i]);
 			}
 
+			// Crop Outside Workspace Boundaries
 			open3d::core::Tensor inside_indices = bbox_.GetPointIndicesWithinBoundingBox(accumulation.GetPointPositions());
-
-			// total_points = accumulation.GetPointPositions().GetLength();
-
-			// open3d::core::Tensor mask = open3d::core::Tensor::Zeros({total_points}, open3d::core::Bool, device_);
-
-			// mask.SetItem({open3d::core::TensorKey::IndexTensor(inside_indices)}, 
-			// 	open3d::core::Tensor::Ones({inside_indices.GetLength()}, open3d::core::Bool, device_));
-
-			// open3d::core::Tensor outside_indices = mask.LogicalNot().NonZero().Flatten();
-
-			// accumulation = accumulation.SelectByIndex(outside_indices);
 
 			accumulation = accumulation.SelectByIndex(inside_indices);
 
-			total_points = accumulation.GetPointPositions().GetLength();
+			// Perform Robot Filtering
+			open3d::core::nns::NearestNeighborSearch nns(robot_filter_buffer_);
 
-			// merged_pcd_ = std::make_unique<open3d::t::geometry::PointCloud>(std::move(accumulation));
+			nns.KnnIndex();
 
-			// do robot filtering
+			auto nns_result = nns.KnnSearch(accumulation.GetPointPositions(), 1);
+
+			open3d::core::Tensor distances = std::get<1>(nns_result);
+
+			float radius_sq = subtraction_radius * subtraction_radius;
+
+			open3d::core::Tensor mask = distances.Gt(radius_sq).Flatten(0);
+
+			accumulation = accumulation.SelectByMask(mask);
+
+			// // Outlier Removal
+			// auto [filtered_pcd, _] = accumulation.RemoveRadiusOutliers(5, 0.75);
+
+			// accumulation = std::move(filtered_pcd);
 
 			// voxel downsample
-
-			// D2H to get pointset in CPU
-
-			// apply SoA
-
-			// write to mailbox
+			double voxel_size = 0.01; // 1cm resolution
+			
+			accumulation = accumulation.VoxelDownSample(voxel_size);
 
 			// running_ = false; // added for debugging
 
+			total_points = accumulation.GetPointPositions().GetLength();
 
 			owner_->publishPointclouds(accumulation, static_cast<size_t>(total_points));
 
-			std::this_thread::sleep_for(std::chrono::milliseconds(15));
+			// std::this_thread::sleep_for(std::chrono::milliseconds(15)); // for debugging
 
-			// std::cout << "Points: " << accumulation.GetPointPositions().GetLength() << std::endl;
-
-			// owner_->test(n_points_);
+			// std::cout << "Points: " << accumulation.GetPointPositions().GetLength() << std::endl; // for debugging
 
 			end = std::chrono::high_resolution_clock::now();
     
@@ -185,6 +193,20 @@ namespace perception
 		pc_buffer_ = cpu_tensor.To(device_);
 
 		// std::cout << "Buffer Shape: " << pc_buffer_.GetShape().ToString() << std::endl;
+
+		// read RobotBody Mailbox
+
+		std::vector<float>& robot_filter_buffer = robot_filter_mailbox_ptr_->consume();
+
+		open3d::core::Tensor cpu_robot_filter_tensor(
+			static_cast<void*>(robot_filter_buffer.data()),
+			open3d::core::Float32,
+			robot_filter_shape_,
+			strides_,
+			open3d::core::Device("CPU:0")
+		);
+
+		robot_filter_buffer_ = cpu_robot_filter_tensor.To(device_);		
 	}
 
 

@@ -33,6 +33,8 @@ namespace perception
 			
 			open3d::core::Tensor pc_buffer_;
 
+			open3d::core::Tensor robot_filter_buffer_;
+
 			std::vector<open3d::core::Tensor> transforms_;
 
 			std::vector<open3d::t::geometry::PointCloud> partial_pcds_;
@@ -55,12 +57,16 @@ namespace perception
 
 			open3d::core::SizeVector shape_;
 
+			open3d::core::SizeVector robot_filter_shape_;
+
 			Mailbox<float>* mailbox_ptr_ = nullptr;			
+
+			Mailbox<float>* robot_filter_mailbox_ptr_ = nullptr;
 
 			std::thread thread_;
 
 		public:
-			void setupConfigs(size_t batch_size, size_t n_points, const std::vector<CameraConfig>& cameras);
+			void setupConfigs(size_t batch_size, size_t n_points, size_t robot_filter_size, const std::vector<CameraConfig>& cameras);
 
 			void setOwner(PerceptionNode* node){
 				owner_ = node;
@@ -68,6 +74,10 @@ namespace perception
 			
 			void setMailbox(Mailbox<float>* mb){
 				mailbox_ptr_ = mb;
+			}
+
+			void setRobotFilterMailbox(Mailbox<float>* mb){
+				robot_filter_mailbox_ptr_ = mb;
 			}
 
 			void readMailbox();
