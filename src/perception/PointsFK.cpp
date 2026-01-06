@@ -7,7 +7,7 @@ PointCloudFKPublisher::PointCloudFKPublisher() : rclcpp::Node ("perception_node"
 	
 	tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-	publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("transformed_cloud", 10);
+	publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("robot_filter", 10);
 
 	link_names_ = {
 		"panda_link0", "panda_link1", "panda_link2", "panda_link3", 
