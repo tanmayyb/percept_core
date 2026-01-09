@@ -7,13 +7,15 @@
 
 namespace perception{
 
-	struct PoseConfig {
+	struct PoseConfig 
+	{
     double x, y, z;
 
 		double roll, pitch, yaw;
 	};
 
-	struct CameraConfig {
+	struct CameraConfig 
+	{
 		size_t id;
 
 		std::string nickname;
@@ -25,16 +27,94 @@ namespace perception{
 		Eigen::Matrix4d transform;
 	};
 
-	struct RealsenseConfig {
 
+	struct DepthProfile 
+	{
+		size_t width;
+
+		size_t height;
+
+		size_t fps;
+	};
+
+	struct TemporalFilter
+	{
+		bool is_enabled;
+
+		float smooth_alpha;
+
+		float smooth_delta;
+
+		int holes_fill;
+	};
+
+	struct StreamConfig 
+	{
+		DepthProfile depth_profile;
+
+		TemporalFilter temporal_filter_config;
 	};
 
 }
 
 namespace YAML{
+
 	template<>
-	struct convert<perception::PoseConfig>{
-		static bool decode(const Node& node, perception::PoseConfig& rhs){
+	struct convert<perception::TemporalFilter>
+	{
+		static bool decode(const Node& node, perception::TemporalFilter& rhs)
+		{
+			if (!node.IsMap()) return false;
+
+			rhs.is_enabled = node["enable"].as<bool>();
+
+			rhs.smooth_alpha = node["alpha"].as<float>();
+
+			rhs.smooth_delta = node["delta"].as<float>();
+
+			rhs.holes_fill = node["hfill"].as<int>();
+
+			return true;
+		}
+	};
+
+	template<>
+	struct convert<perception::DepthProfile>
+	{
+		static bool decode(const Node& node, perception::DepthProfile& rhs)
+		{
+			if (!node.IsMap()) return false;
+			
+			rhs.width = node["w"].as<size_t>();
+
+			rhs.height = node["h"].as<size_t>();
+
+			rhs.fps = node["f"].as<size_t>();
+			
+			return true;
+		}
+	};
+
+	template<>
+	struct convert<perception::StreamConfig>
+	{
+		static bool decode(const Node& node, perception::StreamConfig& rhs)
+		{
+			if (!node.IsMap()) return false;
+
+			rhs.depth_profile = node["depth_profile"].as<perception::DepthProfile>();
+
+			rhs.temporal_filter_config = node["temporal_filter"].as<perception::TemporalFilter>();
+
+			return true;
+		}
+	};
+
+	template<>
+	struct convert<perception::PoseConfig>
+	{
+		static bool decode(const Node& node, perception::PoseConfig& rhs)
+		{
 			if(!node["position"] || !node["orientation"]) return false;
 
 			rhs.x = node["position"]["x"].as<double>();
@@ -54,8 +134,10 @@ namespace YAML{
 	};
 
 	template<>
-	struct convert<perception::CameraConfig>{
-		static bool decode(const Node& node, perception::CameraConfig& rhs){
+	struct convert<perception::CameraConfig>
+	{
+		static bool decode(const Node& node, perception::CameraConfig& rhs)
+		{
 			if (!node["nickname"] || !node["serial_no"] || !node["pose"]) return false;
 			
 			rhs.nickname = node["nickname"].as<std::string>();

@@ -19,19 +19,6 @@
 namespace perception
 {
 
-	// class filter_options
-	// {
-	// public:
-	// 	filter_options(const std::string name, rs2::filter& filter);
-
-	// 	filter_options(filter_options&& other);
-
-	// 	std::string filter_name;                                   
-
-	// 	rs2::filter& filter;                                       
-
-	// 	std::atomic_bool is_enabled;                               
-	// };
 
 	class filter_options
 	{
@@ -82,33 +69,15 @@ namespace perception
       //              size_t n_pipes, 
       //              size_t n_points, 
       //              const std::string& filename);
-
-			// void setupFilters();
-
-
-			// //  rs2 filters
-			// rs2::disparity_transform depth_to_disparity_{true};
-
-			// rs2::temporal_filter temp_filter_;
-
-			// rs2::disparity_transform disparity_to_depth_{false};
 			
 		public:
 			std::vector<CameraConfig> cameras;
 
-	    // std::vector<filter_options> filters;
+			StreamConfig stream_config;
 
 			std::vector<std::vector<filter_options>> pipeline_filters_;
 
 			void loadConfigs();
-
-			// std::vector<RealsenseConfig> rs_settings;
-
-			// void setup_static_camera_configs();
-
-			// void setup_rs_settings_configs();
-
-			// void setup_perception_pipeline_configs();
 
 			void setupPipelines();
 

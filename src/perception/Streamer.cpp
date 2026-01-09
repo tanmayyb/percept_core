@@ -4,10 +4,6 @@
 namespace perception
 {
 
-	// filter_options::filter_options(const std::string name, rs2::filter& flt) : filter_name(name), filter(flt), is_enabled(true){}
-
-	// filter_options::filter_options(filter_options&& other) : filter_name(std::move(other.filter_name)), filter(other.filter), is_enabled(other.is_enabled.load()){}
-
 	Streamer::Streamer()
 	{
 		pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept");
@@ -19,10 +15,16 @@ namespace perception
 
 	void Streamer::loadConfigs()
 	{
-		// load camera configs
+		// load stream and camera configs
 		YAML::Node root = YAML::LoadFile(pkg_share_dir_ + "/config/static_cameras_setup.yaml");
 
-		for (auto it = root.begin(); it !=root.end(); ++it)
+		// load stream configs
+		stream_config = root["stream"].as<perception::StreamConfig>();
+
+		// load camera configs
+		auto sensors_node = root["sensors"];
+
+		for (auto it = sensors_node.begin(); it != sensors_node.end(); ++it)
 		{
 			perception::CameraConfig camera = it->second.as<perception::CameraConfig>();
 
@@ -30,39 +32,26 @@ namespace perception
 
 			cameras.push_back(camera);
 		}
-
-    root = YAML::LoadFile(pkg_share_dir_ + "/config/rs_settings.yaml");
-
-		
 	}
-
-	// void Streamer::setupFilters()
-	// {
-  // 	temp_filter_.set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.0f);
-
-	// 	temp_filter_.set_option(RS2_OPTION_FILTER_SMOOTH_DELTA, 100.0f);
-
-	// 	temp_filter_.set_option(RS2_OPTION_HOLES_FILL, 8);
-
-	// 	filters.emplace_back("Depth2Disparity", depth_to_disparity_);
-
-	// 	filters.emplace_back("Temporal", temp_filter_);
-
-	// 	filters.emplace_back("Disparity2Depth", disparity_to_depth_);
-	// }
-
 
 	void Streamer::setupPipelines()
 	{
 		for(const auto& cam:cameras)
 		{
+			// setup pipe
 			rs2::pipeline pipe;
 
 			rs2::config cfg;
 
 			cfg.enable_device(cam.serial_no);
 
-			cfg.enable_stream(RS2_STREAM_DEPTH, 848, 480, RS2_FORMAT_Z16, 30);
+			cfg.enable_stream(
+				RS2_STREAM_DEPTH, 
+				stream_config.depth_profile.width, 
+				stream_config.depth_profile.height, 
+				RS2_FORMAT_Z16, 
+				stream_config.depth_profile.fps
+			);
 
 			pipe.start(cfg);
 
@@ -70,23 +59,33 @@ namespace perception
 
 			std::cout<<"pipeline "<<cam.serial_no<<" started"<<std::endl;
 
+			// setup filters
 			std::vector<filter_options> cam_filters;
 
 			auto depth2disparity = std::make_shared<rs2::disparity_transform>(true);
 
-			auto temporal = std::make_shared<rs2::temporal_filter>();
-			
-			temporal->set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.0f);
-			
-			temporal->set_option(RS2_OPTION_FILTER_SMOOTH_DELTA, 100.0f);
-			
-			temporal->set_option(RS2_OPTION_HOLES_FILL, 8);
-			
-			auto disparity2depth = std::make_shared<rs2::disparity_transform>(false);	
-
 			cam_filters.emplace_back("Depth2Disparity", std::move(depth2disparity));
 
-			cam_filters.emplace_back("Temporal", std::move(temporal));
+			if (stream_config.temporal_filter_config.is_enabled)
+			{
+				auto temporal = std::make_shared<rs2::temporal_filter>();
+
+				temporal->set_option(
+					RS2_OPTION_FILTER_SMOOTH_ALPHA, stream_config.temporal_filter_config.smooth_alpha
+				);
+				
+				temporal->set_option(
+					RS2_OPTION_FILTER_SMOOTH_DELTA, stream_config.temporal_filter_config.smooth_delta
+				);
+				
+				temporal->set_option(
+					RS2_OPTION_HOLES_FILL, stream_config.temporal_filter_config.holes_fill
+				);
+
+				cam_filters.emplace_back("Temporal", std::move(temporal));
+			}
+			
+			auto disparity2depth = std::make_shared<rs2::disparity_transform>(false);	
 
 			cam_filters.emplace_back("Disparity2Depth", std::move(disparity2depth));
 
@@ -95,9 +94,7 @@ namespace perception
 
 		batch_size_ = pipelines_.size();
 
-		n_points_ = 848*480;
-
-		// setupFilters();
+		n_points_ = stream_config.depth_profile.width*stream_config.depth_profile.height;
 	
 	}
 
@@ -131,11 +128,6 @@ namespace perception
 
 				rs2::frame depth_frame = frames.get_depth_frame();
 				
-				// for (auto&& filter : filters)
-				// {
-				// 	depth_frame = filter.filter.process(depth_frame);
-				// }
-
 				for (auto& filter_opt : pipeline_filters_[i])
 				{
 					depth_frame = filter_opt.filter->process(depth_frame);
