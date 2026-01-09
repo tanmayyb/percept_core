@@ -27,7 +27,11 @@ namespace perception
 
 		protected:
 		private:
+			std::string pkg_share_dir_;
+
 			PerceptionNode* owner_ = nullptr;
+
+			PipelineConfig pipeline_config_;
 			
 			open3d::core::Device device_;
 			

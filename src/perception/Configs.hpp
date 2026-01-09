@@ -55,9 +55,40 @@ namespace perception{
 		TemporalFilter temporal_filter_config;
 	};
 
+	struct PipelineConfig
+	{
+		struct SceneBound
+		{
+			std::vector<float> min;
+
+			std::vector<float> max;
+		} scene_bound;
+
+		float robot_filter_radius;
+
+		float voxel_size;
+	};
 }
 
 namespace YAML{
+	template<>
+	struct convert<perception::PipelineConfig>
+	{
+		static bool decode(const Node& node, perception::PipelineConfig& rhs)
+		{
+			if (!node.IsMap()) return false;
+
+			rhs.scene_bound.min = node["scene_bound"]["min"].as<std::vector<float>>();
+
+			rhs.scene_bound.max = node["scene_bound"]["max"].as<std::vector<float>>();
+
+			rhs.robot_filter_radius = node["robot_filter_radius"].as<float>();
+
+			rhs.voxel_size = node["voxel_size"].as<float>();
+
+			return true;
+		}
+	};
 
 	template<>
 	struct convert<perception::TemporalFilter>

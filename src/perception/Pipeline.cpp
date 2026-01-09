@@ -10,6 +10,8 @@ namespace perception
 {
 	Pipeline::Pipeline()
 	{
+		pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept");
+
 		device_ = open3d::core::Device("cuda:0");
 		if(!open3d::core::cuda::IsAvailable())
 		{
@@ -60,9 +62,22 @@ namespace perception
 
 		robot_filter_shape_ = {static_cast<int64_t>(robot_filter_size), 3};
 
-		min_bound_ = open3d::core::Tensor::Init<float>({-1.0f, -1.0f, -1.0f}, device_);
-		
-		max_bound_ = open3d::core::Tensor::Init<float>({1.0f, 1.0f, 1.0f}, device_);
+		// load pipeline configs
+		YAML::Node root = YAML::LoadFile(pkg_share_dir_ + "/config/perception_pipeline_setup.yaml");
+
+		pipeline_config_ = root.as<perception::PipelineConfig>();
+
+		min_bound_ = open3d::core::Tensor::Init<float>({
+			(float)pipeline_config_.scene_bound.min[0],
+			(float)pipeline_config_.scene_bound.min[1],
+			(float)pipeline_config_.scene_bound.min[2]
+		}, device_);
+
+		max_bound_ = open3d::core::Tensor::Init<float>({
+			(float)pipeline_config_.scene_bound.max[0],
+			(float)pipeline_config_.scene_bound.max[1],
+			(float)pipeline_config_.scene_bound.max[2]
+		}, device_);
 
 		bbox_ = open3d::t::geometry::AxisAlignedBoundingBox(min_bound_, max_bound_);
 	}
@@ -80,7 +95,11 @@ namespace perception
 
 		// float subtraction_radius = 0.010;
 
-		float subtraction_radius = 0.125;
+		// float subtraction_radius = 0.125;
+
+		float radius_sq = pipeline_config_.robot_filter_radius * pipeline_config_.robot_filter_radius;
+
+		float voxel_size = pipeline_config_.voxel_size;
 
 		while(running_.load())
 		{
@@ -122,7 +141,7 @@ namespace perception
 
 			open3d::core::Tensor distances = std::get<1>(nns_result);
 
-			float radius_sq = subtraction_radius * subtraction_radius;
+			// float radius_sq = subtraction_radius * subtraction_radius;
 
 			open3d::core::Tensor mask = distances.Gt(radius_sq).Flatten(0);
 
@@ -134,7 +153,7 @@ namespace perception
 			// accumulation = std::move(filtered_pcd);
 
 			// voxel downsample
-			double voxel_size = 0.01; // 1cm resolution
+			// double voxel_size = 0.01; // 1cm resolution
 			
 			accumulation = accumulation.VoxelDownSample(voxel_size);
 
