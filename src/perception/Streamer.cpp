@@ -78,10 +78,33 @@ namespace perception
 				);
 				
 				temporal->set_option(
-					RS2_OPTION_HOLES_FILL, stream_config.temporal_filter_config.holes_fill
+					RS2_OPTION_HOLES_FILL, stream_config.temporal_filter_config.persistence_control
 				);
 
 				cam_filters.emplace_back("Temporal", std::move(temporal));
+			}
+
+			if (stream_config.spatial_filter_config.is_enabled)
+			{
+				auto spatial = std::make_shared<rs2::spatial_filter>();
+
+				spatial->set_option(
+					RS2_OPTION_FILTER_SMOOTH_ALPHA, stream_config.spatial_filter_config.smooth_alpha
+				);
+
+				spatial->set_option(
+					RS2_OPTION_FILTER_SMOOTH_DELTA, stream_config.spatial_filter_config.smooth_delta
+				);
+
+				spatial->set_option(
+					RS2_OPTION_HOLES_FILL, stream_config.spatial_filter_config.hole_fill
+				);
+
+				spatial->set_option(
+					RS2_OPTION_FILTER_MAGNITUDE, stream_config.spatial_filter_config.magnitude
+				);
+
+				cam_filters.emplace_back("Spatial", std::move(spatial));
 			}
 			
 			auto disparity2depth = std::make_shared<rs2::disparity_transform>(false);	
@@ -90,6 +113,7 @@ namespace perception
 
 			pipeline_filters_.push_back(std::move(cam_filters));
 
+			// publish camera trasforms
 			owner_->publishTransform(cam.transform, cam.id);
 		}
 

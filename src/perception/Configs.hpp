@@ -45,7 +45,20 @@ namespace perception{
 
 		float smooth_delta;
 
-		int holes_fill;
+		int persistence_control;
+	};
+
+	struct SpatialFilter
+	{
+		bool is_enabled;
+
+		float smooth_alpha;
+
+		float smooth_delta;
+
+		float magnitude;
+
+		float hole_fill;
 	};
 
 	struct StreamConfig 
@@ -53,6 +66,8 @@ namespace perception{
 		DepthProfile depth_profile;
 
 		TemporalFilter temporal_filter_config;
+
+		SpatialFilter spatial_filter_config;
 	};
 
 	struct PipelineConfig
@@ -71,6 +86,27 @@ namespace perception{
 }
 
 namespace YAML{
+	template<>
+	struct convert<perception::SpatialFilter>
+	{
+		static bool decode(const Node& node, perception::SpatialFilter& rhs)
+		{
+			if (!node.IsMap()) return false;
+
+			rhs.is_enabled = node["enable"].as<bool>();
+
+			rhs.smooth_alpha = node["alpha"].as<float>();
+
+			rhs.smooth_delta = node["delta"].as<float>();
+
+			rhs.magnitude = node["mag"].as<float>();
+
+			rhs.hole_fill = node["hfill"].as<float>();
+
+			return true;
+		}
+	};
+
 	template<>
 	struct convert<perception::PipelineConfig>
 	{
@@ -103,7 +139,7 @@ namespace YAML{
 
 			rhs.smooth_delta = node["delta"].as<float>();
 
-			rhs.holes_fill = node["hfill"].as<int>();
+			rhs.persistence_control = node["pctrl"].as<int>();
 
 			return true;
 		}
@@ -136,6 +172,8 @@ namespace YAML{
 			rhs.depth_profile = node["depth_profile"].as<perception::DepthProfile>();
 
 			rhs.temporal_filter_config = node["temporal_filter"].as<perception::TemporalFilter>();
+
+			rhs.spatial_filter_config = node["spatial_filter"].as<perception::SpatialFilter>();
 
 			return true;
 		}
