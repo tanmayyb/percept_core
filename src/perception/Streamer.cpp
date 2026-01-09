@@ -1,4 +1,5 @@
 #include "Streamer.hpp"
+#include "Perception.hpp"
 #include "Pointcloud.hpp"
 
 namespace perception
@@ -9,8 +10,6 @@ namespace perception
 		pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept");
 
 		loadConfigs();
-		
-		setupPipelines();
 	}
 
 	void Streamer::loadConfigs()
@@ -90,6 +89,8 @@ namespace perception
 			cam_filters.emplace_back("Disparity2Depth", std::move(disparity2depth));
 
 			pipeline_filters_.push_back(std::move(cam_filters));
+
+			owner_->publishTransform(cam.transform, cam.id);
 		}
 
 		batch_size_ = pipelines_.size();

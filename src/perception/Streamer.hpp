@@ -12,13 +12,13 @@
 #include <fstream>
 #include <chrono>
 
-
 #include "Configs.hpp"
 #include "Mailbox.hpp"
 
 namespace perception
 {
 
+	class PerceptionNode;
 
 	class filter_options
 	{
@@ -48,6 +48,8 @@ namespace perception
 		protected:
 		private:
 			std::string pkg_share_dir_;
+
+			PerceptionNode* owner_ = nullptr;
 
 			rs2::context ctx_;
 
@@ -87,6 +89,10 @@ namespace perception
 
 			size_t getPCSize(){
 				return n_points_;
+			}
+
+			void setOwner(PerceptionNode* node){
+				owner_ = node;
 			}
 
 			void setMailbox(Mailbox<float>* mb){

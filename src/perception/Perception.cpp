@@ -18,7 +18,14 @@ namespace perception
 {
   PerceptionNode::PerceptionNode() : rclcpp::Node ("perception_node")
   {
-    // allocate memory
+		tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(this);
+
+		streamer.setOwner(this);
+
+		pipeline.setOwner(this);
+
+		streamer.setupPipelines();
+
 		batch_size_ = streamer.getBatchSize();
 
 		n_points_ = streamer.getPCSize();
@@ -31,8 +38,6 @@ namespace perception
 			robot_filter_size_,
 			streamer.getCameraConfigs()
 		);
-
-		pipeline.setOwner(this);
 
 		#ifdef SHM_DISABLE
 			std::cout<<"SHM Disabled"<<std::endl;
@@ -55,8 +60,6 @@ namespace perception
 
 		startThreads();
   }
-
-  // PerceptionNode::~PerceptionNode() = default;
 
 	PerceptionNode::~PerceptionNode() {
     stopThreads();
@@ -197,6 +200,27 @@ namespace perception
 			}
 		#endif
 	}
+
+
+	void PerceptionNode::publishTransform(Eigen::Matrix4d transform, size_t cam_id)
+	{
+		Eigen::Affine3d affine_tf;
+
+		affine_tf.matrix() = transform;
+
+		geometry_msgs::msg::TransformStamped t;
+
+		// t.header.stamp = this->get_clock()->now();
+
+		t.header.frame_id = "panda_link0";
+
+		t.child_frame_id = "cam" + std::to_string(cam_id);
+
+		t.transform = tf2::eigenToTransform(affine_tf).transform;
+
+		tf_broadcaster_->sendTransform(t);
+	}
+
 }
 
 

@@ -1,48 +1,9 @@
-# add_executable(perception_node Perception.cpp Streamer.cpp)
-
-# set_target_properties(perception_node PROPERTIES CXX_STANDARD 11)
-
-# target_link_libraries(perception_node 
-#     PUBLIC
-#     rclcpp::rclcpp      
-#     realsense2::realsense2
-#     yaml-cpp
-#     ament_index_cpp::ament_index_cpp
-# )
-
-# target_include_directories(perception_node PUBLIC .)
-
-# install(TARGETS perception_node
-#   DESTINATION lib/${PROJECT_NAME}
-# )
-
-
-# # Open3D
-
-# set(OLD_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED}) # To supress Open3D CMP0072 warning
-# set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
-# find_package(Open3D REQUIRED)
-# set(CMAKE_WARN_DEPRECATED ${OLD_WARN_DEPRECATED} CACHE BOOL "" FORCE)
-
-# add_executable(open3d_cuda_test open3d_cuda_test.cu)
-
-# # set(CMAKE_CUDA_ARCHITECTURES 75 86)
-# set_target_properties(open3d_cuda_test PROPERTIES 
-#     CUDA_ARCHITECTURES "native"
-#     CUDA_SEPARABLE_COMPILATION ON
-#     CUDA_RESOLVE_DEVICE_SYMBOLS ON
-#     LINKER_LANGUAGE CUDA
-# )
-# target_link_libraries(open3d_cuda_test PRIVATE Open3D::Open3D)
-
-# install(TARGETS open3d_cuda_test
-#   DESTINATION lib/${PROJECT_NAME}
-# )
-
-
 # Perception Node
 find_package(sensor_msgs REQUIRED)
 find_package(percept_interfaces REQUIRED)
+
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
 
 option(SHM_DISABLE "Disable shared memory features" ON)
 
@@ -70,6 +31,9 @@ set_target_properties(perception_node
 target_link_libraries(perception_node 
 	PUBLIC
 	rclcpp::rclcpp      
+	tf2_ros::tf2_ros
+	tf2_eigen::tf2_eigen
+	
 	realsense2::realsense2
 	yaml-cpp
 	ament_index_cpp::ament_index_cpp

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <rclcpp/rclcpp.hpp>
-#include <rclcpp/rclcpp.hpp>
 #include <memory>
 
 #include "Streamer.hpp"
@@ -9,6 +8,9 @@
 #include "Pointcloud.hpp"
 #include "Pipeline.hpp"
 
+#include <tf2_eigen/tf2_eigen.hpp>
+#include <tf2_ros/transform_broadcaster.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #ifdef SHM_DISABLE
 	#include "sensor_msgs/msg/point_cloud2.hpp"
@@ -17,6 +19,7 @@
 	// #include "percept_interfaces/msg/pointcloud.hpp"
 	#include "percept_interfaces/msg/pointcloud1_m.hpp"
 #endif
+
 
 namespace perception
 {
@@ -31,10 +34,9 @@ namespace perception
 
 			Pipeline pipeline;
 
-			// void test(size_t i);
-
-			// void publishPointclouds(const open3d::core::Tensor& cuda_points, size_t num_points);
 			void publishPointclouds(const open3d::t::geometry::PointCloud& pcd, size_t num_points);
+
+			void publishTransform(const Eigen::Matrix4d transform, size_t cam_id);
 
 			void storeRobotBody(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
@@ -49,6 +51,8 @@ namespace perception
 			std::unique_ptr<Mailbox<float>> mailbox_;
 
 			std::unique_ptr<Mailbox<float>> robot_filter_mailbox_;
+
+			std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
 			void setupMailboxes(size_t batch_size, size_t n_points, size_t robot_body_size);
 
