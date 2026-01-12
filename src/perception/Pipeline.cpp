@@ -10,7 +10,7 @@ namespace perception
 {
 	Pipeline::Pipeline()
 	{
-		pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept");
+		pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept_core");
 
 		device_ = open3d::core::Device("cuda:0");
 		if(!open3d::core::cuda::IsAvailable())

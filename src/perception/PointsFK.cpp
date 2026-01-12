@@ -15,7 +15,7 @@ PointCloudFKPublisher::PointCloudFKPublisher() : rclcpp::Node ("perception_node"
 		"panda_hand", "panda_leftfinger", "panda_rightfinger"
 	};
 
-	pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept");
+	pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept_core");
 
 	file_path_ = pkg_share_dir_ + "/assets/sphere_database-37.yaml";
 
@@ -171,7 +171,7 @@ int main(int argc, char** argv)
 // 				"panda_hand", "panda_leftfinger", "panda_rightfinger"
 // 			};
 
-// 			pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept");
+// 			pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept_core");
 
 // 			file_path_ = pkg_share_dir_ + "/assets/sphere_database-11.yaml";
 

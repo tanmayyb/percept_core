@@ -12,7 +12,7 @@
 
 int main() {
     // 1. Path to URDF
-		std::string pkg_share_dir = ament_index_cpp::get_package_share_directory("percept");
+		std::string pkg_share_dir = ament_index_cpp::get_package_share_directory("percept_core");
 		const std::string urdf_filename = "/assets/panda/panda.urdf";
 
     // 2. Load Model and Create Data Cache

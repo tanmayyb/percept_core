@@ -7,7 +7,7 @@ namespace perception
 
 	Streamer::Streamer()
 	{
-		pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept");
+		pkg_share_dir_ = ament_index_cpp::get_package_share_directory("percept_core");
 
 		loadConfigs();
 	}
