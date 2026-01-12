@@ -79,6 +79,15 @@ namespace perception{
 			std::vector<float> max;
 		} scene_bound;
 
+		struct RadialFilter
+		{
+			bool is_enabled;
+			
+			int nb_neighbors;
+
+			float radius;
+		} radial_filter;
+
 		float robot_filter_radius;
 
 		float voxel_size;
@@ -117,6 +126,12 @@ namespace YAML{
 			rhs.scene_bound.min = node["scene_bound"]["min"].as<std::vector<float>>();
 
 			rhs.scene_bound.max = node["scene_bound"]["max"].as<std::vector<float>>();
+
+			rhs.radial_filter.is_enabled = node["radial_filter"]["enable"].as<bool>();
+
+			rhs.radial_filter.nb_neighbors = node["radial_filter"]["nb_neighbors"].as<int>();
+
+			rhs.radial_filter.radius = node["radial_filter"]["radius"].as<float>();
 
 			rhs.robot_filter_radius = node["robot_filter_radius"].as<float>();
 

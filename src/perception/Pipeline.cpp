@@ -128,33 +128,50 @@ namespace perception
 			}
 
 			// Crop Outside Workspace Boundaries
-			open3d::core::Tensor inside_indices = bbox_.GetPointIndicesWithinBoundingBox(accumulation.GetPointPositions());
+			{
+				open3d::core::Tensor inside_indices = bbox_.GetPointIndicesWithinBoundingBox(accumulation.GetPointPositions());
 
-			accumulation = accumulation.SelectByIndex(inside_indices);
+				accumulation = accumulation.SelectByIndex(inside_indices);
+			}
 
 			// Perform Robot Filtering
-			open3d::core::nns::NearestNeighborSearch nns(robot_filter_buffer_);
+			{
+				open3d::core::nns::NearestNeighborSearch nns(robot_filter_buffer_);
 
-			nns.KnnIndex();
+				nns.KnnIndex();
 
-			auto nns_result = nns.KnnSearch(accumulation.GetPointPositions(), 1);
+				auto nns_result = nns.KnnSearch(accumulation.GetPointPositions(), 1);
 
-			open3d::core::Tensor distances = std::get<1>(nns_result);
+				open3d::core::Tensor distances = std::get<1>(nns_result);
 
-			// float radius_sq = subtraction_radius * subtraction_radius;
+				open3d::core::Tensor mask = distances.Gt(radius_sq).Flatten(0);
 
-			open3d::core::Tensor mask = distances.Gt(radius_sq).Flatten(0);
+				accumulation = accumulation.SelectByMask(mask);
+			}
 
-			accumulation = accumulation.SelectByMask(mask);
+			// Outlier Removal
+			if (pipeline_config_.radial_filter.is_enabled)
+			{
+				// auto result_sor = accumulation.RemoveStatisticalOutliers(20, 2.0);
 
-			// // Outlier Removal
-			// auto [filtered_pcd, _] = accumulation.RemoveRadiusOutliers(5, 0.75);
+				// accumulation = accumulation.SelectByMask(std::get<1>(result_sor));
 
-			// accumulation = std::move(filtered_pcd);
+				// auto result_ror = accumulation.RemoveRadiusOutliers(10, 0.1);
+				
+				auto result_ror = accumulation.RemoveRadiusOutliers(pipeline_config_.radial_filter.nb_neighbors, pipeline_config_.radial_filter.radius);
 
-			// voxel downsample
-			// double voxel_size = 0.01; // 1cm resolution
-			
+				auto filtered = accumulation.SelectByMask(std::get<1>(result_ror));
+
+				open3d::core::cuda::Synchronize();
+				
+				open3d::core::cuda::ReleaseCache();
+
+				accumulation = open3d::t::geometry::PointCloud(); 
+				
+				accumulation = std::move(filtered);
+			}
+
+			// Voxel Grid Construction
 			accumulation = accumulation.VoxelDownSample(voxel_size);
 
 			// running_ = false; // added for debugging
