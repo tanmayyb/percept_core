@@ -4,18 +4,31 @@ stream:
     h: 480
     f: 30
 
+  # temporal_filter:
+  #   enable: true
+  #   alpha: 0.05
+  #   delta: 100.0
+  #   pctrl: 7
+
+  # spatial_filter:
+  #   enable: true
+  #   mag: 5.0
+  #   alpha: 0.25
+  #   delta: 50.0
+  #   hfill: 5.0
+
   temporal_filter:
     enable: true
     alpha: 0.05
     delta: 100.0
-    pctrl: 8
+    pctrl: 7
 
   spatial_filter:
     enable: true
     mag: 5.0
     alpha: 0.25
     delta: 50.0
-    hfill: 5.0
+    hfill: 4.0
 
 sensors:
   0:

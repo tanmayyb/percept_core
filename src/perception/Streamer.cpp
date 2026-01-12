@@ -65,25 +65,6 @@ namespace perception
 
 			cam_filters.emplace_back("Depth2Disparity", std::move(depth2disparity));
 
-			if (stream_config.temporal_filter_config.is_enabled)
-			{
-				auto temporal = std::make_shared<rs2::temporal_filter>();
-
-				temporal->set_option(
-					RS2_OPTION_FILTER_SMOOTH_ALPHA, stream_config.temporal_filter_config.smooth_alpha
-				);
-				
-				temporal->set_option(
-					RS2_OPTION_FILTER_SMOOTH_DELTA, stream_config.temporal_filter_config.smooth_delta
-				);
-				
-				temporal->set_option(
-					RS2_OPTION_HOLES_FILL, stream_config.temporal_filter_config.persistence_control
-				);
-
-				cam_filters.emplace_back("Temporal", std::move(temporal));
-			}
-
 			if (stream_config.spatial_filter_config.is_enabled)
 			{
 				auto spatial = std::make_shared<rs2::spatial_filter>();
@@ -105,6 +86,25 @@ namespace perception
 				);
 
 				cam_filters.emplace_back("Spatial", std::move(spatial));
+			}
+
+			if (stream_config.temporal_filter_config.is_enabled)
+			{
+				auto temporal = std::make_shared<rs2::temporal_filter>();
+
+				temporal->set_option(
+					RS2_OPTION_FILTER_SMOOTH_ALPHA, stream_config.temporal_filter_config.smooth_alpha
+				);
+				
+				temporal->set_option(
+					RS2_OPTION_FILTER_SMOOTH_DELTA, stream_config.temporal_filter_config.smooth_delta
+				);
+				
+				temporal->set_option(
+					RS2_OPTION_HOLES_FILL, stream_config.temporal_filter_config.persistence_control
+				);
+
+				cam_filters.emplace_back("Temporal", std::move(temporal));
 			}
 			
 			auto disparity2depth = std::make_shared<rs2::disparity_transform>(false);	
