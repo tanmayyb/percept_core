@@ -8,8 +8,8 @@
 #include <vector_types.h>
 
 // include the header
-#include "percept/GoalObstacleHeuristicCircForce.h"
-#include "percept/cuda_vector_ops.cuh"
+#include "GoalObstacleHeuristicCircForce.h"
+#include "cuda_vector_ops.cuh"
 
 // time keeper
 #include <chrono>

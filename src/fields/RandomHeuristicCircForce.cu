@@ -8,8 +8,8 @@
 #include <vector_types.h>
 
 // include the header
-#include "percept/VelocityHeuristicCircForce.h"
-#include "percept/cuda_vector_ops.cuh"
+#include "RandomHeuristicCircForce.h"
+#include "cuda_vector_ops.cuh"
 
 // time keeper
 #include <chrono>
@@ -17,20 +17,9 @@
 
 #define threads 1024
 
-namespace velocity_heuristic{
+namespace random_heuristic{
 using namespace cuda_vector_ops;
 
-
-__device__ double3 calculate_current_vec(double3 mass_dist_vec_normalized, double3 mass_rvel_vec_normalized){
-    // Project out the component of velocity parallel to obstacle direction to get perpendicular component
-    double3 current_vec = mass_rvel_vec_normalized - (mass_dist_vec_normalized * dot(mass_rvel_vec_normalized, mass_dist_vec_normalized));
-
-    if (norm(current_vec) < 1e-10) {
-        current_vec = make_double3(0.0, 0.0, 1.0); // or make random vector
-    }
-    current_vec = normalized(current_vec); // normalize the current vector
-    return current_vec;
-}
 
 
 __global__ void kernel(
@@ -90,16 +79,16 @@ __global__ void kernel(
     dist_to_mass = norm(mass_dist_vec) - (agent_radius + mass_radius);
     dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
 
-    // implement VELOCITY HEURISTIC
+    // implement RANDOM HEURISTIC
     // calculate rotation vector, current vector, and force vector
     if(dist_to_mass < detect_shell_rad && norm(mass_rvel_vec) > 1e-10){ 
 
         // create rotation vector
-        rot_vec = make_double3(0.0, 0.0, 1.0); // velocity heuristic does not use rotation vector to calculate current vector or force vector
+        rot_vec = cross(normalized(goal_vec), make_random_vector());
 
         // calculate current vector
         mass_rvel_vec_normalized = normalized(mass_rvel_vec);
-        current_vec = calculate_current_vec(mass_dist_vec_normalized, mass_rvel_vec_normalized);
+        current_vec = normalized(cross(mass_dist_vec_normalized, rot_vec));
 
         // calculate force vector
         // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
@@ -215,7 +204,7 @@ __host__ double3 launch_kernel(
     if (debug) {
         auto end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = end_time - start_time;
-        std::cout << std::left << std::setw(45) << "VelocityHeuristicCircForce"
+        std::cout << std::left << std::setw(45) << "RandomHeuristicCircForce"
                   << "kernel execution time: " 
                   << std::fixed << std::setprecision(9) 
                   << elapsed.count() << " seconds" << std::endl;
@@ -227,7 +216,7 @@ __host__ double3 launch_kernel(
 
 // best function ever
 __host__  void hello_cuda_world(){
-  std::cout<<"Hello CUDA World! -From Velocity Heuristic Circ Force Kernel <3"<<std::endl;
+  std::cout<<"Hello CUDA World! -From Random Heuristic Circ Force Kernel <3"<<std::endl;
 }
 
 

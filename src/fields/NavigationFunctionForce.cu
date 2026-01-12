@@ -12,8 +12,8 @@
 #include <vector_types.h>
 
 // include the header
-#include "percept/NavigationFunctionForce.h"
-#include "percept/cuda_vector_ops.cuh"
+#include "NavigationFunctionForce.h"
+#include "cuda_vector_ops.cuh"
 
 // time keeper
 #include <chrono>

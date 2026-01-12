@@ -8,8 +8,8 @@
 #include <vector_types.h>
 
 // include the header
-#include "percept/NearestNeighbour.h"
-#include "percept/cuda_vector_ops.cuh"
+#include "NearestNeighbour.h"
+#include "cuda_vector_ops.cuh"
 
 // time keeper
 #include <chrono>

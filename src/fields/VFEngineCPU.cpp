@@ -1,4 +1,4 @@
-#include "percept/fields_computer_cpu.hpp"
+#include "VFEngineCPU.hpp"
 
 // std
 #include <memory>
@@ -743,7 +743,7 @@ struct Operation {
     std::promise<void> completion;
 };
 
-FieldsComputerCPU::FieldsComputerCPU() : Node("fields_computer_cpu")
+FieldsComputerCPU::FieldsComputerCPU() : Node("vf_engine_cpu")
 {
 
   this->declare_parameter("agent_radius", 0.050);

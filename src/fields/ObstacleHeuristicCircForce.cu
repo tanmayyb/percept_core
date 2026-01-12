@@ -8,8 +8,8 @@
 #include <vector_types.h>
 
 // include the header
-#include "percept/GoalHeuristicCircForce.h"
-#include "percept/cuda_vector_ops.cuh"
+#include "ObstacleHeuristicCircForce.h"
+#include "cuda_vector_ops.cuh"
 
 // time keeper
 #include <chrono>
@@ -17,21 +17,32 @@
 
 #define threads 1024
 
-namespace goal_heuristic{
+namespace obstacle_heuristic{
 using namespace cuda_vector_ops;
 
 
-__device__ double3 calculate_current_vec(double3 mass_dist_vec_normalized, double3 goal_vec){
-    
-    // Project goal vector onto the plane perpendicular to mass_dist_vec using vector rejection.
-    // This creates a vector that points towards the goal while being perpendicular to the obstacle direction.
-    double3 current_vec = goal_vec - mass_dist_vec_normalized * dot(mass_dist_vec_normalized, goal_vec);
+__device__ double3 calculate_rotation_vector(
+    int i,
+    double3* d_masses,
+    int num_masses,
+    int* nn_index,
+    double3 mass_position,
+    double3 mass_dist_vec_normalized
+){
 
-    if (norm(current_vec) < 1e-10) {
-        current_vec = make_double3(0.0, 0.0, 1.0); // or make random vector
-    }
-    current_vec = normalized(current_vec); // normalize the current vector
-    return current_vec;
+    double nn_distance = 1000.0;
+    double nn_mass_dist_k;
+    int nn_mass_idx = nn_index[i];
+    double3 nn_mass_position;
+    double3 obstacle_vec;
+    double3 current_vec;
+
+
+    // calculate rotation vector
+    nn_mass_position = d_masses[nn_mass_idx];
+    obstacle_vec = nn_mass_position - mass_position;
+    current_vec = mass_dist_vec_normalized * dot(mass_dist_vec_normalized, obstacle_vec) - obstacle_vec;     
+    return normalized(cross(current_vec, mass_dist_vec_normalized));
 }
 
 
@@ -39,6 +50,7 @@ __global__ void kernel(
     double3* d_net_force,
     double3* d_masses,
     size_t num_masses,
+    int* nn_index,
     double3 agent_position,
     double3 agent_velocity,
     double3 goal_position,
@@ -63,7 +75,7 @@ __global__ void kernel(
     double dist_to_goal;
     double3 mass_position;
     double3 mass_dist_vec;
-    double3 mass_velocity; 
+    double3 mass_velocity;
     double3 mass_rvel_vec;
     double3 force_vec;
     double3 mass_dist_vec_normalized;
@@ -92,16 +104,16 @@ __global__ void kernel(
     dist_to_mass = norm(mass_dist_vec) - (agent_radius + mass_radius);
     dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
 
-    // implement VELOCITY HEURISTIC
+    // implement OBSTACLE HEURISTIC
     // calculate rotation vector, current vector, and force vector
     if(dist_to_mass < detect_shell_rad && norm(mass_rvel_vec) > 1e-10){ 
 
-        // create rotation vector
-        rot_vec = make_double3(0.0, 0.0, 1.0); // goal heuristic does not use rotation vector to calculate current vector or force vector
+
+        rot_vec =  calculate_rotation_vector(i, d_masses, num_masses, nn_index, mass_position, mass_dist_vec_normalized);
 
         // calculate current vector
         mass_rvel_vec_normalized = normalized(mass_rvel_vec);
-        current_vec = calculate_current_vec(mass_dist_vec_normalized, goal_vec);
+        current_vec = normalized(cross(mass_dist_vec_normalized, rot_vec)); // same variable name, different context
 
         // calculate force vector
         // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
@@ -134,11 +146,10 @@ reduction:
 }
 
 
-
-
 __host__ double3 launch_kernel(
     double3* d_masses,
     size_t num_masses,
+    int* nn_index,
     double3 agent_position,
     double3 agent_velocity,
     double3 goal_position,
@@ -170,7 +181,7 @@ __host__ double3 launch_kernel(
     int num_blocks = (num_masses + threads - 1) / threads; // ceiling division
     size_t shared_mem_size = threads * sizeof(double3);
     kernel<<<num_blocks, threads, shared_mem_size>>>(
-        d_net_force, d_masses, num_masses,
+        d_net_force, d_masses, num_masses, nn_index,
         agent_position, agent_velocity, goal_position,
         agent_radius, mass_radius, detect_shell_rad,
         k_circ
@@ -217,7 +228,7 @@ __host__ double3 launch_kernel(
     if (debug) {
         auto end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = end_time - start_time;
-        std::cout << std::left << std::setw(45) << "GoalHeuristicCircForce"
+        std::cout << std::left << std::setw(45) << "ObstacleHeuristicCircForce"
                   << "kernel execution time: " 
                   << std::fixed << std::setprecision(9) 
                   << elapsed.count() << " seconds" << std::endl;
@@ -229,7 +240,7 @@ __host__ double3 launch_kernel(
 
 // best function ever
 __host__  void hello_cuda_world(){
-  std::cout<<"Hello CUDA World! -From Goal Heuristic Circ Force Kernel <3"<<std::endl;
+  std::cout<<"Hello CUDA World! -From Obstacle Heuristic Circ Force Kernel <3"<<std::endl;
 }
 
 

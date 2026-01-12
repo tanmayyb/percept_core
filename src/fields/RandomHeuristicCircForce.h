@@ -6,9 +6,9 @@
 #include <vector>
 #include <vector_types.h>
 
-#include "percept/cuda_vector_ops.cuh"
+#include "cuda_vector_ops.cuh"
 
-namespace goal_heuristic{
+namespace random_heuristic{
 
 __host__ double3 launch_kernel(
     double3* gpu_points_, 

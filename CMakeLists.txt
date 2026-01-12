@@ -6,6 +6,9 @@ find_package(rclcpp REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
+# option(SHM_DISABLE "Disable shared memory features" ON)
+option(GPU_PROFILING_DISABLE "Disable all GPU profiling instrumentation" ON)
+
 
 # due to known regression in librealsense v2.56.4 and newer.
 # librealsense tries to connect with fastDDS but mismatches 
@@ -18,10 +21,21 @@ if(NOT TARGET fastcdr)
 endif()
 find_package(realsense2 REQUIRED)
 
+if(NOT GPU_PROFILING_DISABLE)
+	add_subdirectory(third_party/nvtx)
+else()
+	add_compile_definitions(NVTX_DISABLE)
+endif()
 
-install(DIRECTORY config
-    DESTINATION share/${PROJECT_NAME}
+install(
+	DIRECTORY 
+		config/
+		assets/benchmark_scenes/
+		launch/
+	DESTINATION 
+		share/${PROJECT_NAME}
 )
 
 add_subdirectory(src)
+
 ament_package()

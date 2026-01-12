@@ -24,8 +24,8 @@
 #include <cuda_runtime.h>
 #include <vector_types.h>
 
-#include "percept/cuda_vector_ops.cuh"
-#include "percept/ObstacleDistanceCost.h"
+#include "cuda_vector_ops.cuh"
+#include "ObstacleDistanceCost.h"
 
 
 #define threads 1024

@@ -6,9 +6,9 @@
 #include <vector>
 #include <vector_types.h>
 
-#include "percept/cuda_vector_ops.cuh"
+#include "cuda_vector_ops.cuh"
 
-namespace artificial_potential_field{
+namespace goal_heuristic{
 
 __host__ double3 launch_kernel(
     double3* gpu_points_, 
@@ -19,7 +19,7 @@ __host__ double3 launch_kernel(
     double agent_radius,
     double mass_radius,
     double detect_shell_rad,
-    double k_force,
+    double k_circ, 
     double max_allowable_force,
     bool debug
 );

@@ -6,7 +6,7 @@
 #include <vector>
 #include <vector_types.h>
 
-#include "percept/cuda_vector_ops.cuh"
+#include "cuda_vector_ops.cuh"
 
 namespace velocity_heuristic{
 

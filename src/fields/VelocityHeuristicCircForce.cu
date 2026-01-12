@@ -1,7 +1,3 @@
-// Artificial Potential Field
-// credit: https://github.com/ShuiXinYun/Path_Plan/blob/master/APF_CPP/APF.h
-// Khatib (1986) : https://khatib.stanford.edu/publications/pdfs/Khatib_1986_IJRR.pdf
-
 // the usual
 #include <iostream>
 #include <vector>
@@ -12,8 +8,8 @@
 #include <vector_types.h>
 
 // include the header
-#include "percept/ArtificialPotentialField.h"
-#include "percept/cuda_vector_ops.cuh"
+#include "VelocityHeuristicCircForce.h"
+#include "cuda_vector_ops.cuh"
 
 // time keeper
 #include <chrono>
@@ -21,8 +17,20 @@
 
 #define threads 1024
 
-namespace artificial_potential_field{
+namespace velocity_heuristic{
 using namespace cuda_vector_ops;
+
+
+__device__ double3 calculate_current_vec(double3 mass_dist_vec_normalized, double3 mass_rvel_vec_normalized){
+    // Project out the component of velocity parallel to obstacle direction to get perpendicular component
+    double3 current_vec = mass_rvel_vec_normalized - (mass_dist_vec_normalized * dot(mass_rvel_vec_normalized, mass_dist_vec_normalized));
+
+    if (norm(current_vec) < 1e-10) {
+        current_vec = make_double3(0.0, 0.0, 1.0); // or make random vector
+    }
+    current_vec = normalized(current_vec); // normalize the current vector
+    return current_vec;
+}
 
 
 __global__ void kernel(
@@ -35,7 +43,7 @@ __global__ void kernel(
     double agent_radius,
     double mass_radius,
     double detect_shell_rad,
-    double k_force
+    double k_circ
 ){
     extern __shared__ double3 sdata[];
 
@@ -58,6 +66,8 @@ __global__ void kernel(
     double3 force_vec;
     double3 mass_dist_vec_normalized;
     double dist_to_mass;
+    double3 current_vec;
+    double3 rot_vec;
     double3 mass_rvel_vec_normalized;
 
     // implementation of obstacle heuristic circ force
@@ -71,22 +81,34 @@ __global__ void kernel(
     mass_dist_vec_normalized = normalized(mass_dist_vec);
 
 
+    // "Skip this obstacle if it's behind us AND we're moving away from it"
+    if(dot(mass_dist_vec_normalized, normalized(goal_vec)) < -1e-5 &&
+        dot(mass_dist_vec, mass_rvel_vec) < -1e-5)
+        {
+            goto reduction; //sdata already set to zero
+        }
     dist_to_mass = norm(mass_dist_vec) - (agent_radius + mass_radius);
     dist_to_mass = fmax(dist_to_mass, 1e-5); // avoid division by zero
 
-    // implement ARTIFICIAL POTENTIAL FIELD
-    if(dist_to_mass <= detect_shell_rad){ // && norm(mass_rvel_vec) > 1e-10){ 
+    // implement VELOCITY HEURISTIC
+    // calculate rotation vector, current vector, and force vector
+    if(dist_to_mass < detect_shell_rad && norm(mass_rvel_vec) > 1e-10){ 
+
+        // create rotation vector
+        rot_vec = make_double3(0.0, 0.0, 1.0); // velocity heuristic does not use rotation vector to calculate current vector or force vector
+
+        // calculate current vector
+        mass_rvel_vec_normalized = normalized(mass_rvel_vec);
+        current_vec = calculate_current_vec(mass_dist_vec_normalized, mass_rvel_vec_normalized);
 
         // calculate force vector
-        force_vec = mass_dist_vec_normalized*(-1.0)*(1/dist_to_mass - 1/detect_shell_rad);
-        // Khatib (1986) : https://khatib.stanford.edu/publications/pdfs/Khatib_1986_IJRR.pdf
-        // Volpe and Khosla (1990): https://www.ri.cmu.edu/pub_files/pub1/volpe_r_1990_1/volpe_r_1990_1.pdf
+        // force_vec = cross(mass_rvel_vec_normalized, cross(current_vec, mass_rvel_vec_normalized));
+        //  A×(B×C) = B(A·C) - C(A·B)
+        force_vec = (current_vec * dot(mass_rvel_vec_normalized, mass_rvel_vec_normalized)) - 
+            (mass_rvel_vec_normalized * dot(mass_rvel_vec_normalized, current_vec));
 
-        force_vec = force_vec * (k_force / pow(dist_to_mass, 1));      
+        force_vec = force_vec * (k_circ / pow(dist_to_mass, 2));      
     }
-
-
-
 
     sdata[tid] = force_vec;
 
@@ -121,7 +143,7 @@ __host__ double3 launch_kernel(
     double agent_radius,
     double mass_radius,
     double detect_shell_rad,
-    double k_force, 
+    double k_circ, 
     double max_allowable_force,
     bool debug
 ){
@@ -149,7 +171,7 @@ __host__ double3 launch_kernel(
         d_net_force, d_masses, num_masses,
         agent_position, agent_velocity, goal_position,
         agent_radius, mass_radius, detect_shell_rad,
-        k_force
+        k_circ
     ); // CUDA kernels automatically copy value-type parameters to the device when called
     // Check for kernel launch errors
     err = cudaGetLastError();
@@ -193,7 +215,7 @@ __host__ double3 launch_kernel(
     if (debug) {
         auto end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = end_time - start_time;
-        std::cout << std::left << std::setw(45) << "ArtificialPotentialField"
+        std::cout << std::left << std::setw(45) << "VelocityHeuristicCircForce"
                   << "kernel execution time: " 
                   << std::fixed << std::setprecision(9) 
                   << elapsed.count() << " seconds" << std::endl;
@@ -205,7 +227,7 @@ __host__ double3 launch_kernel(
 
 // best function ever
 __host__  void hello_cuda_world(){
-  std::cout<<"Hello CUDA World! -From Artificial Potential Field Kernel <3"<<std::endl;
+  std::cout<<"Hello CUDA World! -From Velocity Heuristic Circ Force Kernel <3"<<std::endl;
 }
 
 

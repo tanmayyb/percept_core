@@ -1,4 +1,4 @@
-#include "percept/fields_computer.hpp"
+#include "VFEngine.hpp"
 
 // std
 #include <memory>
@@ -21,23 +21,23 @@
 
 // CUDA kernels
 // helpers
-#include "percept/ObstacleDistanceCost.h"
+#include "ObstacleDistanceCost.h"
 // heuristics
-#include "percept/ObstacleHeuristicCircForce.h"
-#include "percept/VelocityHeuristicCircForce.h"
-#include "percept/GoalHeuristicCircForce.h"
-#include "percept/GoalObstacleHeuristicCircForce.h"
-#include "percept/RandomHeuristicCircForce.h"
-#include "percept/ArtificialPotentialField.h"
-#include "percept/NearestNeighbour.h"
-#include "percept/NavigationFunctionForce.h"
+#include "ObstacleHeuristicCircForce.h"
+#include "VelocityHeuristicCircForce.h"
+#include "GoalHeuristicCircForce.h"
+#include "GoalObstacleHeuristicCircForce.h"
+#include "RandomHeuristicCircForce.h"
+#include "ArtificialPotentialField.h"
+#include "NearestNeighbour.h"
+#include "NavigationFunctionForce.h"
 
 // nvtx
-#ifndef DISABLE_NVTX
-#include <nvtx3/nvtx3.hpp>
+#ifndef NVTX_DISABLE
+	#include <nvtx3/nvtx3.hpp>
 #endif
 
-FieldsComputer::FieldsComputer() : Node("fields_computer")
+FieldsComputer::FieldsComputer() : Node("vf_engine")
 {
 
   // Select the GPU with the most memory (likely the most powerful)
@@ -155,7 +155,7 @@ FieldsComputer::FieldsComputer() : Node("fields_computer")
 
   // Profiling
   RCLCPP_INFO(this->get_logger(), "Profiling:");
-  #ifndef DISABLE_NVTX
+  #ifndef NVTX_DISABLE
   RCLCPP_INFO(this->get_logger(), "  nvtx enabled: %s", "true");
   #else
   RCLCPP_INFO(this->get_logger(), "  nvtx enabled: %s", "false");
@@ -267,7 +267,7 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
   auto msg_copy = std::make_shared<sensor_msgs::msg::PointCloud2>(*msg);
   
   enqueue_operation(OperationType::WRITE, [this, msg_copy]() {
-#ifndef DISABLE_NVTX
+#ifndef NVTX_DISABLE
     nvtx3::scoped_range range{"PointCloud Callback Processing"};
 #endif
     // Compute number of points
@@ -526,7 +526,7 @@ void FieldsComputer::handle_heuristic(
 }
 
 void FieldsComputer::mark_start(const std::string& name, unsigned int color_hex) {
-#ifndef DISABLE_NVTX
+#ifndef NVTX_DISABLE
   nvtxEventAttributes_t eventAttrib = {0};
   eventAttrib.colorType = NVTX_COLOR_ARGB;
   eventAttrib.color = color_hex;
