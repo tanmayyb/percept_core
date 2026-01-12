@@ -1,7 +1,7 @@
 #include "PointsFK.hpp"
 
 
-PointCloudFKPublisher::PointCloudFKPublisher() : rclcpp::Node ("perception_node")
+PointCloudFKPublisher::PointCloudFKPublisher() : rclcpp::Node ("fk_node")
 {
 	tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
 	
