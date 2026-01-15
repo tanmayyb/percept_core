@@ -63,7 +63,7 @@ namespace perception
 		robot_filter_shape_ = {static_cast<int64_t>(robot_filter_size), 3};
 
 		// load pipeline configs
-		YAML::Node root = YAML::LoadFile(pkg_share_dir_ + "/config/perception_pipeline_setup.yaml");
+		YAML::Node root = YAML::LoadFile(pkg_share_dir_ + "/perception_pipeline_setup.yaml");
 
 		pipeline_config_ = root.as<perception::PipelineConfig>();
 

@@ -6,7 +6,7 @@ find_package(rclcpp REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
-# option(SHM_DISABLE "Disable shared memory features" ON)
+option(SHM_DISABLE "Disable shared memory features" ON)
 option(GPU_PROFILING_DISABLE "Disable all GPU profiling instrumentation" ON)
 
 

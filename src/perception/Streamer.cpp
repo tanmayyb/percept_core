@@ -15,7 +15,7 @@ namespace perception
 	void Streamer::loadConfigs()
 	{
 		// load stream and camera configs
-		YAML::Node root = YAML::LoadFile(pkg_share_dir_ + "/config/static_cameras_setup.yaml");
+		YAML::Node root = YAML::LoadFile(pkg_share_dir_ + "/static_cameras_setup.yaml");
 
 		// load stream configs
 		stream_config = root["stream"].as<perception::StreamConfig>();

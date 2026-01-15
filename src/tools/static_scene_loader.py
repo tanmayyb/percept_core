@@ -19,9 +19,15 @@ class SceneCreator(Node):
 		
 		self.pkg_name = 'percept_core'
 
-		self.PUBLISH_LOOP_ENABLE = True
+		# self.loop_disable = True
 
-		self.publish_rate = 0.03
+		# self.publish_rate = 0.03
+		self.declare_parameter('loop_disable', False)
+		self.declare_parameter('publish_rate', 0.03)
+
+		self.loop_disable = self.get_parameter('loop_disable').get_parameter_value().bool_value
+		self.publish_rate = self.get_parameter('publish_rate').get_parameter_value().double_value
+	
 
 		filepath = Path(get_package_share_directory(self.pkg_name)) / 'auto_generated_scene.npy'
 
@@ -47,9 +53,8 @@ class SceneCreator(Node):
 		]
 
 		# Create timer for publishing
-		if not self.PUBLISH_LOOP_ENABLE:
+		if self.loop_disable:
 			self.publish_obstacles()
-
 		else:
 			self.create_timer(self.publish_rate, self.publish_obstacles)  # 10Hz
 

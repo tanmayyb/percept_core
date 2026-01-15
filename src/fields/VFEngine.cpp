@@ -142,6 +142,7 @@ FieldsComputer::FieldsComputer() : Node("vf_engine")
   RCLCPP_INFO(this->get_logger(), "Helper functions:");
   RCLCPP_INFO(this->get_logger(), "  show_processing_delay: %s", show_processing_delay ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "  show_requests: %s", show_service_request_received ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "  show_netforce_output: %s", show_netforce_output ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Services:");
   RCLCPP_INFO(this->get_logger(), "  disable_nearest_obstacle_distance: %s", disable_nearest_obstacle_distance ? "true" : "false");
   RCLCPP_INFO(this->get_logger(), "Heuristics:");
@@ -168,7 +169,7 @@ FieldsComputer::FieldsComputer() : Node("vf_engine")
 
   // Subscribe to pointcloud messages.
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      "/primitives", 10,
+      "/pointclouds", 10,
       std::bind(&FieldsComputer::pointcloud_callback, this, std::placeholders::_1));
 
   // Create service servers for the helper services that are not disabled.
