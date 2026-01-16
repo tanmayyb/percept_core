@@ -1,11 +1,16 @@
 # Perception Node
+
 find_package(sensor_msgs REQUIRED)
 find_package(percept_interfaces REQUIRED)
-
 find_package(tf2_ros REQUIRED)
 find_package(tf2_eigen REQUIRED)
 
+option(OPENMP_DISABLE "Disable OpenMP support" OFF)
 option(SHM_DISABLE "Disable shared memory features" ON)
+
+if(NOT OPENMP_DISABLE)
+    find_package(OpenMP REQUIRED)
+endif()
 
 set(OLD_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED}) # To supress Open3D CMP0072 warning
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
@@ -30,18 +35,26 @@ set_target_properties(perception_node
 
 target_link_libraries(perception_node 
 	PUBLIC
-	rclcpp::rclcpp      
-	tf2_ros::tf2_ros
-	tf2_eigen::tf2_eigen
-	
-	realsense2::realsense2
-	yaml-cpp
-	ament_index_cpp::ament_index_cpp
-	Open3D::Open3D
-	CUDA::cudart
-	sensor_msgs::sensor_msgs__rosidl_typesupport_cpp
-	percept_interfaces::percept_interfaces__rosidl_typesupport_cpp
+    rclcpp::rclcpp      
+    tf2_ros::tf2_ros
+    tf2_eigen::tf2_eigen
+    realsense2::realsense2
+    yaml-cpp
+    ament_index_cpp::ament_index_cpp
+    Open3D::Open3D
+    CUDA::cudart
+    sensor_msgs::sensor_msgs__rosidl_typesupport_cpp
+    percept_interfaces::percept_interfaces__rosidl_typesupport_cpp
 )
+
+if(NOT OPENMP_DISABLE)
+  target_link_libraries(perception_node PRIVATE OpenMP::OpenMP_CXX)
+  target_compile_options(perception_node PUBLIC ${OpenMP_CXX_FLAGS})
+else()
+  target_compile_definitions(perception_node PUBLIC OPENMP_DISABLE)
+endif()
+
+target_compile_options(perception_node PUBLIC "-Og")
 
 if(SHM_DISABLE)
 	target_compile_definitions(perception_node PUBLIC SHM_DISABLE)
@@ -84,6 +97,3 @@ install(TARGETS fk_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-
-# # Samples
-# add_subdirectory(samples)
