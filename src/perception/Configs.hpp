@@ -79,6 +79,13 @@ namespace perception{
 			std::vector<float> max;
 		} scene_bound;
 
+    struct VoxelGrid
+    {
+      float voxel_size;
+
+      bool is_uniform_lattice;
+    } voxel_grid;
+
 		struct RadialFilter
 		{
 			bool is_enabled;
@@ -89,8 +96,6 @@ namespace perception{
 		} radial_filter;
 
 		float robot_filter_radius;
-
-		float voxel_size;
 	};
 }
 
@@ -123,19 +128,25 @@ namespace YAML{
 		{
 			if (!node.IsMap()) return false;
 
+      // scene bounds
 			rhs.scene_bound.min = node["scene_bound"]["min"].as<std::vector<float>>();
 
 			rhs.scene_bound.max = node["scene_bound"]["max"].as<std::vector<float>>();
 
-			rhs.radial_filter.is_enabled = node["radial_filter"]["enable"].as<bool>();
+      // voxel grid
+      rhs.voxel_grid.voxel_size = node["voxel_grid"]["voxel_size"].as<float>();
+
+      rhs.voxel_grid.is_uniform_lattice = node["voxel_grid"]["uniform_lattice"].as<bool>();
+
+      // radial filter
+      rhs.radial_filter.is_enabled = node["radial_filter"]["enable"].as<bool>();
 
 			rhs.radial_filter.nb_neighbors = node["radial_filter"]["nb_neighbors"].as<int>();
 
 			rhs.radial_filter.radius = node["radial_filter"]["radius"].as<float>();
 
+      // robot filter
 			rhs.robot_filter_radius = node["robot_filter_radius"].as<float>();
-
-			rhs.voxel_size = node["voxel_size"].as<float>();
 
 			return true;
 		}

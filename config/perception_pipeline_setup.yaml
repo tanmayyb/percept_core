@@ -1,25 +1,21 @@
-# perception_pipeline_config:
-#   scene_bounds: 
-#     min: [-1.0, -1.0, -1.0]
-#     max: [1.0, 1.0, 1.0]
-#   graphics_settings:
-#     voxel_size: 0.040 # 2*mass_radius
-#   exclusion_region_bbs:
-#     - [[-1.0, -1.0, 0.50], [1.0, 1.0, 1.0]]
-
-
 scene_bound:
-  # min: [-1.0, -1.0, -1.0]
-  # max: [1.0, 1.0, 1.0]
 
   min: [-2.0, -2.0, -2.0]
+
   max: [2.0, 2.0, 2.0]
 
-robot_filter_radius: 0.125
+voxel_grid:
 
-voxel_size: 0.01
+  voxel_size: 0.02
+
+  uniform_lattice: true
 
 radial_filter:
+
   enable: false
+
   nb_neighbors: 5
+
   radius: 0.01
+
+robot_filter_radius: 0.125

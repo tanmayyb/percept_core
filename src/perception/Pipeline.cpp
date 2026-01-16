@@ -93,13 +93,17 @@ namespace perception
 
 		int64_t total_points;
 
-		// float subtraction_radius = 0.010;
+    auto radius_sq = pipeline_config_.robot_filter_radius * pipeline_config_.robot_filter_radius;
 
-		// float subtraction_radius = 0.125;
+    auto radial_filter_enabled = pipeline_config_.radial_filter.is_enabled;
 
-		float radius_sq = pipeline_config_.robot_filter_radius * pipeline_config_.robot_filter_radius;
+    auto voxel_size = pipeline_config_.voxel_grid.voxel_size;
 
-		float voxel_size = pipeline_config_.voxel_size;
+    auto uniform_lattice_enabled = pipeline_config_.voxel_grid.is_uniform_lattice;
+
+    auto nb_neighbors = pipeline_config_.radial_filter.nb_neighbors; 
+    
+    auto radial_filter_radius = pipeline_config_.radial_filter.radius;
 
 		while(running_.load())
 		{
@@ -150,15 +154,10 @@ namespace perception
 			}
 
 			// Outlier Removal
-			if (pipeline_config_.radial_filter.is_enabled)
-			{
-				// auto result_sor = accumulation.RemoveStatisticalOutliers(20, 2.0);
-
-				// accumulation = accumulation.SelectByMask(std::get<1>(result_sor));
-
-				// auto result_ror = accumulation.RemoveRadiusOutliers(10, 0.1);
-				
-				auto result_ror = accumulation.RemoveRadiusOutliers(pipeline_config_.radial_filter.nb_neighbors, pipeline_config_.radial_filter.radius);
+			if (radial_filter_enabled)
+			{	
+				auto result_ror = accumulation.RemoveRadiusOutliers(
+          nb_neighbors, radial_filter_radius);
 
 				auto filtered = accumulation.SelectByMask(std::get<1>(result_ror));
 
@@ -171,18 +170,35 @@ namespace perception
 				accumulation = std::move(filtered);
 			}
 
-			// Voxel Grid Construction
-			accumulation = accumulation.VoxelDownSample(voxel_size);
+			// Voxel Grid Construction - snapping method
+      auto downsampled_cloud = accumulation.VoxelDownSample(voxel_size);
+
+      if(uniform_lattice_enabled){
+        open3d::core::Tensor positions = downsampled_cloud.GetPointPositions();
+        
+        open3d::core::Tensor min_bound = accumulation.GetMinBound(); // Use original cloud min_bound
+        
+        open3d::core::Device device = accumulation.GetDevice();
+
+        open3d::core::Tensor voxel_size_t = open3d::core::Tensor::Full(
+          {1}, voxel_size, open3d::core::Float32, device
+        );
+        
+        open3d::core::Tensor indices = (positions - min_bound).Div(voxel_size_t).Floor();
+        
+        open3d::core::Tensor centers = min_bound + (indices + 0.5) * voxel_size_t;
+
+        downsampled_cloud.SetPointPositions(centers);
+
+      }
+
+      accumulation = downsampled_cloud;
 
 			// running_ = false; // added for debugging
 
 			total_points = accumulation.GetPointPositions().GetLength();
 
 			owner_->publishPointclouds(accumulation, static_cast<size_t>(total_points));
-
-			// std::this_thread::sleep_for(std::chrono::milliseconds(15)); // for debugging
-
-			// std::cout << "Points: " << accumulation.GetPointPositions().GetLength() << std::endl; // for debugging
 
 			end = std::chrono::high_resolution_clock::now();
     
