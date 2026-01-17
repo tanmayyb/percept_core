@@ -6,6 +6,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(percept_interfaces REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
+# gpu
 add_executable(vf_engine
 	VFEngine.cpp
   ObstacleDistanceCost.cu
@@ -54,5 +55,31 @@ if(NOT GPU_PROFILING_DISABLE)
 endif()
 
 install(TARGETS vf_engine
+	DESTINATION lib/${PROJECT_NAME}
+)
+
+
+
+# cpu
+add_executable(vf_engine_cpu
+  VFEngineCPU.cpp
+)
+
+target_link_libraries(vf_engine_cpu
+	rclcpp::rclcpp
+  
+	std_msgs::std_msgs__rosidl_typesupport_cpp
+	sensor_msgs::sensor_msgs__rosidl_typesupport_cpp
+	geometry_msgs::geometry_msgs__rosidl_typesupport_cpp
+	percept_interfaces::percept_interfaces__rosidl_typesupport_cpp
+
+	tf2::tf2
+	tf2_geometry_msgs::tf2_geometry_msgs
+
+)
+
+target_include_directories(vf_engine_cpu PUBLIC .)
+
+install(TARGETS vf_engine_cpu
 	DESTINATION lib/${PROJECT_NAME}
 )
