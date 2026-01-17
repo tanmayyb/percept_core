@@ -33,7 +33,7 @@ class SceneCreator(Node):
 
 		self.obstacles_publisher = self.create_publisher(
 			PointCloud2,
-			'/pointclouds',
+			'/pointcloud',
 			10
 		)
 

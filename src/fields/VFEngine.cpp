@@ -169,7 +169,7 @@ FieldsComputer::FieldsComputer() : Node("vf_engine")
 
   // Subscribe to pointcloud messages.
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      "/pointclouds", 10,
+      "/pointcloud", 10,
       std::bind(&FieldsComputer::pointcloud_callback, this, std::placeholders::_1));
 
   // Create service servers for the helper services that are not disabled.
