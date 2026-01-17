@@ -1,7 +1,6 @@
 # File produced by Open Asset Import Library (http://www.assimp.sf.net)
 # (assimp v3.1.187496374)
 
-mtllib hand.obj.mtl
 
 # 102 vertex positions
 v  0.0167349 0.0901289 0.0644319
@@ -313,7 +312,6 @@ vn -0.602128 0.796943 -0.0481963
 
 # Mesh '<STL_BINARY>' with 200 faces
 g <STL_BINARY>
-usemtl DefaultMaterial
 f  1//1 2//1 3//1
 f  4//2 5//2 6//2
 f  7//3 6//3 8//3
