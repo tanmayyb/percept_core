@@ -1,0 +1,45 @@
+stream:
+  depth_profile:
+    w: 848
+    h: 480
+    f: 30
+
+  temporal_filter:
+    enable: true
+    alpha: 0.05
+    delta: 100.0
+    pctrl: 7
+
+  spatial_filter:
+    enable: true
+    mag: 5.0
+    alpha: 0.25
+    delta: 50.0
+    hfill: 4.0
+
+sensors:
+  0:
+    nickname: 'D435I'
+    serial_no: '032622070733'
+    pose:
+      position:
+        x: -0.60 
+        y: 0.05  
+        z: 0.95  
+      orientation:
+        roll: -2.18  
+        pitch: 0.0  
+        yaw: -1.57
+  1:
+    nickname: 'D435'
+    serial_no: '142122070272'
+    pose:
+      position:
+        x: 0.70  
+        y: 1.05 
+        z: 0.30  
+      orientation:
+        roll: -1.61 
+        pitch: 0.0 
+        yaw: 3.14 
+
