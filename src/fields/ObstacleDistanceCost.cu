@@ -34,6 +34,18 @@
 namespace obstacle_distance_cost{
 using namespace cuda_vector_ops;
 
+
+__device__ static double atomicMinDouble(double* address, double val) {
+    unsigned long long int* address_as_ull = (unsigned long long int*)address;
+    unsigned long long int old = *address_as_ull, assumed;
+    do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed,
+            __double_as_longlong(fmin(val, __longlong_as_double(assumed))));
+    } while (assumed != old);
+    return __longlong_as_double(old);
+}
+
 // Kernel to compute the minimum effective distance
 __global__ void kernel(
     double* d_net_potential,
@@ -48,34 +60,27 @@ __global__ void kernel(
     int tid = threadIdx.x;
     int i = blockIdx.x * blockDim.x + tid;
 
-    // Initialize shared memory with a zero value
-    sdata[tid] = 0.0;
+    sdata[tid] = 1.7976931348623157e+308; // DBL_MAX
 
-    if (i >= num_masses) {
-        return;
+    if (i < num_masses) {
+        double3 mass_position = d_masses[i];
+        double3 dist_vec = mass_position - agent_position;
+        sdata[tid] = norm(dist_vec);
     }
 
-    double3 mass_position = d_masses[i];
-    double3 dist_vec = mass_position - agent_position;
-    double dist = norm(dist_vec);
-
-    // Truncated Quadratic (CHOMP)
-    if (dist <= detect_shell_rad){
-        sdata[tid] = (1.0 / 2.0*detect_shell_rad) * (dist-detect_shell_rad)* (dist-detect_shell_rad);
-    }
-
-    // Perform reduction in shared memory, add up all the potentials
     __syncthreads();
+
     for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (tid < s && tid+s<num_masses) {
-            sdata[tid] = sdata[tid] + sdata[tid + s];
+        if (tid < s) {
+            if (sdata[tid + s] < sdata[tid]) {
+                sdata[tid] = sdata[tid + s];
+            }
         }
         __syncthreads();
     }
 
-    // Thread 0 atomically updates the global minimum distance
     if (tid == 0) {
-        atomicAdd(d_net_potential, sdata[0]);
+        atomicMinDouble(d_net_potential, sdata[0]);
     }
 }
 
