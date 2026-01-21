@@ -29,7 +29,9 @@ class SceneCreator(Node):
 		self.publish_rate = self.get_parameter('publish_rate').get_parameter_value().double_value
 	
 
-		filepath = Path(get_package_share_directory(self.pkg_name)) / 'auto_generated_scene.npy'
+		# filepath = Path(get_package_share_directory(self.pkg_name)) / 'auto_generated_scene.npy'
+		
+		filepath = '/tmp/static_scene.npy'
 
 		self.obstacles_publisher = self.create_publisher(
 			PointCloud2,
