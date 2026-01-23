@@ -1,18 +1,3 @@
-// // the usual
-// #include <iostream>
-// #include <vector>
-
-// // necessary evils
-// #include <cuda.h>
-// #include <cuda_runtime.h>
-// #include <vector_types.h>
-
-// // include the header
-
-// // time keeper
-// #include <chrono>
-// #include <iomanip>
-
 #include <cstdio>
 #include <cmath>
 #include <chrono>
@@ -51,10 +36,7 @@ __global__ void kernel(
     double* d_net_potential,
     const double3* d_masses,
     size_t num_masses,
-    double3 agent_position,
-    double agent_radius,
-    double mass_radius,
-    double detect_shell_rad
+    double3 agent_position
 ){
     extern __shared__ double sdata[];
     int tid = threadIdx.x;
@@ -89,9 +71,6 @@ __host__ double launch_kernel(
     double3* d_masses,
     size_t num_masses,
     double3 agent_position,
-    double agent_radius,
-    double mass_radius,
-    double detect_shell_rad,
     bool debug
 ){
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -104,7 +83,7 @@ __host__ double launch_kernel(
     }
 
     // Initialize d_net_potential with a zero value on the device
-    double init_val = 0.0;
+    double init_val = 1.7976931348623157e+308;
     err = cudaMemcpy(d_net_potential, &init_val, sizeof(double), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
         fprintf(stderr, "Failed to initialize device memory: %s\n", cudaGetErrorString(err));
@@ -121,10 +100,7 @@ __host__ double launch_kernel(
         d_net_potential,
         d_masses,
         num_masses,
-        agent_position,
-        agent_radius,
-        mass_radius,
-        detect_shell_rad
+        agent_position
     );
 
     // Check for any kernel launch errors
