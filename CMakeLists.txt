@@ -30,7 +30,6 @@ endif()
 install(
 	DIRECTORY 
 		config/
-		assets/benchmark_scenes/
 		launch/
 	DESTINATION 
 		share/${PROJECT_NAME}

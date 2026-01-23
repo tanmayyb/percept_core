@@ -19,18 +19,12 @@ class SceneCreator(Node):
 		
 		self.pkg_name = 'percept_core'
 
-		# self.loop_disable = True
-
-		# self.publish_rate = 0.03
 		self.declare_parameter('loop_disable', False)
 		self.declare_parameter('publish_rate', 0.03)
 
 		self.loop_disable = self.get_parameter('loop_disable').get_parameter_value().bool_value
 		self.publish_rate = self.get_parameter('publish_rate').get_parameter_value().double_value
 	
-
-		# filepath = Path(get_package_share_directory(self.pkg_name)) / 'auto_generated_scene.npy'
-		
 		filepath = '/tmp/static_scene.npy'
 
 		self.obstacles_publisher = self.create_publisher(
@@ -73,7 +67,7 @@ class SceneCreator(Node):
 		# Define header
 		header = pc2.Header()
 		header.stamp = self.get_clock().now().to_msg()
-		header.frame_id = "world"
+		header.frame_id = "panda_link0"
 
 		point_cloud_msg = pc2.create_cloud(header, self.fields, points_array)
 		return point_cloud_msg
