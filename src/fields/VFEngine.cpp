@@ -1,5 +1,17 @@
 #include "VFEngine.hpp"
 
+bool FieldsComputer::check_cuda_error(cudaError_t err, const char* op) 
+{
+  if (err != cudaSuccess) {
+
+    RCLCPP_ERROR(this->get_logger(), "CUDA %s failed: %s", op, cudaGetErrorString(err));
+
+    return false;
+  }
+
+  return true;
+}
+
 
 FieldsComputer::FieldsComputer() : Node("vf_engine")
 {
@@ -23,7 +35,13 @@ FieldsComputer::FieldsComputer() : Node("vf_engine")
       }
     }
 
+    selectedDeviceId = 0;
+
+    active_device_id_ = selectedDeviceId;
+
     cudaSetDevice(selectedDeviceId);
+
+    cudaStreamCreate(&compute_stream_);
 
     RCLCPP_INFO(this->get_logger(), "Using CUDA device %d (%.2f GB)", 
                 selectedDeviceId, static_cast<float>(maxMemory) / 1073741824.0f);
@@ -111,10 +129,33 @@ FieldsComputer::FieldsComputer() : Node("vf_engine")
       "/get_min_obstacle_distance", std::bind(&FieldsComputer::handle_min_obstacle_distance, this, std::placeholders::_1, std::placeholders::_2));
   }
 
+
+  max_points_ = 1000000;
+  hash_table_size_ = 2000003; // prime_number > 2* max_points_
+  grid_config_.cell_size = 0.01; // 1 cm
+  grid_config_.min_boundary = make_double3(-1000.0, -1000.0, -1000.0); // 1km x 1km x 1km
+
+  bool success = true;
+  success &= check_cuda_error(cudaMalloc(&d_x_ptr, max_points_ * sizeof(double)), "Alloc X");
+  success &= check_cuda_error(cudaMalloc(&d_y_ptr, max_points_ * sizeof(double)), "Alloc Y");
+  success &= check_cuda_error(cudaMalloc(&d_z_ptr, max_points_ * sizeof(double)), "Alloc Z");
+  success &= check_cuda_error(cudaMalloc(&d_hashes_ptr, max_points_ * sizeof(uint32_t)), "Alloc Hashes");
+  success &= check_cuda_error(cudaMalloc(&d_indices_ptr, max_points_ * sizeof(uint32_t)), "Alloc Indices");
+  success &= check_cuda_error(cudaMalloc(&d_nn_ptr, max_points_ * sizeof(int)), "Alloc NN");
+  success &= check_cuda_error(cudaMalloc(&d_starts_ptr, hash_table_size_ * sizeof(uint32_t)), "Alloc Starts");
+  success &= check_cuda_error(cudaMalloc(&d_ends_ptr, hash_table_size_ * sizeof(uint32_t)), "Alloc Ends");
+
+  if (!success) throw std::runtime_error("Failed to allocate GPU memory");
+
   queue_processor_ = std::thread(&FieldsComputer::process_queue, this);
   
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "/pointcloud", 10, std::bind(&FieldsComputer::pointcloud_callback, this, std::placeholders::_1));
+
+
+  #ifdef GPU_PROFILING_ENABLE
+    RCLCPP_INFO(this->get_logger(), "GPU PROFILING ENABLED");
+  #endif
 }
 
 
@@ -132,9 +173,162 @@ FieldsComputer::~FieldsComputer()
 
   gpu_z_shared_.reset();
 
-  gpu_nn_index_shared_.reset();
+  gpu_nn_indices_shared_.reset();
+
+  cudaStreamDestroy(compute_stream_);
 }
 
+
+
+template<typename HeuristicFunc>
+void FieldsComputer::handle_heuristic(
+    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
+    HeuristicFunc kernel_launcher, 
+    const std::string& name)
+{
+  enqueue_operation(OperationType::READ, [this, request, response, kernel_launcher]() 
+  {
+    std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
+  
+    if (!gpu_x_shared_) { response->not_null = false; return; }
+
+    auto [pos, vel, goal, agent_radius, shell, k, max_f] = extract_request_data(request);
+
+  
+    double3 res;
+
+    if constexpr (
+      std::is_invocable_v<HeuristicFunc, 
+                          double*, double*, double*, 
+                          size_t, uint32_t*, 
+                          double3, double3, double3, double, double, 
+                          double, double, double, bool>)
+    {
+      res = kernel_launcher(
+        gpu_x_shared_.get(), gpu_y_shared_.get(), gpu_z_shared_.get(), 
+        gpu_num_points_, gpu_nn_indices_shared_.get(), 
+        pos, vel, goal, agent_radius, point_radius, 
+        shell, k, max_f, show_processing_delay
+      );
+    }
+    else
+    {
+      res = kernel_launcher(
+        gpu_x_shared_.get(), gpu_y_shared_.get(), gpu_z_shared_.get(), 
+        gpu_num_points_, pos, vel, goal, agent_radius, point_radius, 
+        shell, k, max_f, show_processing_delay
+      );
+    }
+
+
+    process_response(res, request->agent_pose, response);
+  });
+}
+
+
+void FieldsComputer::handle_min_obstacle_distance(
+    const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
+    std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response)
+{
+  enqueue_operation(OperationType::READ, [this, request, response]() 
+  {
+    std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
+    if (!gpu_x_shared_) { response->distance = 0.0; return; }
+
+    double3 agent_pos = make_double3(
+      request->agent_pose.position.x, 
+      request->agent_pose.position.y, 
+      request->agent_pose.position.z
+    );
+
+    response->distance = min_obstacle_distance_kernel(
+      gpu_x_shared_.get(), gpu_y_shared_.get(), gpu_z_shared_.get(), 
+      gpu_num_points_, agent_pos, show_processing_delay);
+  });
+}
+
+
+void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+  auto msg_copy = std::make_shared<sensor_msgs::msg::PointCloud2>(*msg);
+
+  enqueue_operation(OperationType::WRITE, [this, msg_copy]() 
+  {
+    size_t total_points = msg_copy->width * msg_copy->height;
+
+    size_t n = std::min(total_points, max_points_);
+
+    if (n<=0)
+    {
+      RCLCPP_ERROR(this->get_logger(), "total_points: %d, max_points: %d, n: %d", total_points, max_points_, gpu_num_points_);
+      return;
+    }
+
+    cudaSetDevice(active_device_id_);
+
+    push_nvtx_range("Pointcloud Received", NVTXColor::Red);
+
+    auto start = std::chrono::steady_clock::now();
+
+    std::vector<double> host_x(n), host_y(n), host_z(n);
+
+    sensor_msgs::PointCloud2Iterator<float> 
+      it_x(*msg_copy, "x"), it_y(*msg_copy, "y"), it_z(*msg_copy, "z");
+
+    for (size_t i = 0; i < n; ++i, ++it_x, ++it_y, ++it_z)
+    {
+      host_x[i] = static_cast<double>(*it_x);
+
+      host_y[i] = static_cast<double>(*it_y);
+
+      host_z[i] = static_cast<double>(*it_z);
+    }
+
+    double *d_x, *d_y, *d_z;
+    int *d_nn;
+    bool success = true;
+
+    success &= check_cuda_error(cudaMalloc(&d_x, n * sizeof(double)), "Malloc X");
+    success &= check_cuda_error(cudaMalloc(&d_y, n * sizeof(double)), "Malloc Y");
+    success &= check_cuda_error(cudaMalloc(&d_z, n * sizeof(double)), "Malloc Z");
+    success &= check_cuda_error(cudaMalloc(&d_nn, n * sizeof(int)), "Malloc NN");
+
+    if (success)
+    {
+      cudaMemcpy(d_x, host_x.data(), n * sizeof(double), cudaMemcpyHostToDevice);
+
+      cudaMemcpy(d_y, host_y.data(), n * sizeof(double), cudaMemcpyHostToDevice);
+
+      cudaMemcpy(d_z, host_z.data(), n * sizeof(double), cudaMemcpyHostToDevice);
+
+      build_spatial_index(d_x, d_y, d_z, d_hashes_ptr, d_indices_ptr, 
+                          d_starts_ptr, d_ends_ptr, n, grid_config_, hash_table_size_, compute_stream_);
+
+
+      find_nearest_neighbors(d_x, d_y, d_z, d_indices_ptr, 
+                              d_starts_ptr, d_ends_ptr, d_nn, n, grid_config_, hash_table_size_);
+
+      std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
+      
+      gpu_x_shared_ = std::shared_ptr<double>(d_x, [](double* p){ cudaFree(p); });
+      gpu_y_shared_ = std::shared_ptr<double>(d_y, [](double* p){ cudaFree(p); });
+      gpu_z_shared_ = std::shared_ptr<double>(d_z, [](double* p){ cudaFree(p); });
+      gpu_nn_indices_shared_ = std::shared_ptr<int>(d_nn, [](int* p){ cudaFree(p); });
+      
+      gpu_num_points_ = n;
+
+      auto end = std::chrono::steady_clock::now();
+
+      RCLCPP_INFO(this->get_logger(), "Pointcloud Processing Took %.4f ms", std::chrono::duration<double, std::milli>(end - start).count());
+
+
+      pop_nvtx_range();
+    }
+  });
+
+
+}
 
 std::tuple<double3, double3, double3, 
            double, double, double, double> FieldsComputer::extract_request_data(
@@ -182,79 +376,10 @@ void FieldsComputer::process_response(
 }
 
 
-
-template<typename HeuristicFunc>
-void FieldsComputer::handle_heuristic(
-    const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
-    std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
-    HeuristicFunc kernel_launcher, 
-    const std::string& name)
-{
-  enqueue_operation(OperationType::READ, [this, request, response, kernel_launcher]() 
-  {
-    std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-  
-    if (!gpu_x_shared_) { response->not_null = false; return; }
-
-    auto [pos, vel, goal, agent_radius, shell, k, max_f] = extract_request_data(request);
-
-  
-    double3 res;
-
-    if constexpr (
-      std::is_invocable_v<HeuristicFunc, 
-                          double*, double*, double*, 
-                          size_t, int*, 
-                          double3, double3, double3, double, double, 
-                          double, double, double, bool>)
-    {
-      res = kernel_launcher(
-        gpu_x_shared_.get(), gpu_y_shared_.get(), gpu_z_shared_.get(), 
-        gpu_num_points_, gpu_nn_index_shared_.get(), 
-        pos, vel, goal, agent_radius, point_radius, 
-        shell, k, max_f, show_processing_delay
-      );
-    }
-    else
-    {
-      res = kernel_launcher(
-        gpu_x_shared_.get(), gpu_y_shared_.get(), gpu_z_shared_.get(), 
-        gpu_num_points_, pos, vel, goal, agent_radius, point_radius, 
-        shell, k, max_f, show_processing_delay
-      );
-    }
-
-
-    process_response(res, request->agent_pose, response);
-  });
-}
-
-
-void FieldsComputer::handle_min_obstacle_distance(
-    const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
-    std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response)
-{
-  enqueue_operation(OperationType::READ, [this, request, response]() 
-  {
-    std::shared_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-    if (!gpu_x_shared_) { response->distance = 0.0; return; }
-
-    double3 agent_pos = make_double3(
-      request->agent_pose.position.x, 
-      request->agent_pose.position.y, 
-      request->agent_pose.position.z
-    );
-
-    response->distance = min_obstacle_distance_kernel(
-      gpu_x_shared_.get(), gpu_y_shared_.get(), gpu_z_shared_.get(), 
-      gpu_num_points_, agent_pos, show_processing_delay);
-  });
-}
-
-
-
 void FieldsComputer::process_queue()
 {
+  cudaSetDevice(active_device_id_);
+
   while (queue_running_) 
   {
     std::shared_ptr<Operation> op;
@@ -270,7 +395,14 @@ void FieldsComputer::process_queue()
       operation_queue_.pop();
     }
 
-    op->task();
+    try {
+      op->task();
+    } catch (const std::exception& e) {
+      RCLCPP_ERROR(this->get_logger(), "Standard error in worker thread: %s", e.what());
+    } catch (...) {
+      RCLCPP_ERROR(this->get_logger(), "Unknown error in worker thread");
+      RCLCPP_ERROR(this->get_logger(), "Possibly CUDAThrust error in worker thread");
+    }
 
     op->completion.set_value();
   }
@@ -301,86 +433,14 @@ void FieldsComputer::stop_queue()
   queue_cv_.notify_all(); 
 }
 
-bool FieldsComputer::check_cuda_error(cudaError_t err, const char* op) 
-{
-  if (err != cudaSuccess) {
-
-    RCLCPP_ERROR(this->get_logger(), "CUDA %s failed: %s", op, cudaGetErrorString(err));
-
-    return false;
-  }
-
-  return true;
-}
-
-
-void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-  auto msg_copy = std::make_shared<sensor_msgs::msg::PointCloud2>(*msg);
-
-  enqueue_operation(OperationType::WRITE, [this, msg_copy]() 
-  {
-    size_t n = msg_copy->width * msg_copy->height;
-
-    std::vector<double> host_x(n), host_y(n), host_z(n);
-
-    sensor_msgs::PointCloud2Iterator<float> 
-      it_x(*msg_copy, "x"), it_y(*msg_copy, "y"), it_z(*msg_copy, "z");
-
-    for (size_t i = 0; i < n; ++i, ++it_x, ++it_y, ++it_z)
-    {
-      host_x[i] = static_cast<double>(*it_x);
-
-      host_y[i] = static_cast<double>(*it_y);
-
-      host_z[i] = static_cast<double>(*it_z);
-    }
-
-    double *d_x = nullptr, *d_y = nullptr, *d_z = nullptr;
-
-    bool success = true;
-
-    success &= check_cuda_error(cudaMalloc(&d_x, n * sizeof(double)), "cudaMalloc X");
-
-    success &= check_cuda_error(cudaMalloc(&d_y, n * sizeof(double)), "cudaMalloc Y");
-
-    success &= check_cuda_error(cudaMalloc(&d_z, n * sizeof(double)), "cudaMalloc Z");
-
-    if (success)
-    {
-      cudaMemcpy(d_x, host_x.data(), n * sizeof(double), cudaMemcpyHostToDevice);
-
-      cudaMemcpy(d_y, host_y.data(), n * sizeof(double), cudaMemcpyHostToDevice);
-
-      cudaMemcpy(d_z, host_z.data(), n * sizeof(double), cudaMemcpyHostToDevice);
-
-      auto new_x = std::shared_ptr<double>(d_x, [](double* p){ cudaFree(p); });
-
-      auto new_y = std::shared_ptr<double>(d_y, [](double* p){ cudaFree(p); });
-
-      auto new_z = std::shared_ptr<double>(d_z, [](double* p){ cudaFree(p); });
-
-      std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
-      
-      gpu_x_shared_ = new_x;
-
-      gpu_y_shared_ = new_y;
-
-      gpu_z_shared_ = new_z;
-
-      gpu_num_points_ = n;
-    }
-
-  });
-}
 
 int main(int argc, char **argv) 
 {
-    rclcpp::init(argc, argv);
+  rclcpp::init(argc, argv);
 
-    rclcpp::spin(std::make_shared<FieldsComputer>());
+  rclcpp::spin(std::make_shared<FieldsComputer>());
 
-    rclcpp::shutdown();
+  rclcpp::shutdown();
 
-    return 0;
+  return 0;
 }

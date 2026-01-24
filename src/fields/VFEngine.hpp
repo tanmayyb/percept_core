@@ -1,32 +1,42 @@
 #ifndef VF_ENGINE_HPP_
 #define VF_ENGINE_HPP_
 
+// CUDA
+#include "cuda_vector_ops.cuh"
+
+// Std
+#include <memory>
+#include <thread>
+#include <chrono>
+#include <shared_mutex>
+#include <map>
+#include <string>
+#include <vector>
+#include <queue>
+#include <condition_variable>
+#include <future>
+#include <functional>
+
+
 // ROS 2
 #include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/point_cloud2.hpp"
-#include "geometry_msgs/msg/pose.hpp"
+
+// msgs
+#include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/point.hpp>
 #include "geometry_msgs/msg/vector3.hpp"
+
+// tf2 includes
+#include <tf2/LinearMath/Quaternion.hpp>
+#include <tf2/LinearMath/Vector3.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 // Interfaces
 #include "percept_interfaces/srv/agent_state_to_circ_force.hpp"
 #include "percept_interfaces/srv/agent_pose_to_min_obstacle_dist.hpp"
 
-// CUDA
-#include <vector_types.h>
-#include <cuda_runtime.h>
 
-
-// Standard Library
-#include <memory>
-#include <string>
-#include <vector>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <future>
-#include <shared_mutex>
-#include <thread>
-#include <functional>
 
 // Artificial Potential Fields
 extern "C" double3 artificial_potential_field_kernel(
@@ -55,29 +65,19 @@ extern "C" double min_obstacle_distance_kernel(
   size_t num_masses, double3 agent_position, bool debug);
 
 
+// Spatial Hashing NN
+extern "C" {
+  void build_spatial_index(const double* d_x, const double* d_y, const double* d_z,
+                           uint32_t* d_cell_hashes, uint32_t* d_point_indices,
+                           uint32_t* d_hash_starts, uint32_t* d_hash_ends,
+                           int n, GridConfig config, uint32_t hash_size,
+                           cudaStream_t stream);
 
-// std
-#include <memory>
-#include <thread>
-#include <chrono>
-#include <shared_mutex>
-#include <map>
-
-// CUDA runtime API
-#include <cuda_runtime.h>
-
-// msgs
-#include <sensor_msgs/point_cloud2_iterator.hpp>
-#include <geometry_msgs/msg/pose.hpp>
-#include <geometry_msgs/msg/point.hpp>
-
-// tf2 includes
-#include <tf2/LinearMath/Quaternion.hpp>
-#include <tf2/LinearMath/Vector3.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-
-
-
+  void find_nearest_neighbors(const double* d_x, const double* d_y, const double* d_z,
+                              const uint32_t* d_sorted_indices,
+                              const uint32_t* d_cell_starts, const uint32_t* d_cell_ends,
+                              int* d_nearest_idx, int n, GridConfig config, uint32_t hash_size);
+}
 
 enum class OperationType 
 { 
@@ -102,8 +102,12 @@ class FieldsComputer : public rclcpp::Node
     
     virtual ~FieldsComputer();
 
-  private:
-    
+  private:  
+
+    cudaStream_t compute_stream_;
+
+    int active_device_id_ = 0;
+  
     double point_radius;
     
     bool show_netforce_output;
@@ -118,10 +122,21 @@ class FieldsComputer : public rclcpp::Node
     
     std::shared_ptr<double> gpu_z_shared_;
 
-    std::shared_ptr<int> gpu_nn_index_shared_;
-    
-    size_t gpu_num_points_ = 0;
+    std::shared_ptr<int> gpu_nn_indices_shared_;
 
+    uint32_t hash_table_size_; // upto 1 million points
+
+    size_t max_points_;
+
+    double *d_x_ptr, *d_y_ptr, *d_z_ptr;
+
+    uint32_t *d_hashes_ptr, *d_indices_ptr, *d_starts_ptr, *d_ends_ptr;
+
+    int *d_nn_ptr;
+
+    GridConfig grid_config_;
+    
+    uint32_t gpu_num_points_ = 0;
 
     std::shared_timed_mutex gpu_points_mutex_;
 

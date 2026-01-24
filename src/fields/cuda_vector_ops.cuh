@@ -94,3 +94,49 @@ __host__ __device__ inline double3 make_random_vector() {
 }
 
 }
+
+// Nearest Neighbor
+struct GridConfig 
+{
+  double3 min_boundary;
+  double cell_size;
+};
+
+
+// NVTX profiling options
+enum class NVTXColor : uint32_t 
+{
+  Red     = 0xFFFF0000,
+  Green   = 0xFF00FF00,
+  Blue    = 0xFF0000FF,
+  Yellow  = 0xFFFFFF00,
+  Magenta = 0xFFFF00FF,
+  Cyan    = 0xFF00FFFF,
+  White   = 0xFFFFFFFF,
+  Orange  = 0xFFFFA500
+};
+
+#ifdef GPU_PROFILING_ENABLE
+  #include <nvToolsExt.h>
+#endif
+
+inline void push_nvtx_range(const char* name, NVTXColor color) 
+{
+  #ifdef GPU_PROFILING_ENABLE
+    nvtxEventAttributes_t eventAttrib = {0};
+    eventAttrib.version = NVTX_VERSION;
+    eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
+    eventAttrib.colorType = NVTX_COLOR_ARGB;
+    eventAttrib.color = static_cast<uint32_t>(color);
+    eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
+    eventAttrib.message.ascii = name;
+    nvtxRangePushEx(&eventAttrib);
+  #endif
+}
+
+inline void pop_nvtx_range() 
+{
+  #ifdef GPU_PROFILING_ENABLE
+    nvtxRangePop();
+  #endif
+}
