@@ -1,3 +1,5 @@
+option(GPU_PROFILING_DISABLE "Disable GPU profiling with NVTX" OFF)
+
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -13,12 +15,12 @@ add_executable(vf_engine
   VelocityHeuristic.cu
   GoalHeuristic.cu
   # ObstacleHeuristicCircForce.cu
-  # VelocityHeuristicCircForce.cu
   # GoalObstacleHeuristicCircForce.cu
   # RandomHeuristicCircForce.cu
   # NearestNeighbour.cu
   # NavigationFunctionForce.cu
   MinObstacleDistance.cu
+  NearestNeighbor.cu
 
 )
 
@@ -45,21 +47,20 @@ target_link_libraries(vf_engine
 
 )
 
-
 target_include_directories(vf_engine PUBLIC .)
 
 if(NOT GPU_PROFILING_DISABLE)
-	target_include_directories(vf_engine PRIVATE 
-		${CMAKE_SOURCE_DIR}/third_party/nvtx/include
-	)
-
-	target_link_libraries(vf_engine PRIVATE nvtx_library)
+  message(STATUS "NVTX Profiling is ENABLED in CMake configuration")
+  set(NVTX_INCLUDE_DIR "/usr/local/cuda/include/nvtx3") # use system NVTX
+  target_include_directories(vf_engine PRIVATE ${NVTX_INCLUDE_DIR})   
+  target_compile_definitions(vf_engine PRIVATE GPU_PROFILING_ENABLE)
+else()
+  message(STATUS "NVTX Profiling is DISABLED in CMake configuration")
 endif()
 
 install(TARGETS vf_engine
 	DESTINATION lib/${PROJECT_NAME}
 )
-
 
 
 # cpu
