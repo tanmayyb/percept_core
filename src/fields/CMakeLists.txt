@@ -9,15 +9,15 @@ find_package(CUDAToolkit REQUIRED)
 # gpu
 add_executable(vf_engine
 	VFEngine.cpp
-  ObstacleDistanceCost.cu
-  ObstacleHeuristicCircForce.cu
-  VelocityHeuristicCircForce.cu
-  GoalObstacleHeuristicCircForce.cu
-  GoalHeuristicCircForce.cu
-  RandomHeuristicCircForce.cu
   ArtificialPotentialField.cu
-  NearestNeighbour.cu
-  NavigationFunctionForce.cu
+  MinObstacleDistance.cu
+  # ObstacleHeuristicCircForce.cu
+  # VelocityHeuristicCircForce.cu
+  # GoalObstacleHeuristicCircForce.cu
+  # GoalHeuristicCircForce.cu
+  # RandomHeuristicCircForce.cu
+  # NearestNeighbour.cu
+  # NavigationFunctionForce.cu
 )
 
 set_target_properties(vf_engine

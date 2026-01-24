@@ -1,11 +1,13 @@
 #pragma once
 #include <vector>
+#include <vector_types.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <vector_types.h>
 #include <curand.h>
 #include <curand_kernel.h>
 #include <random>
+#include <iostream>
+#include <iomanip>
 
 namespace cuda_vector_ops{
 
