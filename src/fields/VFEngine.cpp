@@ -1,158 +1,48 @@
 #include "VFEngine.hpp"
 
-bool FieldsComputer::check_cuda_error(cudaError_t err, const char* op) 
-{
-  if (err != cudaSuccess) {
-
-    RCLCPP_ERROR(this->get_logger(), "CUDA %s failed: %s", op, cudaGetErrorString(err));
-
-    return false;
-  }
-
-  return true;
-}
-
 
 FieldsComputer::FieldsComputer() : Node("vf_engine")
 {
-  int deviceCount = 0;
+  setupDevice();
 
-  if (cudaGetDeviceCount(&deviceCount) == cudaSuccess && deviceCount > 0) 
-  {
-    int selectedDeviceId = 0;
-  
-    size_t maxMemory = 0;
-  
-    for (int i = 0; i < deviceCount; i++) 
-    {
-      cudaDeviceProp prop;
-    
-      if (cudaGetDeviceProperties(&prop, i) == cudaSuccess && prop.totalGlobalMem > maxMemory) 
-      {
-        maxMemory = prop.totalGlobalMem;
-      
-        selectedDeviceId = i;
-      }
-    }
+  setupParamsAndServices();
 
-    selectedDeviceId = 0;
+  // Queue Processor
+  queue_processor_ = std::thread(&FieldsComputer::process_queue, this);
 
-    active_device_id_ = selectedDeviceId;
-
-    cudaSetDevice(selectedDeviceId);
-
-    cudaStreamCreate(&compute_stream_);
-
-    RCLCPP_INFO(this->get_logger(), "Using CUDA device %d (%.2f GB)", 
-                selectedDeviceId, static_cast<float>(maxMemory) / 1073741824.0f);
-  }
-
-  std::map<std::string, double*> double_params = {
-    {"point_radius", &point_radius},
-  };
-
-  for (auto const& [name, ptr] : double_params) 
-  {
-    this->declare_parameter(name, 1.0);
-    
-    this->get_parameter(name, *ptr);
-  }
-
-  this->declare_parameter("show_netforce_output", false);
-
-  this->get_parameter("show_netforce_output", show_netforce_output);
-
-
-  this->declare_parameter("show_processing_delay", false);
-  
-  this->get_parameter("show_processing_delay", show_processing_delay);
-  
-
-  // this->declare_parameter("show_requests", false);
-  
-  // this->get_parameter("show_requests", show_service_request_received);
-
-  struct HeuristicEntry 
-  {
-    std::string name;
-
-    std::string topic;
-
-    std::string disable_param;
-
-    std::function<void(const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request>,
-                       std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response>)> callback;
-  };
-
-  std::vector<HeuristicEntry> entries = {
-
-    {"APF", "/get_apf_heuristic_circforce", "disable_apf_heuristic", 
-      [this](auto req, auto res) { handle_heuristic(req, res, artificial_potential_field_kernel, "APF"); }},
-
-    {"Velocity", "/get_velocity_heuristic_circforce", "disable_velocity_heuristic", 
-      [this](auto req, auto res) { handle_heuristic(req, res, velocity_heuristic_kernel, "Velocity"); }},
-
-    {"Goal", "/get_goal_heuristic_circforce", "disable_goal_heuristic", 
-      [this](auto req, auto res) { handle_heuristic(req, res, goal_heuristic_kernel, "Goal"); }},
-
-    // {"Obstacle", "/get_obstacle_heuristic_circforce", "disable_obstacle_heuristic", 
-    //   [this](auto req, auto res) { handle_heuristic(req, res, obstacle_heuristic::launch_kernel, "Obstacle"); }},
-
-    // {"GoalObstacle", "/get_goalobstacle_heuristic_circforce", "disable_goalobstacle_heuristic", 
-    //   [this](auto req, auto res) { handle_heuristic(req, res, goalobstacle_heuristic::launch_kernel, "GoalObstacle"); }},
-
-    // {"Random", "/get_random_heuristic_circforce", "disable_random_heuristic", 
-    //   [this](auto req, auto res) { handle_heuristic(req, res, random_heuristic::launch_kernel, "Random"); }},
-  };
-
-  for (const auto& entry : entries) 
-  {
-
-    bool disabled = this->declare_parameter(entry.disable_param, false);
-
-    this->get_parameter(entry.disable_param, disabled);
-
-    if (!disabled) 
-    {
-      heuristic_services_.push_back(
-        this->create_service<percept_interfaces::srv::AgentStateToCircForce>(entry.topic, entry.callback)
-      );
-    }
-
-  }
-
-  bool disable_dist = this->declare_parameter("disable_min_obstacle_distance", false);
-
-  if (!disable_dist) 
-  {
-    service_min_obstacle_distance = this->create_service<percept_interfaces::srv::AgentPoseToMinObstacleDist>(
-      "/get_min_obstacle_distance", std::bind(&FieldsComputer::handle_min_obstacle_distance, this, std::placeholders::_1, std::placeholders::_2));
-  }
-
-
+  // Pointcloud and NNS arrays
   max_points_ = 1000000;
+
   hash_table_size_ = 2000003; // prime_number > 2* max_points_
+
   grid_config_.cell_size = 0.01; // 1 cm
+
   grid_config_.min_boundary = make_double3(-1000.0, -1000.0, -1000.0); // 1km x 1km x 1km
 
   bool success = true;
+
   success &= check_cuda_error(cudaMalloc(&d_x_ptr, max_points_ * sizeof(double)), "Alloc X");
+
   success &= check_cuda_error(cudaMalloc(&d_y_ptr, max_points_ * sizeof(double)), "Alloc Y");
+
   success &= check_cuda_error(cudaMalloc(&d_z_ptr, max_points_ * sizeof(double)), "Alloc Z");
+
   success &= check_cuda_error(cudaMalloc(&d_hashes_ptr, max_points_ * sizeof(uint32_t)), "Alloc Hashes");
+
   success &= check_cuda_error(cudaMalloc(&d_indices_ptr, max_points_ * sizeof(uint32_t)), "Alloc Indices");
+
   success &= check_cuda_error(cudaMalloc(&d_nn_ptr, max_points_ * sizeof(int)), "Alloc NN");
+
   success &= check_cuda_error(cudaMalloc(&d_starts_ptr, hash_table_size_ * sizeof(uint32_t)), "Alloc Starts");
+
   success &= check_cuda_error(cudaMalloc(&d_ends_ptr, hash_table_size_ * sizeof(uint32_t)), "Alloc Ends");
 
   if (!success) throw std::runtime_error("Failed to allocate GPU memory");
-
-  queue_processor_ = std::thread(&FieldsComputer::process_queue, this);
   
   subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "/pointcloud", 10, std::bind(&FieldsComputer::pointcloud_callback, this, std::placeholders::_1));
 
-
+  // Profiling
   #ifdef GPU_PROFILING_ENABLE
     RCLCPP_INFO(this->get_logger(), "GPU PROFILING ENABLED");
   #endif
@@ -177,7 +67,6 @@ FieldsComputer::~FieldsComputer()
 
   cudaStreamDestroy(compute_stream_);
 }
-
 
 
 template<typename HeuristicFunc>
@@ -265,6 +154,7 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
       return;
     }
 
+    // load pointcloud to host memory
     cudaSetDevice(active_device_id_);
 
     push_nvtx_range("Pointcloud Received", NVTXColor::Red);
@@ -290,10 +180,14 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
     bool success = true;
 
     success &= check_cuda_error(cudaMalloc(&d_x, n * sizeof(double)), "Malloc X");
+
     success &= check_cuda_error(cudaMalloc(&d_y, n * sizeof(double)), "Malloc Y");
+
     success &= check_cuda_error(cudaMalloc(&d_z, n * sizeof(double)), "Malloc Z");
+
     success &= check_cuda_error(cudaMalloc(&d_nn, n * sizeof(int)), "Malloc NN");
 
+    // copy data to device memory and shared pointers and perform NNS
     if (success)
     {
       cudaMemcpy(d_x, host_x.data(), n * sizeof(double), cudaMemcpyHostToDevice);
@@ -312,8 +206,11 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
       std::unique_lock<std::shared_timed_mutex> lock(gpu_points_mutex_);
       
       gpu_x_shared_ = std::shared_ptr<double>(d_x, [](double* p){ cudaFree(p); });
+      
       gpu_y_shared_ = std::shared_ptr<double>(d_y, [](double* p){ cudaFree(p); });
+      
       gpu_z_shared_ = std::shared_ptr<double>(d_z, [](double* p){ cudaFree(p); });
+      
       gpu_nn_indices_shared_ = std::shared_ptr<int>(d_nn, [](int* p){ cudaFree(p); });
       
       gpu_num_points_ = n;
@@ -326,9 +223,8 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
       pop_nvtx_range();
     }
   });
-
-
 }
+
 
 std::tuple<double3, double3, double3, 
            double, double, double, double> FieldsComputer::extract_request_data(
@@ -395,13 +291,16 @@ void FieldsComputer::process_queue()
       operation_queue_.pop();
     }
 
-    try {
+    try 
+    {
       op->task();
-    } catch (const std::exception& e) {
+    } 
+    catch (const std::exception& e) 
+    {
       RCLCPP_ERROR(this->get_logger(), "Standard error in worker thread: %s", e.what());
-    } catch (...) {
+    } 
+    catch (...) {
       RCLCPP_ERROR(this->get_logger(), "Unknown error in worker thread");
-      RCLCPP_ERROR(this->get_logger(), "Possibly CUDAThrust error in worker thread");
     }
 
     op->completion.set_value();
@@ -431,6 +330,136 @@ void FieldsComputer::stop_queue()
   queue_running_ = false; 
 
   queue_cv_.notify_all(); 
+}
+
+
+void FieldsComputer::setupParamsAndServices()
+{
+
+  std::map<std::string, double*> double_params = {
+    {"point_radius", &point_radius},
+  };
+
+  for (auto const& [name, ptr] : double_params) 
+  {
+    this->declare_parameter(name, 1.0);
+    
+    this->get_parameter(name, *ptr);
+  }
+
+  this->declare_parameter("show_netforce_output", false);
+
+  this->get_parameter("show_netforce_output", show_netforce_output);
+
+
+  this->declare_parameter("show_processing_delay", false);
+  
+  this->get_parameter("show_processing_delay", show_processing_delay);
+
+  // -- load minimum obstacle distance service ---
+  bool disable_dist = this->declare_parameter("disable_min_obstacle_distance", false);
+  
+  if (!disable_dist) 
+    service_min_obstacle_distance = this->create_service<percept_interfaces::srv::AgentPoseToMinObstacleDist>(
+      "/get_min_obstacle_distance", 
+      std::bind(&FieldsComputer::handle_min_obstacle_distance, this, std::placeholders::_1, std::placeholders::_2));
+
+  // --- load all heuristics ---
+  struct HeuristicEntry 
+  {
+    std::string name;
+
+    std::string topic;
+
+    std::string disable_param;
+
+    std::function<void(
+      const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request>,
+      std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response>)> callback;
+  };
+
+  std::vector<HeuristicEntry> entries = {
+
+    {"APF", "/get_apf_heuristic_circforce", "disable_apf_heuristic", 
+      [this](auto req, auto res) { handle_heuristic(req, res, artificial_potential_field_kernel, "APF"); }},
+
+    {"Velocity", "/get_velocity_heuristic_circforce", "disable_velocity_heuristic", 
+      [this](auto req, auto res) { handle_heuristic(req, res, velocity_heuristic_kernel, "Velocity"); }},
+
+    {"Goal", "/get_goal_heuristic_circforce", "disable_goal_heuristic", 
+      [this](auto req, auto res) { handle_heuristic(req, res, goal_heuristic_kernel, "Goal"); }},
+
+    // {"Obstacle", "/get_obstacle_heuristic_circforce", "disable_obstacle_heuristic", 
+    //   [this](auto req, auto res) { handle_heuristic(req, res, obstacle_heuristic::launch_kernel, "Obstacle"); }},
+
+    // {"GoalObstacle", "/get_goalobstacle_heuristic_circforce", "disable_goalobstacle_heuristic", 
+    //   [this](auto req, auto res) { handle_heuristic(req, res, goalobstacle_heuristic::launch_kernel, "GoalObstacle"); }},
+
+    // {"Random", "/get_random_heuristic_circforce", "disable_random_heuristic", 
+    //   [this](auto req, auto res) { handle_heuristic(req, res, random_heuristic::launch_kernel, "Random"); }},
+  };
+
+  for (const auto& entry : entries) 
+  {
+    bool disabled = this->declare_parameter(entry.disable_param, false);
+
+    this->get_parameter(entry.disable_param, disabled);
+
+    if (!disabled) 
+    {
+      heuristic_services_.push_back(
+        this->create_service<percept_interfaces::srv::AgentStateToCircForce>(entry.topic, entry.callback)
+      );
+    }
+
+  }
+  
+}
+
+void FieldsComputer::setupDevice()
+{
+  int deviceCount = 0;
+
+  if (cudaGetDeviceCount(&deviceCount) == cudaSuccess && deviceCount > 0) 
+  {
+    int selectedDeviceId = 0;
+  
+    size_t maxMemory = 0;
+  
+    for (int i = 0; i < deviceCount; i++) 
+    {
+      cudaDeviceProp prop;
+    
+      if (cudaGetDeviceProperties(&prop, i) == cudaSuccess && prop.totalGlobalMem > maxMemory) 
+      {
+        maxMemory = prop.totalGlobalMem;
+      
+        selectedDeviceId = i;
+      }
+    }
+
+    active_device_id_ = selectedDeviceId;
+
+    cudaSetDevice(selectedDeviceId);
+
+    cudaStreamCreate(&compute_stream_);
+
+    RCLCPP_INFO(this->get_logger(), "Using CUDA device %d (%.2f GB)", 
+                selectedDeviceId, static_cast<float>(maxMemory) / 1073741824.0f);
+  }
+
+}
+
+bool FieldsComputer::check_cuda_error(cudaError_t err, const char* op) 
+{
+  if (err != cudaSuccess) {
+
+    RCLCPP_ERROR(this->get_logger(), "CUDA %s failed: %s", op, cudaGetErrorString(err));
+
+    return false;
+  }
+
+  return true;
 }
 
 

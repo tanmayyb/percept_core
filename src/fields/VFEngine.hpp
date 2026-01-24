@@ -188,6 +188,10 @@ class FieldsComputer : public rclcpp::Node
     void enqueue_operation(OperationType type, std::function<void()> task);
     
     void stop_queue();
+
+    void setupDevice();
+
+    void setupParamsAndServices();
 };
 
 #endif // VF_ENGINE_HPP_
