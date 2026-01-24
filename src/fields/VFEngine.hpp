@@ -42,6 +42,13 @@ extern "C" double3 velocity_heuristic_kernel(
   double agent_radius, double point_radius,
   double detect_shell_rad, double k_circ, double max_allowable_force, bool debug);
 
+// Goal Heuristic
+extern "C" double3 goal_heuristic_kernel(
+  double* d_points_x, double* d_points_y, double* d_points_z,
+  size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
+  double agent_radius, double point_radius,
+  double detect_shell_rad, double k_circ, double max_allowable_force, bool debug);
+
 // Min Obstacle Distance
 extern "C" double min_obstacle_distance_kernel(
   double* d_points_x, double* d_points_y, double* d_points_z,

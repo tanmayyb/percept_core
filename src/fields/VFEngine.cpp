@@ -74,11 +74,11 @@ FieldsComputer::FieldsComputer() : Node("vf_engine")
     {"Velocity", "/get_velocity_heuristic_circforce", "disable_velocity_heuristic", 
       [this](auto req, auto res) { handle_heuristic(req, res, velocity_heuristic_kernel, "Velocity"); }},
 
+    {"Goal", "/get_goal_heuristic_circforce", "disable_goal_heuristic", 
+      [this](auto req, auto res) { handle_heuristic(req, res, goal_heuristic_kernel, "Goal"); }},
+
     // {"Obstacle", "/get_obstacle_heuristic_circforce", "disable_obstacle_heuristic", 
     //   [this](auto req, auto res) { handle_heuristic(req, res, obstacle_heuristic::launch_kernel, "Obstacle"); }},
-
-    // {"Goal", "/get_goal_heuristic_circforce", "disable_goal_heuristic", 
-    //   [this](auto req, auto res) { handle_heuristic(req, res, goal_heuristic::launch_kernel, "Goal"); }},
 
     // {"GoalObstacle", "/get_goalobstacle_heuristic_circforce", "disable_goalobstacle_heuristic", 
     //   [this](auto req, auto res) { handle_heuristic(req, res, goalobstacle_heuristic::launch_kernel, "GoalObstacle"); }},

@@ -11,10 +11,10 @@ add_executable(vf_engine
 	VFEngine.cpp
   ArtificialPotentialField.cu
   VelocityHeuristic.cu
+  GoalHeuristic.cu
   # ObstacleHeuristicCircForce.cu
   # VelocityHeuristicCircForce.cu
   # GoalObstacleHeuristicCircForce.cu
-  # GoalHeuristicCircForce.cu
   # RandomHeuristicCircForce.cu
   # NearestNeighbour.cu
   # NavigationFunctionForce.cu
