@@ -71,11 +71,8 @@ FieldsComputer::FieldsComputer() : Node("vf_engine")
     {"APF", "/get_apf_heuristic_circforce", "disable_apf_heuristic", 
       [this](auto req, auto res) { handle_heuristic(req, res, artificial_potential_field_kernel, "APF"); }},
 
-    // {"APF", "/get_apf_heuristic_circforce", "disable_apf_heuristic", 
-    //   [this](auto req, auto res) { handle_heuristic(req, res, artificial_potential_field::launch_kernel, "APF"); }},
-
-    // {"Velocity", "/get_velocity_heuristic_circforce", "disable_velocity_heuristic", 
-    //   [this](auto req, auto res) { handle_heuristic(req, res, velocity_heuristic::launch_kernel, "Velocity"); }},
+    {"Velocity", "/get_velocity_heuristic_circforce", "disable_velocity_heuristic", 
+      [this](auto req, auto res) { handle_heuristic(req, res, velocity_heuristic_kernel, "Velocity"); }},
 
     // {"Obstacle", "/get_obstacle_heuristic_circforce", "disable_obstacle_heuristic", 
     //   [this](auto req, auto res) { handle_heuristic(req, res, obstacle_heuristic::launch_kernel, "Obstacle"); }},
