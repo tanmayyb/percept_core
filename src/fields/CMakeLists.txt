@@ -11,12 +11,14 @@ find_package(CUDAToolkit REQUIRED)
 # gpu
 add_executable(vf_engine
 	VFEngine.cpp
+  # heuristics
   ArtificialPotentialField.cu
   VelocityHeuristic.cu
   GoalHeuristic.cu
   ObstacleHeuristic.cu
   GoalObstacleHeuristic.cu
-  # RandomHeuristicCircForce.cu
+  RandomHeuristic.cu
+  # utils
   MinObstacleDistance.cu
   NearestNeighbor.cu
 

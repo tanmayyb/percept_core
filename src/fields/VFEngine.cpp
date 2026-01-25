@@ -373,10 +373,10 @@ void FieldsComputer::setupParamsAndServices()
       [this](auto req, auto res) { handle_heuristic(req, res, obstacle_heuristic_kernel, "Obstacle"); }},
 
     {"/get_goalobstacle_heuristic_circforce", "disable_goalobstacle_heuristic", 
-      [this](auto req, auto res) { handle_heuristic(req, res, goalobstacle_heuristic_kernel, "GoalObstacle"); }}
+      [this](auto req, auto res) { handle_heuristic(req, res, goalobstacle_heuristic_kernel, "GoalObstacle"); }},
 
-    // {"/get_random_heuristic_circforce", "disable_random_heuristic", 
-    //   [this](auto req, auto res) { handle_heuristic(req, res, random_heuristic::launch_kernel, "Random"); }}
+    {"/get_random_heuristic_circforce", "disable_random_heuristic", 
+      [this](auto req, auto res) { handle_heuristic(req, res, random_heuristic_kernel, "Random"); }}
 
   };
 
