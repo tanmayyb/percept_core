@@ -20,14 +20,12 @@
 
 // ROS 2
 #include "rclcpp/rclcpp.hpp"
-
-// msgs
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include "geometry_msgs/msg/vector3.hpp"
 
-// tf2 includes
+// tf2
 #include <tf2/LinearMath/Quaternion.hpp>
 #include <tf2/LinearMath/Vector3.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -37,7 +35,7 @@
 #include "percept_interfaces/srv/agent_pose_to_min_obstacle_dist.hpp"
 
 
-
+// --- Kernel Wrappers ---
 // Artificial Potential Fields
 extern "C" double3 artificial_potential_field_kernel(
   double* d_points_x, double* d_points_y, double* d_points_z,
@@ -64,7 +62,6 @@ extern "C" double min_obstacle_distance_kernel(
   double* d_points_x, double* d_points_y, double* d_points_z,
   size_t num_masses, double3 agent_position, bool debug);
 
-
 // Spatial Hashing NN
 extern "C" {
   void build_spatial_index(const double* d_x, const double* d_y, const double* d_z,
@@ -79,23 +76,25 @@ extern "C" {
                               int* d_nearest_idx, int n, GridConfig config, uint32_t hash_size);
 }
 
-enum class OperationType 
-{ 
-  READ, 
- 
-  WRITE 
+// --- GPU Snapshot ---
+// Contains a snapshot for R/W
+struct GpuSnapshot {
+  std::shared_ptr<double> x;
+
+  std::shared_ptr<double> y;
+
+  std::shared_ptr<double> z;
+
+  std::shared_ptr<int> nn_indices;
+
+  size_t num_points;
+
+  GpuSnapshot() : num_points(0) {}
 };
 
-struct Operation 
-{
-    OperationType type;
 
-    std::function<void()> task;
 
-    std::promise<void> completion;
-};
-
-class FieldsComputer : public rclcpp::Node 
+class FieldsComputer : public rclcpp::Node
 {
   public:
     FieldsComputer();
@@ -103,95 +102,179 @@ class FieldsComputer : public rclcpp::Node
     virtual ~FieldsComputer();
 
   private:  
-
     cudaStream_t compute_stream_;
 
     int active_device_id_ = 0;
-  
+
+    // ROS2 params
     double point_radius;
     
     bool show_netforce_output;
 
     bool show_processing_delay;
 
-    bool show_service_request_received;
-    
-    std::shared_ptr<double> gpu_x_shared_;
-    
-    std::shared_ptr<double> gpu_y_shared_;
-    
-    std::shared_ptr<double> gpu_z_shared_;
+    // Atomic Snapshot
+    std::shared_ptr<const GpuSnapshot> current_snapshot_;
 
-    std::shared_ptr<int> gpu_nn_indices_shared_;
-
-    uint32_t hash_table_size_; // upto 1 million points
-
+    // NNS vars
     size_t max_points_;
 
-    double *d_x_ptr, *d_y_ptr, *d_z_ptr;
+    uint32_t hash_table_size_;
+
+    GridConfig grid_config_;
 
     uint32_t *d_hashes_ptr, *d_indices_ptr, *d_starts_ptr, *d_ends_ptr;
 
-    int *d_nn_ptr;
+    // Callback groups
+    rclcpp::CallbackGroup::SharedPtr service_cb_group_;
 
-    GridConfig grid_config_;
-    
-    uint32_t gpu_num_points_ = 0;
+    rclcpp::CallbackGroup::SharedPtr producer_cb_group_;
 
-    std::shared_timed_mutex gpu_points_mutex_;
-
-    std::thread queue_processor_;
-
-    std::queue<std::shared_ptr<Operation>> operation_queue_;
-
-    std::mutex queue_mutex_;
-
-    std::condition_variable queue_cv_;
-
-    bool queue_running_ = true;
-
+    // ROS handles
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
-    
+
     rclcpp::Service<percept_interfaces::srv::AgentPoseToMinObstacleDist>::SharedPtr service_min_obstacle_distance;
     
     std::vector<rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr> heuristic_services_;
 
+    // Methods
     void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
     
     template<typename HeuristicFunc>
     void handle_heuristic(
-        const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
-        std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
-        HeuristicFunc kernel_launcher, 
-        const std::string& name
+      const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+      std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
+      HeuristicFunc kernel_launcher, 
+      const std::string& name
     );
 
     void handle_min_obstacle_distance(
-        const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
-        std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response
+      const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
+      std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response
     );
 
     std::tuple<double3, double3, double3, double, double, double, double> extract_request_data(
-       const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request
+      const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request
     );
 
     void process_response(
-        const double3& net_force,
-        const geometry_msgs::msg::Pose& agent_pose,
-        std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response
+      const double3& net_force,
+      const geometry_msgs::msg::Pose& agent_pose,
+      std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response
     );
 
     bool check_cuda_error(cudaError_t err, const char* operation);
-    
-    void process_queue();
-    
-    void enqueue_operation(OperationType type, std::function<void()> task);
-    
-    void stop_queue();
 
     void setupDevice();
 
     void setupParamsAndServices();
+
+    void allocate_producer_workspace();
+
+    void free_producer_workspace();
+
 };
+
+
+
+
+// class FieldsComputer : public rclcpp::Node 
+// {
+//   public:
+//     FieldsComputer();
+    
+//     virtual ~FieldsComputer();
+
+//   private:  
+
+//     cudaStream_t compute_stream_;
+
+//     int active_device_id_ = 0;
+  
+//     double point_radius;
+    
+//     bool show_netforce_output;
+
+//     bool show_processing_delay;
+
+//     bool show_service_request_received;
+    
+//     std::shared_ptr<double> gpu_x_shared_;
+    
+//     std::shared_ptr<double> gpu_y_shared_;
+    
+//     std::shared_ptr<double> gpu_z_shared_;
+
+//     std::shared_ptr<int> gpu_nn_indices_shared_;
+
+//     uint32_t hash_table_size_; // upto 1 million points
+
+//     size_t max_points_;
+
+//     double *d_x_ptr, *d_y_ptr, *d_z_ptr;
+
+//     uint32_t *d_hashes_ptr, *d_indices_ptr, *d_starts_ptr, *d_ends_ptr;
+
+//     int *d_nn_ptr;
+
+//     GridConfig grid_config_;
+    
+//     uint32_t gpu_num_points_ = 0;
+
+//     std::shared_timed_mutex gpu_points_mutex_;
+
+//     std::thread queue_processor_;
+
+//     std::queue<std::shared_ptr<Operation>> operation_queue_;
+
+//     std::mutex queue_mutex_;
+
+//     std::condition_variable queue_cv_;
+
+//     bool queue_running_ = true;
+
+//     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
+    
+//     rclcpp::Service<percept_interfaces::srv::AgentPoseToMinObstacleDist>::SharedPtr service_min_obstacle_distance;
+    
+//     std::vector<rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr> heuristic_services_;
+
+//     void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+    
+//     template<typename HeuristicFunc>
+//     void handle_heuristic(
+//         const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
+//         std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
+//         HeuristicFunc kernel_launcher, 
+//         const std::string& name
+//     );
+
+//     void handle_min_obstacle_distance(
+//         const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
+//         std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response
+//     );
+
+//     std::tuple<double3, double3, double3, double, double, double, double> extract_request_data(
+//        const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request
+//     );
+
+//     void process_response(
+//         const double3& net_force,
+//         const geometry_msgs::msg::Pose& agent_pose,
+//         std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response
+//     );
+
+//     bool check_cuda_error(cudaError_t err, const char* operation);
+    
+//     void process_queue();
+    
+//     void enqueue_operation(OperationType type, std::function<void()> task);
+    
+//     void stop_queue();
+
+//     void setupDevice();
+
+//     void setupParamsAndServices();
+// };
 
 #endif // VF_ENGINE_HPP_
