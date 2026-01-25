@@ -66,6 +66,14 @@ extern "C"
     double detect_shell_rad, double k_force,
     double max_allowable_force, bool debug, cudaStream_t stream);
 
+  // GoalObstacle Heuristic
+  double3 goalobstacle_heuristic_kernel(
+    double* d_points_x, double* d_points_y, double* d_points_z,
+    size_t num_points, int* nn_index, double3 agent_position, double3 agent_velocity, double3 goal_position,
+    double agent_radius, double point_radius,
+    double detect_shell_rad, double k_force,
+    double max_allowable_force, bool debug, cudaStream_t stream);
+
   // Min Obstacle Distance
   double min_obstacle_distance_kernel(
     double* d_points_x, double* d_points_y, double* d_points_z,

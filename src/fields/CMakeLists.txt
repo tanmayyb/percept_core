@@ -15,7 +15,7 @@ add_executable(vf_engine
   VelocityHeuristic.cu
   GoalHeuristic.cu
   ObstacleHeuristic.cu
-  # GoalObstacleHeuristicCircForce.cu
+  GoalObstacleHeuristic.cu
   # RandomHeuristicCircForce.cu
   MinObstacleDistance.cu
   NearestNeighbor.cu
