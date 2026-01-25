@@ -309,7 +309,7 @@ void FieldsComputer::setupParamsAndServices()
   };
 
   for (auto const& [name, ptr] : double_params) {
-    this->declare_parameter(name, 1.0);
+    this->declare_parameter(name, 0.01);
     
     this->get_parameter(name, *ptr);
   }
