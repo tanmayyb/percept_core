@@ -17,7 +17,6 @@
 #include <future>
 #include <functional>
 
-
 // ROS 2
 #include "rclcpp/rclcpp.hpp"
 #include <sensor_msgs/point_cloud2_iterator.hpp>
@@ -174,107 +173,5 @@ class FieldsComputer : public rclcpp::Node
     void free_producer_workspace();
 
 };
-
-
-
-
-// class FieldsComputer : public rclcpp::Node 
-// {
-//   public:
-//     FieldsComputer();
-    
-//     virtual ~FieldsComputer();
-
-//   private:  
-
-//     cudaStream_t compute_stream_;
-
-//     int active_device_id_ = 0;
-  
-//     double point_radius;
-    
-//     bool show_netforce_output;
-
-//     bool show_processing_delay;
-
-//     bool show_service_request_received;
-    
-//     std::shared_ptr<double> gpu_x_shared_;
-    
-//     std::shared_ptr<double> gpu_y_shared_;
-    
-//     std::shared_ptr<double> gpu_z_shared_;
-
-//     std::shared_ptr<int> gpu_nn_indices_shared_;
-
-//     uint32_t hash_table_size_; // upto 1 million points
-
-//     size_t max_points_;
-
-//     double *d_x_ptr, *d_y_ptr, *d_z_ptr;
-
-//     uint32_t *d_hashes_ptr, *d_indices_ptr, *d_starts_ptr, *d_ends_ptr;
-
-//     int *d_nn_ptr;
-
-//     GridConfig grid_config_;
-    
-//     uint32_t gpu_num_points_ = 0;
-
-//     std::shared_timed_mutex gpu_points_mutex_;
-
-//     std::thread queue_processor_;
-
-//     std::queue<std::shared_ptr<Operation>> operation_queue_;
-
-//     std::mutex queue_mutex_;
-
-//     std::condition_variable queue_cv_;
-
-//     bool queue_running_ = true;
-
-//     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
-    
-//     rclcpp::Service<percept_interfaces::srv::AgentPoseToMinObstacleDist>::SharedPtr service_min_obstacle_distance;
-    
-//     std::vector<rclcpp::Service<percept_interfaces::srv::AgentStateToCircForce>::SharedPtr> heuristic_services_;
-
-//     void pointcloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-    
-//     template<typename HeuristicFunc>
-//     void handle_heuristic(
-//         const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request,
-//         std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response,
-//         HeuristicFunc kernel_launcher, 
-//         const std::string& name
-//     );
-
-//     void handle_min_obstacle_distance(
-//         const std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Request> request,
-//         std::shared_ptr<percept_interfaces::srv::AgentPoseToMinObstacleDist::Response> response
-//     );
-
-//     std::tuple<double3, double3, double3, double, double, double, double> extract_request_data(
-//        const std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Request> request
-//     );
-
-//     void process_response(
-//         const double3& net_force,
-//         const geometry_msgs::msg::Pose& agent_pose,
-//         std::shared_ptr<percept_interfaces::srv::AgentStateToCircForce::Response> response
-//     );
-
-//     bool check_cuda_error(cudaError_t err, const char* operation);
-    
-//     void process_queue();
-    
-//     void enqueue_operation(OperationType type, std::function<void()> task);
-    
-//     void stop_queue();
-
-//     void setupDevice();
-
-//     void setupParamsAndServices();
-// };
 
 #endif // VF_ENGINE_HPP_
