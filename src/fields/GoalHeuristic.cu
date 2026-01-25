@@ -31,7 +31,7 @@ namespace goal_heuristic
     double agent_radius,
     double point_radius,
     double detect_shell_rad,
-    double k_circ) 
+    double k_force) 
   {
     extern __shared__ double3 sdata[];
 
@@ -77,7 +77,7 @@ namespace goal_heuristic
         force_vec = (current_vec * dot(point_rvel_vec_normalized, point_rvel_vec_normalized)) - 
                     (point_rvel_vec_normalized * dot(point_rvel_vec_normalized, current_vec));
 
-        force_vec = force_vec * (k_circ / (dist_to_point * dist_to_point));
+        force_vec = force_vec * (k_force / (dist_to_point * dist_to_point));
       }
 
       sdata[tid] = force_vec;
@@ -113,7 +113,7 @@ namespace goal_heuristic
     double* d_points_x, double* d_points_y, double* d_points_z,
     size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
     double agent_radius, double point_radius,
-    double detect_shell_rad, double k_circ, double max_allowable_force, bool debug, cudaStream_t stream) 
+    double detect_shell_rad, double k_force, double max_allowable_force, bool debug, cudaStream_t stream) 
   {
     double3* d_net_force;
     
@@ -130,7 +130,7 @@ namespace goal_heuristic
       d_points_x, d_points_y, d_points_z, 
       num_points, agent_position, agent_velocity, goal_position, 
       agent_radius, point_radius, 
-      detect_shell_rad, k_circ
+      detect_shell_rad, k_force
     );
 
     double3 net_force;
@@ -158,13 +158,13 @@ extern "C" double3 goal_heuristic_kernel(
   double* d_points_x, double* d_points_y, double* d_points_z,
   size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
   double agent_radius, double point_radius,
-  double detect_shell_rad, double k_circ, double max_allowable_force, bool debug, 
+  double detect_shell_rad, double k_force, double max_allowable_force, bool debug, 
   cudaStream_t stream) 
 {
   return goal_heuristic::launch_kernel(
     d_points_x, d_points_y, d_points_z,
     num_points, agent_position, agent_velocity, goal_position, 
     agent_radius, point_radius,
-    detect_shell_rad, k_circ, max_allowable_force, debug, stream
+    detect_shell_rad, k_force, max_allowable_force, debug, stream
   );
 }

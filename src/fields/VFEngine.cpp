@@ -112,9 +112,9 @@ void FieldsComputer::handle_heuristic(
   if constexpr (
     std::is_invocable_v<HeuristicFunc, 
                         double*, double*, double*, 
-                        size_t, uint32_t*, 
+                        size_t, int*, 
                         double3, double3, double3, double, double, 
-                        double, double, double, bool>)
+                        double, double, double, bool, cudaStream_t>)
   {
     res = kernel_launcher(
       snap->x.get(), snap->y.get(), snap->z.get(), 
@@ -367,10 +367,10 @@ void FieldsComputer::setupParamsAndServices()
       [this](auto req, auto res) { handle_heuristic(req, res, velocity_heuristic_kernel, "Velocity"); }},
 
     {"/get_goal_heuristic_circforce", "disable_goal_heuristic", 
-      [this](auto req, auto res) { handle_heuristic(req, res, goal_heuristic_kernel, "Goal"); }}
+      [this](auto req, auto res) { handle_heuristic(req, res, goal_heuristic_kernel, "Goal"); }},
 
-    // {"/get_obstacle_heuristic_circforce", "disable_obstacle_heuristic", 
-    //   [this](auto req, auto res) { handle_heuristic(req, res, obstacle_heuristic::launch_kernel, "Obstacle"); }},
+    {"/get_obstacle_heuristic_circforce", "disable_obstacle_heuristic", 
+      [this](auto req, auto res) { handle_heuristic(req, res, obstacle_heuristic_kernel, "Obstacle"); }}
 
     // {"/get_goalobstacle_heuristic_circforce", "disable_goalobstacle_heuristic", 
     //   [this](auto req, auto res) { handle_heuristic(req, res, goalobstacle_heuristic::launch_kernel, "GoalObstacle"); }},

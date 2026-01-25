@@ -36,38 +36,47 @@
 
 // --- Kernel Wrappers ---
 // Artificial Potential Fields
-extern "C" double3 artificial_potential_field_kernel(
-  double* d_points_x, double* d_points_y, double* d_points_z,
-  size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
-  double agent_radius, double point_radius,
-  double detect_shell_rad, double k_force, double max_allowable_force, bool debug, cudaStream_t stream);
+extern "C" 
+{
+  double3 artificial_potential_field_kernel(
+    double* d_points_x, double* d_points_y, double* d_points_z,
+    size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
+    double agent_radius, double point_radius,
+    double detect_shell_rad, double k_force, double max_allowable_force, bool debug, cudaStream_t stream);
 
-// Velocity Heuristic
-extern "C" double3 velocity_heuristic_kernel(
-  double* d_points_x, double* d_points_y, double* d_points_z,
-  size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
-  double agent_radius, double point_radius,
-  double detect_shell_rad, double k_circ, double max_allowable_force, bool debug, cudaStream_t stream);
+  // Velocity Heuristic
+  double3 velocity_heuristic_kernel(
+    double* d_points_x, double* d_points_y, double* d_points_z,
+    size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
+    double agent_radius, double point_radius,
+    double detect_shell_rad, double k_force, double max_allowable_force, bool debug, cudaStream_t stream);
 
-// Goal Heuristic
-extern "C" double3 goal_heuristic_kernel(
-  double* d_points_x, double* d_points_y, double* d_points_z,
-  size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
-  double agent_radius, double point_radius,
-  double detect_shell_rad, double k_circ, double max_allowable_force, bool debug, cudaStream_t stream);
+  // Goal Heuristic
+  double3 goal_heuristic_kernel(
+    double* d_points_x, double* d_points_y, double* d_points_z,
+    size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
+    double agent_radius, double point_radius,
+    double detect_shell_rad, double k_force, double max_allowable_force, bool debug, cudaStream_t stream);
 
-// Min Obstacle Distance
-extern "C" double min_obstacle_distance_kernel(
-  double* d_points_x, double* d_points_y, double* d_points_z,
-  size_t num_masses, double3 agent_position, bool debug, cudaStream_t stream);
+  // Obstacle Heuristic
+  double3 obstacle_heuristic_kernel(
+    double* d_points_x, double* d_points_y, double* d_points_z,
+    size_t num_points, int* nn_index, double3 agent_position, double3 agent_velocity, double3 goal_position,
+    double agent_radius, double point_radius,
+    double detect_shell_rad, double k_force,
+    double max_allowable_force, bool debug, cudaStream_t stream);
 
-// Spatial Hashing NNS
-extern "C" {
+  // Min Obstacle Distance
+  double min_obstacle_distance_kernel(
+    double* d_points_x, double* d_points_y, double* d_points_z,
+    size_t num_masses, double3 agent_position, bool debug, cudaStream_t stream);
+
+  // Spatial Hashing NNS
   void build_spatial_index(const double* d_x, const double* d_y, const double* d_z,
-                           uint32_t* d_cell_hashes, uint32_t* d_point_indices,
-                           uint32_t* d_hash_starts, uint32_t* d_hash_ends,
-                           int n, GridConfig config, uint32_t hash_size,
-                           cudaStream_t stream);
+                            uint32_t* d_cell_hashes, uint32_t* d_point_indices,
+                            uint32_t* d_hash_starts, uint32_t* d_hash_ends,
+                            int n, GridConfig config, uint32_t hash_size,
+                            cudaStream_t stream);
 
   void find_nearest_neighbors(const double* d_x, const double* d_y, const double* d_z,
                               const uint32_t* d_sorted_indices,
