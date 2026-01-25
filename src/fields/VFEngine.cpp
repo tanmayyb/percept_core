@@ -43,7 +43,13 @@ FieldsComputer::~FieldsComputer()
   // Cleanup Workspace
   free_producer_workspace();
 
-  cudaStreamDestroy(compute_stream_);
+  cudaStreamDestroy(update_stream_);
+
+  for(auto& s : query_streams_) 
+  {
+    cudaStreamDestroy(s);
+  }
+
 }
 
 
@@ -92,9 +98,15 @@ void FieldsComputer::handle_heuristic(
     return; 
   }
 
+  // Select a stream (round-robin)
+  size_t idx = stream_idx_.fetch_add(1) % num_query_streams_;
+
+  cudaStream_t selected_stream = query_streams_[idx];
+
+  // extract data from service request
   auto [pos, vel, goal, agent_radius, 
         shell, k, max_f] = extract_request_data(request);
-
+  
   double3 res;
 
   if constexpr (
@@ -108,7 +120,7 @@ void FieldsComputer::handle_heuristic(
       snap->x.get(), snap->y.get(), snap->z.get(), 
       snap->num_points, snap->nn_indices.get(), 
       pos, vel, goal, agent_radius, point_radius, 
-      shell, k, max_f, show_processing_delay
+      shell, k, max_f, show_processing_delay, selected_stream
     );
   }
   else
@@ -116,9 +128,11 @@ void FieldsComputer::handle_heuristic(
     res = kernel_launcher(
       snap->x.get(), snap->y.get(), snap->z.get(), 
       snap->num_points, pos, vel, goal, agent_radius, point_radius, 
-      shell, k, max_f, show_processing_delay
+      shell, k, max_f, show_processing_delay, selected_stream
     );
   }
+
+  cudaStreamSynchronize(selected_stream);
 
   process_response(res, request->agent_pose, response);
 }
@@ -135,6 +149,10 @@ void FieldsComputer::handle_min_obstacle_distance(
 
     return; 
   }
+
+  size_t idx = stream_idx_.fetch_add(1) % num_query_streams_;
+
+  cudaStream_t selected_stream = query_streams_[idx];
   
   double3 agent_pos = make_double3(
     request->agent_pose.position.x, 
@@ -144,7 +162,8 @@ void FieldsComputer::handle_min_obstacle_distance(
 
   response->distance = min_obstacle_distance_kernel(
     snap->x.get(), snap->y.get(), snap->z.get(), 
-    snap->num_points, agent_pos, show_processing_delay
+    snap->num_points, agent_pos, show_processing_delay,
+    selected_stream
   );
 }
 
@@ -207,23 +226,23 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
 
   new_snap->nn_indices = std::shared_ptr<int>(d_nn, [](int* p){ cudaFree(p); });
 
-  cudaMemcpy(d_x, host_x.data(), n * sizeof(double), cudaMemcpyHostToDevice);
-
-  cudaMemcpy(d_y, host_y.data(), n * sizeof(double), cudaMemcpyHostToDevice);
-
-  cudaMemcpy(d_z, host_z.data(), n * sizeof(double), cudaMemcpyHostToDevice);
+  cudaMemcpyAsync(d_x, host_x.data(), n * sizeof(double), cudaMemcpyHostToDevice, update_stream_);
+  
+  cudaMemcpyAsync(d_y, host_y.data(), n * sizeof(double), cudaMemcpyHostToDevice, update_stream_);
+  
+  cudaMemcpyAsync(d_z, host_z.data(), n * sizeof(double), cudaMemcpyHostToDevice, update_stream_);
 
   build_spatial_index(d_x, d_y, d_z, d_hashes_ptr, d_indices_ptr, 
                       d_starts_ptr, d_ends_ptr, n, grid_config_, 
-                      hash_table_size_, compute_stream_
+                      hash_table_size_, update_stream_
   );
 
   find_nearest_neighbors(d_x, d_y, d_z, d_indices_ptr, 
                          d_starts_ptr, d_ends_ptr, d_nn, n, grid_config_, 
-                         hash_table_size_
+                         hash_table_size_, update_stream_
   );
 
-  cudaStreamSynchronize(compute_stream_);
+  cudaStreamSynchronize(update_stream_);
 
   std::atomic_store(
     &current_snapshot_, 
@@ -389,9 +408,18 @@ void FieldsComputer::setupDevice()
 
   if (cudaGetDeviceCount(&deviceCount) == cudaSuccess && deviceCount > 0) {
 
-    cudaSetDevice(0); // Simplification for brevity
+    cudaSetDevice(active_device_id_);
 
-    cudaStreamCreate(&compute_stream_);
+    // create pointcloud stream
+    cudaStreamCreate(&update_stream_);
+
+    // create query streams
+    query_streams_.resize(num_query_streams_);
+
+    for(int i = 0; i < num_query_streams_; ++i) 
+    {
+      cudaStreamCreate(&query_streams_[i]);
+    }
   }
 }
 

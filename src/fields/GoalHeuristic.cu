@@ -113,19 +113,19 @@ namespace goal_heuristic
     double* d_points_x, double* d_points_y, double* d_points_z,
     size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
     double agent_radius, double point_radius,
-    double detect_shell_rad, double k_circ, double max_allowable_force, bool debug) 
+    double detect_shell_rad, double k_circ, double max_allowable_force, bool debug, cudaStream_t stream) 
   {
     double3* d_net_force;
     
-    cudaMalloc(&d_net_force, sizeof(double3));
+    cudaMallocAsync(&d_net_force, sizeof(double3), stream);
     
-    cudaMemset(d_net_force, 0, sizeof(double3));
+    cudaMemsetAsync(d_net_force, 0, sizeof(double3), stream);
 
     int num_blocks = (num_points + threads - 1) / threads;
     
     size_t shared_mem_size = threads * sizeof(double3);
 
-    kernel<<<num_blocks, threads, shared_mem_size>>>(
+    kernel<<<num_blocks, threads, shared_mem_size, stream>>>(
       d_net_force, 
       d_points_x, d_points_y, d_points_z, 
       num_points, agent_position, agent_velocity, goal_position, 
@@ -133,13 +133,13 @@ namespace goal_heuristic
       detect_shell_rad, k_circ
     );
 
-    cudaDeviceSynchronize();
-
     double3 net_force;
     
-    cudaMemcpy(&net_force, d_net_force, sizeof(double3), cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(&net_force, d_net_force, sizeof(double3), cudaMemcpyDeviceToHost, stream);
     
-    cudaFree(d_net_force);
+    cudaStreamSynchronize(stream);
+
+    cudaFreeAsync(d_net_force, stream);
 
     if (max_allowable_force > 0.0) 
     {
@@ -158,12 +158,13 @@ extern "C" double3 goal_heuristic_kernel(
   double* d_points_x, double* d_points_y, double* d_points_z,
   size_t num_points, double3 agent_position, double3 agent_velocity, double3 goal_position, 
   double agent_radius, double point_radius,
-  double detect_shell_rad, double k_circ, double max_allowable_force, bool debug) 
+  double detect_shell_rad, double k_circ, double max_allowable_force, bool debug, 
+  cudaStream_t stream) 
 {
   return goal_heuristic::launch_kernel(
     d_points_x, d_points_y, d_points_z,
     num_points, agent_position, agent_velocity, goal_position, 
     agent_radius, point_radius,
-    detect_shell_rad, k_circ, max_allowable_force, debug
+    detect_shell_rad, k_circ, max_allowable_force, debug, stream
   );
 }

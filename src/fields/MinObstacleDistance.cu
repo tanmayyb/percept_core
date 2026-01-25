@@ -78,31 +78,31 @@ namespace min_obstacle_distance
 
   __host__ double launch_kernel(
     double* d_points_x, double* d_points_y, double* d_points_z,
-    size_t num_points, double3 agent_position, bool debug
+    size_t num_points, double3 agent_position, bool debug, cudaStream_t stream
   ){
     double* d_min_distance;
 
-    cudaMalloc(&d_min_distance, sizeof(double));
+    cudaMallocAsync(&d_min_distance, sizeof(double), stream);
 
     double init_val = 1.7976931348623157e+308;
 
-    cudaMemcpy(d_min_distance, &init_val, sizeof(double), cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(d_min_distance, &init_val, sizeof(double), cudaMemcpyHostToDevice, stream);
 
     int num_blocks = (num_points + threads - 1) / threads;
 
     size_t shared_mem_size = threads * sizeof(double);
 
-    kernel<<<num_blocks, threads, shared_mem_size>>>(
+    kernel<<<num_blocks, threads, shared_mem_size, stream>>>(
       d_min_distance, d_points_x, d_points_y, d_points_z, num_points, agent_position
     );
 
-    cudaDeviceSynchronize();
-
     double host_net_potential;
 
-    cudaMemcpy(&host_net_potential, d_min_distance, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(&host_net_potential, d_min_distance, sizeof(double), cudaMemcpyDeviceToHost, stream);
 
-    cudaFree(d_min_distance);
+    cudaStreamSynchronize(stream);
+
+    cudaFreeAsync(d_min_distance, stream);
 
     return host_net_potential;
   }
@@ -111,9 +111,10 @@ namespace min_obstacle_distance
 
 extern "C" double min_obstacle_distance_kernel(
   double* d_points_x, double* d_points_y, double* d_points_z,
-  size_t num_points, double3 agent_position, bool debug) 
+  size_t num_points, double3 agent_position, bool debug, 
+  cudaStream_t stream) 
 {
   return min_obstacle_distance::launch_kernel(
-    d_points_x, d_points_y, d_points_z, num_points, agent_position, debug
+    d_points_x, d_points_y, d_points_z, num_points, agent_position, debug, stream
   );
 }
