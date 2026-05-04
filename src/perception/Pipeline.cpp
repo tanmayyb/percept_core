@@ -204,7 +204,7 @@ namespace perception
     
 			elapsed = end - start;
 			
-			std::cout << "Duration: " << elapsed.count() << " ms" << std::endl;
+			// std::cout << "Duration: " << elapsed.count() << " ms" << std::endl;
 		}
 
 	}

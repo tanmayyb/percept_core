@@ -198,31 +198,58 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
   new_snap->num_points = n;
   
   double *d_x, *d_y, *d_z;
+
+  double *d_sx, *d_sy, *d_sz;
   
   int *d_nn;
 
   bool success = true;
 
-  success &= check_cuda_error(cudaMalloc(&d_x, n * sizeof(double)), "Malloc X");
+  success &= check_cuda_error(cudaMallocAsync(&d_x, n * sizeof(double), update_stream_), "Malloc X");
 
-  success &= check_cuda_error(cudaMalloc(&d_y, n * sizeof(double)), "Malloc Y");
+  success &= check_cuda_error(cudaMallocAsync(&d_y, n * sizeof(double), update_stream_), "Malloc Y");
   
-  success &= check_cuda_error(cudaMalloc(&d_z, n * sizeof(double)), "Malloc Z");
+  success &= check_cuda_error(cudaMallocAsync(&d_z, n * sizeof(double), update_stream_), "Malloc Z");
+
+  success &= check_cuda_error(cudaMallocAsync(&d_sx, n * sizeof(double), update_stream_), "Malloc SX");
+
+  success &= check_cuda_error(cudaMallocAsync(&d_sy, n * sizeof(double), update_stream_), "Malloc SY");
   
-  success &= check_cuda_error(cudaMalloc(&d_nn, n * sizeof(int)), "Malloc NN");
+  success &= check_cuda_error(cudaMallocAsync(&d_sz, n * sizeof(double), update_stream_), "Malloc SZ");
+  
+  success &= check_cuda_error(cudaMallocAsync(&d_nn, n * sizeof(int), update_stream_), "Malloc NN");
 
 
   if (!success) 
   {
-    if(d_x) cudaFree(d_x); if(d_y) cudaFree(d_y); if(d_z) cudaFree(d_z); if(d_nn) cudaFree(d_nn);
+    if(d_x) cudaFreeAsync(d_x, update_stream_); 
+    
+    if(d_y) cudaFreeAsync(d_y, update_stream_); 
+    
+    if(d_z) cudaFreeAsync(d_z, update_stream_); 
+
+    if(d_sx) cudaFreeAsync(d_sx, update_stream_); 
+    
+    if(d_sy) cudaFreeAsync(d_sy, update_stream_); 
+    
+    if(d_sz) cudaFreeAsync(d_sz, update_stream_); 
+    
+    if(d_nn) cudaFreeAsync(d_nn, update_stream_);
+    
     return;
   }
 
-  new_snap->x = std::shared_ptr<double>(d_x, [](double* p){ cudaFree(p); });
+  // new_snap->x = std::shared_ptr<double>(d_x, [](double* p){ cudaFreeAsync(p, update_stream_); });
 
-  new_snap->y = std::shared_ptr<double>(d_y, [](double* p){ cudaFree(p); });
+  // new_snap->y = std::shared_ptr<double>(d_y, [](double* p){ cudaFreeAsync(p, update_stream_); });
 
-  new_snap->z = std::shared_ptr<double>(d_z, [](double* p){ cudaFree(p); });
+  // new_snap->z = std::shared_ptr<double>(d_z, [](double* p){ cudaFreeAsync(p, update_stream_); });
+
+  new_snap->x = std::shared_ptr<double>(d_sx, [](double* p){ cudaFree(p); });
+
+  new_snap->y = std::shared_ptr<double>(d_sy, [](double* p){ cudaFree(p); });
+
+  new_snap->z = std::shared_ptr<double>(d_sz, [](double* p){ cudaFree(p); });
 
   new_snap->nn_indices = std::shared_ptr<int>(d_nn, [](int* p){ cudaFree(p); });
 
@@ -232,12 +259,12 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
   
   cudaMemcpyAsync(d_z, host_z.data(), n * sizeof(double), cudaMemcpyHostToDevice, update_stream_);
 
-  build_spatial_index(d_x, d_y, d_z, d_hashes_ptr, d_indices_ptr, 
+  build_spatial_index(d_x, d_y, d_z, d_sx, d_sy, d_sz, d_hashes_ptr, d_indices_ptr, 
                       d_starts_ptr, d_ends_ptr, n, grid_config_, 
                       hash_table_size_, update_stream_
   );
 
-  find_nearest_neighbors(d_x, d_y, d_z, d_indices_ptr, 
+  find_nearest_neighbors(d_sx, d_sy, d_sz, d_indices_ptr, 
                          d_starts_ptr, d_ends_ptr, d_nn, n, grid_config_, 
                          hash_table_size_, update_stream_
   );
@@ -248,6 +275,12 @@ void FieldsComputer::pointcloud_callback(const sensor_msgs::msg::PointCloud2::Sh
     &current_snapshot_, 
     std::shared_ptr<const GpuSnapshot>(new_snap)
   );
+
+  if(d_x) cudaFreeAsync(d_x, update_stream_); 
+  
+  if(d_y) cudaFreeAsync(d_y, update_stream_); 
+  
+  if(d_z) cudaFreeAsync(d_z, update_stream_); 
 
   pop_nvtx_range();
 }

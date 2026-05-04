@@ -88,6 +88,7 @@ extern "C"
 
   // Spatial Hashing NNS
   void build_spatial_index(const double* d_x, const double* d_y, const double* d_z,
+                            double* d_sx, const double* d_sy, const double* d_sz,
                             uint32_t* d_cell_hashes, uint32_t* d_point_indices,
                             uint32_t* d_hash_starts, uint32_t* d_hash_ends,
                             int n, GridConfig config, uint32_t hash_size,
@@ -129,7 +130,7 @@ class FieldsComputer : public rclcpp::Node
     
     std::vector<cudaStream_t> query_streams_; // For Heuristic services (Read)
     
-    size_t num_query_streams_ = 4;
+    size_t num_query_streams_ = 31;
 
     std::atomic<size_t> stream_idx_{0};
 
