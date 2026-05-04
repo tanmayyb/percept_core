@@ -2,7 +2,7 @@ stream:
   depth_profile:
     w: 848
     h: 480
-    f: 30
+    f: 60
 
   temporal_filter:
     enable: true
